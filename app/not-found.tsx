@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { motion } from 'framer-motion'
 
 export default function NotFound() {
@@ -55,31 +54,23 @@ export default function NotFound() {
 
           {/* Action Buttons */}
           <div className="flex gap-4 flex-col sm:flex-row">
-            <motion.div
+            <motion.a
+              href="/"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              asChild
+              className="flex-1 inline-block px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-400 hover:to-purple-400 rounded-lg font-bold transition-all duration-300 text-white shadow-lg shadow-blue-500/40"
             >
-              <Link
-                href="/"
-                className="flex-1 inline-block px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-400 hover:to-purple-400 rounded-lg font-bold transition-all duration-300 text-white shadow-lg shadow-blue-500/40"
-              >
-                ⚡ Volver al inicio
-              </Link>
-            </motion.div>
+              ⚡ Volver al inicio
+            </motion.a>
 
-            <motion.div
+            <motion.a
+              href="#"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              asChild
+              className="flex-1 inline-block px-8 py-4 bg-gradient-to-r from-purple-500/20 to-pink-500/20 hover:from-purple-500/40 hover:to-pink-500/40 rounded-lg font-bold transition-all duration-300 text-white border border-purple-500/50"
             >
-              <Link
-                href="#"
-                className="flex-1 inline-block px-8 py-4 bg-gradient-to-r from-purple-500/20 to-pink-500/20 hover:from-purple-500/40 hover:to-pink-500/40 rounded-lg font-bold transition-all duration-300 text-white border border-purple-500/50"
-              >
-                📞 Contactar soporte
-              </Link>
-            </motion.div>
+              📞 Contactar soporte
+            </motion.a>
           </div>
 
           {/* Footer text */}

@@ -43,9 +43,14 @@ function runSpeedtest(retries = 3) {
           return
         }
 
-        const ping = parseFloat(lines[0])
-        const download = parseFloat(lines[1]) / 1000 // kbps a Mbps
-        const upload = parseFloat(lines[2]) / 1000
+        // Extraer valores del formato "Ping: X ms", "Download: X Mbit/s", "Upload: X Mbit/s"
+        const pingMatch = lines[0].match(/[\d.]+/)
+        const downloadMatch = lines[1].match(/[\d.]+/)
+        const uploadMatch = lines[2].match(/[\d.]+/)
+
+        const ping = pingMatch ? parseFloat(pingMatch[0]) : NaN
+        const download = downloadMatch ? parseFloat(downloadMatch[0]) : NaN
+        const upload = uploadMatch ? parseFloat(uploadMatch[0]) : NaN
 
         console.log(`[Intento ${attempt + 1}] Parsed values:`, { ping, download, upload })
 

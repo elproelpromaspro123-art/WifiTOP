@@ -185,7 +185,7 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                 </button>
 
                                 <p className="text-xs text-gray-400">
-                                    La prueba durará aprox. 60-90 segundos para resultados precisos
+                                    La prueba durará aprox. 2-3 minutos para máxima precisión (260MB de datos)
                                 </p>
                             </>
                         ) : (
@@ -218,55 +218,73 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                     {/* Ping */}
                                     <motion.div
                                         animate={{
-                                            scale: currentPhase.name === 'ping' ? [1, 1.05, 1] : 1,
+                                            scale: currentPhase.name === 'ping' ? [1, 1.08, 1] : 1,
+                                            opacity: currentPhase.name === 'ping' ? 1 : 0.6
                                         }}
-                                        className="p-4 rounded-lg bg-gradient-to-br from-yellow-500/10 to-transparent border border-yellow-500/30"
+                                        transition={{ duration: 0.4 }}
+                                        className="p-4 rounded-lg bg-gradient-to-br from-yellow-500/15 to-transparent border-2 border-yellow-500/50 shadow-lg shadow-yellow-500/20"
                                     >
-                                        <p className="text-xl mb-1">📡</p>
-                                        <p className="text-xs text-gray-400 mb-2">Ping</p>
-                                        {currentPhase.name === 'ping' && testDetails.currentSpeed > 0 ? (
-                                            <p className="text-2xl font-bold text-yellow-400">
-                                                {testDetails.currentSpeed.toFixed(0)}ms
-                                            </p>
-                                        ) : (
-                                            <p className="text-xl text-gray-500">--</p>
-                                        )}
+                                        <p className="text-2xl mb-2">📡</p>
+                                        <p className="text-xs text-gray-400 mb-3 font-semibold">PING</p>
+                                        <motion.p
+                                            key={`ping-${testDetails.currentSpeed}`}
+                                            initial={{ scale: 0.8, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            className="text-3xl font-black text-yellow-400"
+                                        >
+                                            {currentPhase.name === 'ping' && testDetails.currentSpeed > 0
+                                                ? testDetails.currentSpeed.toFixed(0)
+                                                : '--'}
+                                        </motion.p>
+                                        <p className="text-xs text-gray-500 mt-1">ms</p>
                                     </motion.div>
 
                                     {/* Descarga */}
                                     <motion.div
                                         animate={{
-                                            scale: currentPhase.name === 'download' ? [1, 1.05, 1] : 1,
+                                            scale: currentPhase.name === 'download' ? [1, 1.08, 1] : 1,
+                                            opacity: currentPhase.name === 'download' ? 1 : 0.6
                                         }}
-                                        className="p-4 rounded-lg bg-gradient-to-br from-blue-500/10 to-transparent border border-blue-500/30"
+                                        transition={{ duration: 0.4 }}
+                                        className="p-4 rounded-lg bg-gradient-to-br from-blue-500/15 to-transparent border-2 border-blue-500/50 shadow-lg shadow-blue-500/20"
                                     >
-                                        <p className="text-xl mb-1">⬇️</p>
-                                        <p className="text-xs text-gray-400 mb-2">Descarga</p>
-                                        {currentPhase.name === 'download' && testDetails.currentSpeed > 0 ? (
-                                            <p className="text-2xl font-bold text-blue-400">
-                                                {testDetails.currentSpeed.toFixed(1)} <span className="text-xs">Mbps</span>
-                                            </p>
-                                        ) : (
-                                            <p className="text-xl text-gray-500">--</p>
-                                        )}
+                                        <p className="text-2xl mb-2">⬇️</p>
+                                        <p className="text-xs text-gray-400 mb-3 font-semibold">DESCARGA</p>
+                                        <motion.p
+                                            key={`download-${testDetails.currentSpeed}`}
+                                            initial={{ scale: 0.8, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            className="text-3xl font-black text-blue-400"
+                                        >
+                                            {currentPhase.name === 'download' && testDetails.currentSpeed > 0
+                                                ? testDetails.currentSpeed.toFixed(1)
+                                                : '--'}
+                                        </motion.p>
+                                        <p className="text-xs text-gray-500 mt-1">Mbps</p>
                                     </motion.div>
 
                                     {/* Subida */}
                                     <motion.div
                                         animate={{
-                                            scale: currentPhase.name === 'upload' ? [1, 1.05, 1] : 1,
+                                            scale: currentPhase.name === 'upload' ? [1, 1.08, 1] : 1,
+                                            opacity: currentPhase.name === 'upload' ? 1 : 0.6
                                         }}
-                                        className="p-4 rounded-lg bg-gradient-to-br from-green-500/10 to-transparent border border-green-500/30"
+                                        transition={{ duration: 0.4 }}
+                                        className="p-4 rounded-lg bg-gradient-to-br from-green-500/15 to-transparent border-2 border-green-500/50 shadow-lg shadow-green-500/20"
                                     >
-                                        <p className="text-xl mb-1">⬆️</p>
-                                        <p className="text-xs text-gray-400 mb-2">Subida</p>
-                                        {currentPhase.name === 'upload' && testDetails.currentSpeed > 0 ? (
-                                            <p className="text-2xl font-bold text-green-400">
-                                                {testDetails.currentSpeed.toFixed(1)} <span className="text-xs">Mbps</span>
-                                            </p>
-                                        ) : (
-                                            <p className="text-xl text-gray-500">--</p>
-                                        )}
+                                        <p className="text-2xl mb-2">⬆️</p>
+                                        <p className="text-xs text-gray-400 mb-3 font-semibold">SUBIDA</p>
+                                        <motion.p
+                                            key={`upload-${testDetails.currentSpeed}`}
+                                            initial={{ scale: 0.8, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            className="text-3xl font-black text-green-400"
+                                        >
+                                            {currentPhase.name === 'upload' && testDetails.currentSpeed > 0
+                                                ? testDetails.currentSpeed.toFixed(1)
+                                                : '--'}
+                                        </motion.p>
+                                        <p className="text-xs text-gray-500 mt-1">Mbps</p>
                                     </motion.div>
                                 </div>
 
@@ -281,8 +299,8 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                                         Object.values(PHASES).findIndex(p => p.name === phase.name) < Object.values(PHASES).findIndex(p => p.name === currentPhase.name) ? 1 : 0.5
                                                 }}
                                                 className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border-2 ${currentPhase.name === phase.name
-                                                        ? 'border-blue-500 bg-blue-500/20'
-                                                        : 'border-white/10'
+                                                    ? 'border-blue-500 bg-blue-500/20'
+                                                    : 'border-white/10'
                                                     }`}
                                             >
                                                 {phase.icon}

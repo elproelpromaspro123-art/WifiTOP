@@ -26,31 +26,48 @@ async function measurePingAccurate(): Promise<{
     const testServers = [
         'https://speed.cloudflare.com/',
         'https://www.cloudflare.com/',
+        'https://1.1.1.1/',
     ]
 
-    const measurements = 10 // Más mediciones para mayor precisión
+    const measurements = 20 // Más mediciones para mejor precisión
 
     for (let i = 0; i < measurements; i++) {
         try {
             const server = testServers[i % testServers.length]
-            const startTime = performance.now()
 
-            const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), 3000)
+            // Múltiples intentos por cada servidor para estabilidad
+            let latency = 0
+            let attempts = 0
 
-            await fetch(server, {
-                method: 'HEAD',
-                cache: 'no-store',
-                signal: controller.signal,
-                mode: 'no-cors'
-            })
+            for (let attempt = 0; attempt < 2; attempt++) {
+                const startTime = performance.now()
 
-            clearTimeout(timeoutId)
-            const endTime = performance.now()
-            const latency = endTime - startTime
+                const controller = new AbortController()
+                const timeoutId = setTimeout(() => controller.abort(), 5000)
 
-            // Filtrar valores extremos (timeout o errores)
-            if (latency > 5 && latency < 5000) {
+                try {
+                    await fetch(server, {
+                        method: 'HEAD',
+                        cache: 'no-store',
+                        signal: controller.signal,
+                        mode: 'no-cors'
+                    })
+
+                    clearTimeout(timeoutId)
+                    const endTime = performance.now()
+                    const currentLatency = endTime - startTime
+
+                    if (currentLatency > 1 && currentLatency < 5000) {
+                        latency = currentLatency
+                        attempts++
+                        break
+                    }
+                } catch (e) {
+                    clearTimeout(timeoutId)
+                }
+            }
+
+            if (attempts > 0 && latency > 1 && latency < 5000) {
                 pings.push(latency)
             }
         } catch (error) {
@@ -67,12 +84,14 @@ async function measurePingAccurate(): Promise<{
         }
     }
 
-    // Filtrar outliers usando cuartiles
+    // Filtrado agresivo de outliers usando percentiles
     const sorted = [...pings].sort((a, b) => a - b)
-    const q1 = sorted[Math.floor(sorted.length * 0.25)]
-    const q3 = sorted[Math.floor(sorted.length * 0.75)]
-    const iqr = q3 - q1
-    const validPings = sorted.filter(p => p >= q1 - 1.5 * iqr && p <= q3 + 1.5 * iqr)
+    const p10 = sorted[Math.floor(sorted.length * 0.1)]
+    const p90 = sorted[Math.floor(sorted.length * 0.9)]
+    const range = p90 - p10
+
+    // Solo mantener valores dentro del rango 10%-90%
+    const validPings = sorted.filter(p => p >= p10 && p <= p90)
 
     const avgPing = validPings.length > 0
         ? validPings.reduce((a, b) => a + b, 0) / validPings.length
@@ -98,7 +117,8 @@ async function measureDownloadEnhanced(
     maxSpeed: number
 }> {
     const samples: number[] = []
-    const testSizes = [5000000, 10000000, 15000000, 20000000, 25000000] // 5MB a 25MB
+    // Tamaños más grandes para mayor precisión (10MB a 100MB)
+    const testSizes = [10000000, 25000000, 50000000, 75000000, 100000000]
     let totalProgress = 0
 
     for (let testIndex = 0; testIndex < testSizes.length; testIndex++) {
@@ -107,7 +127,7 @@ async function measureDownloadEnhanced(
 
         try {
             const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), 180000) // 3 minutos max
+            const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minutos max
 
             const startTime = performance.now()
             const response = await fetch(`https://speed.cloudflare.com/__down?bytes=${size}`, {
@@ -129,6 +149,7 @@ async function measureDownloadEnhanced(
             let downloadedBytes = 0
             let lastReportTime = startTime
             const startTimeBlock = startTime
+            let lastReportedBytes = 0
 
             while (true) {
                 const { done, value } = await reader.read()
@@ -136,17 +157,18 @@ async function measureDownloadEnhanced(
 
                 downloadedBytes += value.length
                 const now = performance.now()
+                const bytesSinceReport = downloadedBytes - lastReportedBytes
 
-                // Reportar cada 100ms o cuando se descargue significante cantidad
-                if (now - lastReportTime > 100 || downloadedBytes % 1000000 < value.length) {
+                // Reportar cada 200ms o cada 5MB
+                if (now - lastReportTime > 200 || bytesSinceReport > 5000000) {
                     const elapsedSec = (now - startTimeBlock) / 1000
-                    if (elapsedSec > 0.1) {
+                    if (elapsedSec > 0.2) {
                         const instantSpeed = (downloadedBytes * 8) / elapsedSec / 1024 / 1024
                         chunkSpeeds.push(instantSpeed)
 
                         const blockProgress = (testIndex * (100 / testSizes.length)) +
                             (downloadedBytes / size) * (100 / testSizes.length)
-                        totalProgress = Math.min(blockProgress, 85)
+                        totalProgress = Math.min(blockProgress, 80)
 
                         onProgress?.(
                             totalProgress,
@@ -154,6 +176,7 @@ async function measureDownloadEnhanced(
                             `Descargando... Test ${testIndex + 1}/${testSizes.length} | ${instantSpeed.toFixed(1)} Mbps`
                         )
                         lastReportTime = now
+                        lastReportedBytes = downloadedBytes
                     }
                 }
             }
@@ -162,11 +185,12 @@ async function measureDownloadEnhanced(
             const endTime = performance.now()
             const durationSeconds = (endTime - startTime) / 1000
 
+            // Mínimo 0.5 segundos para validez
             if (durationSeconds > 0.5) {
                 const speedMbps = (size * 8) / durationSeconds / 1024 / 1024
                 if (speedMbps > 0 && speedMbps < 100000) {
                     samples.push(speedMbps)
-                    console.log(`Descarga ${testIndex + 1}: ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s)`)
+                    console.log(`Descarga ${testIndex + 1}: ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s, ${(size / 1024 / 1024).toFixed(0)}MB)`)
                 }
             }
         } catch (error) {
@@ -179,9 +203,14 @@ async function measureDownloadEnhanced(
         throw new Error('No se pudo medir la velocidad de descarga')
     }
 
-    // Calcular estadísticas robustas
+    // Calcular usando mediana para mejor robustez
     const sorted = [...samples].sort((a, b) => a - b)
-    const avgSpeed = sorted.reduce((a, b) => a + b, 0) / sorted.length
+    const median = sorted.length % 2 === 0
+        ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+        : sorted[Math.floor(sorted.length / 2)]
+
+    // Usar mediana en lugar de promedio para más robustez
+    const avgSpeed = median
 
     return {
         speed: avgSpeed,
@@ -203,7 +232,8 @@ async function measureUploadEnhanced(
     maxSpeed: number
 }> {
     const samples: number[] = []
-    const uploadSizes = [2000000, 5000000, 8000000, 10000000, 15000000] // 2MB a 15MB
+    // Tamaños más grandes: 5MB a 50MB
+    const uploadSizes = [5000000, 10000000, 20000000, 35000000, 50000000]
     let totalProgress = 0
 
     for (let testIndex = 0; testIndex < uploadSizes.length; testIndex++) {
@@ -211,11 +241,17 @@ async function measureUploadEnhanced(
 
         try {
             const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), 180000)
+            const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minutos
 
             // Generar datos aleatorios para evitar compresión
             const data = new Uint8Array(uploadSize)
-            for (let i = 0; i < data.length; i++) {
+            const view = new DataView(data.buffer)
+
+            // Usar mejor aleatoriedad
+            for (let i = 0; i < uploadSize; i += 4) {
+                view.setUint32(i, Math.random() * 0x100000000)
+            }
+            for (let i = (uploadSize >> 2) << 2; i < uploadSize; i++) {
                 data[i] = Math.floor(Math.random() * 256)
             }
 
@@ -238,17 +274,17 @@ async function measureUploadEnhanced(
             const endTime = performance.now()
             const durationSeconds = (endTime - startTime) / 1000
 
-            if (durationSeconds > 0.5) {
+            if (durationSeconds > 0.3) {
                 const speedMbps = (uploadSize * 8) / durationSeconds / 1024 / 1024
                 if (speedMbps > 0 && speedMbps < 100000) {
                     samples.push(speedMbps)
-                    totalProgress = 85 + (testIndex / uploadSizes.length) * 10
+                    totalProgress = 80 + (testIndex / uploadSizes.length) * 15
                     onProgress?.(
                         totalProgress,
                         speedMbps,
                         `Subiendo... Test ${testIndex + 1}/${uploadSizes.length} | ${speedMbps.toFixed(1)} Mbps`
                     )
-                    console.log(`Subida ${testIndex + 1}: ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s)`)
+                    console.log(`Subida ${testIndex + 1}: ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s, ${(uploadSize / 1024 / 1024).toFixed(0)}MB)`)
                 }
             }
         } catch (error) {
@@ -261,11 +297,14 @@ async function measureUploadEnhanced(
         throw new Error('No se pudo medir la velocidad de subida')
     }
 
+    // Usar mediana para mejor robustez
     const sorted = [...samples].sort((a, b) => a - b)
-    const avgSpeed = sorted.reduce((a, b) => a + b, 0) / sorted.length
+    const median = sorted.length % 2 === 0
+        ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+        : sorted[Math.floor(sorted.length / 2)]
 
     return {
-        speed: avgSpeed,
+        speed: median,
         samples: sorted,
         minSpeed: sorted[0],
         maxSpeed: sorted[sorted.length - 1]
@@ -328,19 +367,30 @@ export async function simulateSpeedTestImproved(
         // FASE 4: Cálculos finales
         onProgress?.(97, 'Procesando resultados...', { phase: 'upload' })
 
-        // Calcular jitter (variación de latencia)
+        // Calcular jitter (variación de latencia) usando mediana para robustez
         const jitterValues: number[] = []
         for (let i = 1; i < pingResult.pings.length; i++) {
             jitterValues.push(Math.abs(pingResult.pings[i] - pingResult.pings[i - 1]))
         }
-        const avgJitter = jitterValues.length > 0
-            ? jitterValues.reduce((a, b) => a + b, 0) / jitterValues.length
-            : 0
 
-        // Estabilidad basada en variabilidad real
-        const downloadVariability = ((downloadResult.maxSpeed - downloadResult.minSpeed) / downloadResult.speed) * 100
-        const uploadVariability = ((uploadResult.maxSpeed - uploadResult.minSpeed) / uploadResult.speed) * 100
-        const stability = Math.max(0, Math.min(100, 100 - ((downloadVariability + uploadVariability) / 2) * 0.5))
+        let avgJitter = 0
+        if (jitterValues.length > 0) {
+            const sortedJitter = [...jitterValues].sort((a, b) => a - b)
+            // Usar mediana de jitter para mayor precisión
+            avgJitter = sortedJitter.length % 2 === 0
+                ? (sortedJitter[sortedJitter.length / 2 - 1] + sortedJitter[sortedJitter.length / 2]) / 2
+                : sortedJitter[Math.floor(sortedJitter.length / 2)]
+        }
+
+        // Estabilidad mejorada: basada en coeficiente de variación
+        const dlVariability = ((downloadResult.maxSpeed - downloadResult.minSpeed) / downloadResult.speed) * 100
+        const ulVariability = ((uploadResult.maxSpeed - uploadResult.minSpeed) / uploadResult.speed) * 100
+        const avgVariability = (dlVariability + ulVariability) / 2
+
+        // Penalizar más por variabilidad alta
+        const baseStability = 100 - (avgVariability * 0.3)
+        const jitterPenalty = Math.min(10, avgJitter * 0.5)
+        const stability = Math.max(0, Math.min(100, baseStability - jitterPenalty))
 
         const result: DetailedSpeedTestResult = {
             downloadSpeed: parseFloat(downloadResult.speed.toFixed(2)),

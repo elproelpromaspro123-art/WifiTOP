@@ -3,10 +3,22 @@
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 
+interface FooterLink {
+  label: string
+  href: string
+  icon: string
+}
+
+interface FooterSection {
+  title: string
+  items: string[] | FooterLink[]
+  isText?: boolean
+}
+
 export default function Footer() {
   const currentYear = new Date().getFullYear()
 
-  const footerSections = [
+  const footerSections: FooterSection[] = [
     {
       title: 'WifiTOP ⚡',
       items: [
@@ -22,7 +34,8 @@ export default function Footer() {
         { label: '🏆 Ranking', href: '#ranking', icon: 'ranking' },
         { label: '⚡ Prueba', href: '#', icon: 'test' },
         { label: '📊 Estadísticas', href: '#', icon: 'stats' }
-      ]
+      ],
+      isText: false
     },
     {
       title: 'Información',
@@ -31,7 +44,8 @@ export default function Footer() {
         { label: '🔒 Privacidad', href: '#', icon: 'privacy' },
         { label: '📋 Términos', href: '#', icon: 'terms' },
         { label: '📧 Contacto', href: '#', icon: 'contact' }
-      ]
+      ],
+      isText: false
     }
   ]
 
@@ -74,7 +88,7 @@ export default function Footer() {
               
               {section.isText ? (
                 <div className="space-y-3">
-                  {section.items.map((item, i) => (
+                  {(section.items as string[]).map((item, i) => (
                     <p key={i} className="text-gray-400 text-sm leading-relaxed hover:text-gray-200 transition-colors">
                       {item}
                     </p>
@@ -82,7 +96,7 @@ export default function Footer() {
                 </div>
               ) : (
                 <ul className="space-y-3">
-                  {section.items.map((item, i) => (
+                  {(section.items as FooterLink[]).map((item, i) => (
                     <motion.li
                       key={i}
                       whileHover={{ x: 5 }}

@@ -59,15 +59,15 @@ export default function Footer() {
     }
 
     return (
-        <footer className="mt-20 border-t border-white/10 bg-gradient-to-t from-black/50 to-transparent">
-            <div className="container mx-auto px-4 py-16">
+        <footer className="mt-16 md:mt-20 border-t border-white/10 bg-gradient-to-t from-black/50 to-transparent">
+            <div className="container mx-auto px-4 py-12 md:py-16">
                 {/* Main Footer Content */}
                 <motion.div
                     variants={containerVariants}
                     initial="hidden"
                     whileInView="visible"
                     viewport={{ once: true }}
-                    className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12"
+                    className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 mb-8 md:mb-12"
                 >
                     {footerSections.map((section, idx) => (
                         <motion.div key={idx} variants={itemVariants}>
@@ -114,20 +114,20 @@ export default function Footer() {
                     initial={{ opacity: 0 }}
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
-                    className="flex flex-col md:flex-row items-center justify-between gap-4"
+                    className="flex flex-col gap-4 md:gap-6 items-center md:items-center justify-between md:flex-row text-center md:text-left"
                 >
-                    <div className="flex items-center gap-2">
-                        <span className="text-2xl">⚡</span>
-                        <p className="text-gray-400 text-sm">
-                            © {currentYear} <span className="font-bold text-white">WifiTOP</span>. Todos los derechos reservados.
+                    <div className="flex items-center gap-2 justify-center md:justify-start">
+                        <span className="text-xl md:text-2xl">⚡</span>
+                        <p className="text-gray-400 text-xs md:text-sm">
+                            © {currentYear} <span className="font-bold text-white">WifiTOP</span>
                         </p>
                     </div>
 
                     <motion.p
                         whileHover={{ scale: 1.05 }}
-                        className="text-gray-400 text-sm bg-white/5 px-4 py-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                        className="text-gray-400 text-xs md:text-sm bg-white/5 px-3 md:px-4 py-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer whitespace-nowrap"
                     >
-                        Hecho con 💙 para los amantes de la velocidad
+                        Hecho con 💙 para ti
                     </motion.p>
                 </motion.div>
             </div>

@@ -77,23 +77,23 @@ export default function Home() {
                 )}
 
                 {/* Hero Section */}
-                <section className="container mx-auto px-4 py-16 md:py-24 text-center">
+                <section className="container mx-auto px-4 py-12 md:py-24 text-center">
                     <motion.div
                         initial={{ opacity: 0, y: -30 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8 }}
-                        className="space-y-6"
+                        className="space-y-6 md:space-y-8"
                     >
                         {/* Main Title */}
-                         <div className="space-y-3">
-                             <h1 className="text-6xl md:text-8xl font-black tracking-tighter">
+                         <div className="space-y-3 md:space-y-4">
+                             <h1 className="text-5xl md:text-8xl font-black tracking-tighter">
                                  <span className="bg-gradient-to-r from-blue-300 via-white to-purple-300 bg-clip-text text-transparent drop-shadow-2xl">
                                      WifiTOP
                                  </span>
                              </h1>
-                             <div className="space-y-2">
-                                 <p className="text-2xl md:text-3xl font-bold text-white">Presume tu velocidad de WiFi 🚀</p>
-                                 <p className="text-lg md:text-xl text-gray-400">Ranking global con 10,000+ usuarios | Mediciones precisas | Badges exclusivos</p>
+                             <div className="space-y-2 md:space-y-3">
+                                 <p className="text-xl md:text-3xl font-bold text-white">Presume tu velocidad de WiFi 🚀</p>
+                                 <p className="text-base md:text-xl text-gray-400 px-2">Ranking global con 10,000+ usuarios | Mediciones precisas | Badges exclusivos</p>
                              </div>
                          </div>
 
@@ -104,28 +104,28 @@ export default function Home() {
                              className="h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent mx-auto max-w-xs"
                          />
 
-                         <p className="text-gray-400 text-base max-w-2xl mx-auto">
+                         <p className="text-gray-400 text-sm md:text-base max-w-2xl mx-auto px-2">
                              Speedtest ultra preciso con detección automática de fraude. Compite con usuarios de todo el mundo, desbloquea badges únicos y demuestra que tienes la mejor conexión.
                          </p>
                     </motion.div>
                 </section>
 
                 {/* About Section */}
-                <section id="about" className="container mx-auto px-4 py-16 md:py-24">
+                <section id="about" className="container mx-auto px-4 py-12 md:py-24">
                     <motion.div
                         initial={{ opacity: 0, y: 30 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         className="max-w-3xl mx-auto"
                     >
-                        <div className="text-center mb-12">
-                             <h2 className="text-4xl md:text-5xl font-black mb-4 bg-gradient-to-r from-blue-300 via-white to-purple-300 bg-clip-text text-transparent">
+                        <div className="text-center mb-8 md:mb-12">
+                             <h2 className="text-3xl md:text-5xl font-black mb-4 bg-gradient-to-r from-blue-300 via-white to-purple-300 bg-clip-text text-transparent">
                                  Sobre WifiTOP
                              </h2>
-                             <p className="text-gray-400 text-lg">La plataforma definitiva de speedtest con ranking global</p>
+                             <p className="text-gray-400 text-base md:text-lg">La plataforma definitiva de speedtest con ranking global</p>
                          </div>
 
-                         <div className="glow-border rounded-xl p-8 backdrop-blur-sm bg-gradient-to-br from-white/5 to-white/0">
+                         <div className="glow-border rounded-xl p-6 md:p-8 backdrop-blur-sm bg-gradient-to-br from-white/5 to-white/0">
                              <div className="space-y-6">
                                  <div>
                                      <h3 className="text-xl font-bold text-white mb-3">¿Qué es WifiTOP?</h3>
@@ -176,12 +176,12 @@ export default function Home() {
                 </section>
 
                 {/* Main Content Grid */}
-                 <div className="container mx-auto px-4 py-12 pointer-events-auto" style={{ pointerEvents: 'auto', touchAction: 'auto' }}>
+                 <div className="container mx-auto px-4 py-8 md:py-16 pointer-events-auto" style={{ pointerEvents: 'auto', touchAction: 'auto' }}>
                     <motion.div
                         variants={containerVariants}
                         initial="hidden"
                         animate="visible"
-                        className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16 pointer-events-auto"
+                        className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 mb-16 pointer-events-auto"
                         style={{ pointerEvents: 'auto', touchAction: 'auto' }}
                     >
                         {/* Speed Test Card */}
@@ -190,7 +190,7 @@ export default function Home() {
                          </motion.div>
 
                         {/* Right Column - Stats */}
-                        <motion.div variants={itemVariants} className="lg:col-span-2 space-y-6">
+                        <motion.div variants={itemVariants} className="lg:col-span-2 space-y-6 md:space-y-8">
                             {/* Stats Grid */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <StatsCard
@@ -391,23 +391,23 @@ function FeaturesSection() {
     ]
 
     return (
-        <section className="my-16 py-12 rounded-2xl bg-gradient-to-r from-blue-500/10 via-purple-500/5 to-pink-500/10 border border-white/10">
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                className="space-y-12"
-            >
-                <div className="text-center">
-                    <h2 className="text-4xl md:text-5xl font-black mb-4 bg-gradient-to-r from-blue-300 via-white to-purple-300 bg-clip-text text-transparent">
-                        Por qué WifiTOP
-                    </h2>
-                    <p className="text-gray-400 max-w-xl mx-auto">
-                        La única plataforma con fraude detection, ranking verificado y badges únicos
-                    </p>
-                </div>
+         <section className="my-12 md:my-16 py-10 md:py-12 rounded-2xl bg-gradient-to-r from-blue-500/10 via-purple-500/5 to-pink-500/10 border border-white/10">
+             <motion.div
+                 initial={{ opacity: 0, y: 20 }}
+                 whileInView={{ opacity: 1, y: 0 }}
+                 viewport={{ once: true }}
+                 className="space-y-10 md:space-y-12"
+             >
+                 <div className="text-center px-4">
+                     <h2 className="text-3xl md:text-5xl font-black mb-4 bg-gradient-to-r from-blue-300 via-white to-purple-300 bg-clip-text text-transparent">
+                         Por qué WifiTOP
+                     </h2>
+                     <p className="text-gray-400 text-sm md:text-base max-w-xl mx-auto px-4">
+                         La única plataforma con fraude detection, ranking verificado y badges únicos
+                     </p>
+                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 px-4">
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 px-4">
                     {features.map((feature, idx) => (
                         <motion.div
                             key={idx}

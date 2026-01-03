@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion'
 import { useTestHistory } from '@/hooks/useTestHistory'
 
+
 export default function TestHistoryDisplay() {
   const { history, getStats, isLoading, clearHistory, totalTests } = useTestHistory()
 
@@ -16,56 +17,76 @@ export default function TestHistoryDisplay() {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="glow-border rounded-xl p-6 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 mb-12"
+      className="glow-border rounded-xl p-6 md:p-8 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 mb-12"
     >
-      <div className="mb-6">
-        <h3 className="text-2xl font-black text-white mb-2">
+      <div className="mb-8">
+        <h3 className="text-3xl md:text-4xl font-black text-white mb-3 flex items-center gap-3">
           📊 Histórico de Pruebas
         </h3>
-        <p className="text-sm text-gray-400">
+        <p className="text-sm md:text-base text-gray-400">
           {totalTests} pruebas registradas localmente
         </p>
       </div>
 
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-            <p className="text-xs text-gray-400 mb-1">Promedio</p>
-            <p className="text-2xl font-black text-cyan-400">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 rounded-lg p-4 border border-cyan-500/30 hover:border-cyan-500/60 transition-all hover:shadow-lg hover:shadow-cyan-500/20"
+          >
+            <p className="text-xs text-cyan-300 font-semibold mb-2">Promedio</p>
+            <p className="text-2xl md:text-3xl font-black text-cyan-400">
               {stats.avgDownload.toFixed(1)}
             </p>
-            <p className="text-xs text-gray-500">Mbps</p>
-          </div>
+            <p className="text-xs text-gray-500 mt-1">Mbps</p>
+          </motion.div>
 
-          <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-            <p className="text-xs text-gray-400 mb-1">Máximo</p>
-            <p className="text-2xl font-black text-green-400">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-gradient-to-br from-green-500/20 to-green-500/5 rounded-lg p-4 border border-green-500/30 hover:border-green-500/60 transition-all hover:shadow-lg hover:shadow-green-500/20"
+          >
+            <p className="text-xs text-green-300 font-semibold mb-2">Máximo</p>
+            <p className="text-2xl md:text-3xl font-black text-green-400">
               {stats.maxDownload.toFixed(1)}
             </p>
-            <p className="text-xs text-gray-500">Mbps</p>
-          </div>
+            <p className="text-xs text-gray-500 mt-1">Mbps</p>
+          </motion.div>
 
-          <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-            <p className="text-xs text-gray-400 mb-1">Mínimo</p>
-            <p className="text-2xl font-black text-orange-400">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="bg-gradient-to-br from-orange-500/20 to-orange-500/5 rounded-lg p-4 border border-orange-500/30 hover:border-orange-500/60 transition-all hover:shadow-lg hover:shadow-orange-500/20"
+          >
+            <p className="text-xs text-orange-300 font-semibold mb-2">Mínimo</p>
+            <p className="text-2xl md:text-3xl font-black text-orange-400">
               {stats.minDownload.toFixed(1)}
             </p>
-            <p className="text-xs text-gray-500">Mbps</p>
-          </div>
+            <p className="text-xs text-gray-500 mt-1">Mbps</p>
+          </motion.div>
 
-          <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-            <p className="text-xs text-gray-400 mb-1">Tendencia</p>
-            <p className="text-2xl font-black">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="bg-gradient-to-br from-purple-500/20 to-purple-500/5 rounded-lg p-4 border border-purple-500/30 hover:border-purple-500/60 transition-all hover:shadow-lg hover:shadow-purple-500/20"
+          >
+            <p className="text-xs text-purple-300 font-semibold mb-2">Tendencia</p>
+            <p className="text-3xl font-black">
               {stats.trend === 'up' ? '📈' : stats.trend === 'down' ? '📉' : '➡️'}
             </p>
-            <p className="text-xs text-gray-500 capitalize">{stats.trend}</p>
-          </div>
+            <p className="text-xs text-gray-500 capitalize mt-1 font-semibold">{stats.trend}</p>
+          </motion.div>
         </div>
       )}
 
       {/* Últimas pruebas */}
-      <div className="space-y-2 mb-4">
-        <p className="text-sm font-semibold text-gray-300">Últimas pruebas:</p>
+      <div className="space-y-3 mb-6">
+        <p className="text-sm md:text-base font-bold text-gray-200">Últimas pruebas:</p>
         <div className="space-y-2">
           {history.slice(0, 5).map((test, idx) => (
             <motion.div

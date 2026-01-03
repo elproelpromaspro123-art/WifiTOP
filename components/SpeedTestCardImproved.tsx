@@ -384,80 +384,80 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
     }
 
     // ========== NORMAL CARD VIEW ==========
-    return (
-        <div className="w-full pointer-events-auto" style={{ pointerEvents: 'auto', touchAction: 'auto' }}>
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                className="glow-border rounded-lg p-8 backdrop-blur-sm bg-gradient-to-br from-white/5 to-white/0 pointer-events-auto"
-                style={{ pointerEvents: 'auto', touchAction: 'auto' }}
-            >
-                <div className="text-center pointer-events-auto" style={{ pointerEvents: 'auto', touchAction: 'auto' }}>
-                {!result ? (
-                    <>
-                        <div className="mb-6">
-                            <motion.div
-                                animate={{ scale: [1, 1.1, 1] }}
-                                transition={{ duration: 2, repeat: Infinity }}
-                                className="inline-block text-5xl mb-3"
-                            >
-                                {currentPhase.icon}
-                            </motion.div>
-                            <h2 className="text-3xl font-black mb-2 bg-gradient-to-r from-white to-blue-300 bg-clip-text text-transparent">
-                                Prueba tu WiFi
-                            </h2>
-                        </div>
+     return (
+         <div className="w-full pointer-events-auto" style={{ pointerEvents: 'auto', touchAction: 'auto' }}>
+             <motion.div
+                 initial={{ opacity: 0, y: 20 }}
+                 animate={{ opacity: 1, y: 0 }}
+                 transition={{ duration: 0.6 }}
+                 className="glow-border rounded-lg md:rounded-xl p-6 md:p-8 backdrop-blur-sm bg-gradient-to-br from-white/5 to-white/0 pointer-events-auto"
+                 style={{ pointerEvents: 'auto', touchAction: 'auto' }}
+             >
+                 <div className="text-center pointer-events-auto" style={{ pointerEvents: 'auto', touchAction: 'auto' }}>
+                 {!result ? (
+                     <>
+                         <div className="mb-8">
+                             <motion.div
+                                 animate={{ scale: [1, 1.1, 1] }}
+                                 transition={{ duration: 2, repeat: Infinity }}
+                                 className="inline-block text-5xl md:text-6xl mb-4"
+                             >
+                                 {currentPhase.icon}
+                             </motion.div>
+                             <h2 className="text-3xl md:text-4xl font-black mb-3 bg-gradient-to-r from-white to-blue-300 bg-clip-text text-transparent">
+                                 Prueba tu WiFi
+                             </h2>
+                         </div>
 
-                        <ValidationError message={error} type="error" onClose={() => setError(null)} />
+                         <ValidationError message={error} type="error" onClose={() => setError(null)} />
 
-                        {!isAnonymous && (
-                            <input
-                                type="text"
-                                placeholder="Tu nombre"
-                                value={userName}
-                                onChange={(e) => setUserName(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        handleStartTest()
-                                    }
-                                }}
-                                className="w-full px-4 py-3 rounded-lg mb-6 bg-white/5 border-2 border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:bg-white/10 transition-colors pointer-events-auto"
-                                style={{ pointerEvents: 'auto', touchAction: 'auto' }}
-                                autoFocus
-                            />
-                        )}
+                         {!isAnonymous && (
+                             <input
+                                 type="text"
+                                 placeholder="Tu nombre"
+                                 value={userName}
+                                 onChange={(e) => setUserName(e.target.value)}
+                                 onKeyDown={(e) => {
+                                     if (e.key === 'Enter') {
+                                         handleStartTest()
+                                     }
+                                 }}
+                                 className="w-full px-4 py-3 md:py-4 rounded-lg mb-6 bg-white/5 border-2 border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:bg-white/10 transition-colors pointer-events-auto text-base"
+                                 style={{ pointerEvents: 'auto', touchAction: 'auto' }}
+                                 autoFocus
+                             />
+                         )}
 
-                        <div className="space-y-3 mb-6 pointer-events-auto" style={{ pointerEvents: 'auto', touchAction: 'auto' }}>
-                            <button
-                                onClick={handleStartTest}
-                                className="w-full py-4 rounded-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all duration-300 text-white cursor-pointer active:scale-95 shadow-lg hover:shadow-xl shadow-blue-500/40 pointer-events-auto"
-                                style={{ pointerEvents: 'auto', touchAction: 'auto' }}
-                            >
-                                🚀 {isAnonymous ? 'Comenzar Prueba (Anónima)' : 'Comenzar Prueba'}
-                            </button>
+                         <div className="space-y-3 mb-6 pointer-events-auto" style={{ pointerEvents: 'auto', touchAction: 'auto' }}>
+                             <button
+                                 onClick={handleStartTest}
+                                 className="w-full py-3 md:py-4 rounded-lg font-bold text-base md:text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all duration-300 text-white cursor-pointer active:scale-95 shadow-lg hover:shadow-xl shadow-blue-500/40 pointer-events-auto"
+                                 style={{ pointerEvents: 'auto', touchAction: 'auto' }}
+                             >
+                                 🚀 {isAnonymous ? 'Comenzar (Anónima)' : 'Comenzar Prueba'}
+                             </button>
 
-                            <button
-                                onClick={() => {
-                                    setIsAnonymous(!isAnonymous)
-                                    setUserName('')
-                                    setError(null)
-                                }}
-                                className={`w-full py-3 rounded-lg font-semibold transition-all duration-300 ${isAnonymous
-                                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg'
-                                    : 'bg-white/10 hover:bg-white/20 text-gray-300 border border-white/20'
-                                    } pointer-events-auto`}
-                                style={{ pointerEvents: 'auto', touchAction: 'auto' }}
-                            >
-                                {isAnonymous ? '🔒 Modo Anónimo Activo' : '👤 Modo Anónimo'}
-                            </button>
-                        </div>
+                             <button
+                                 onClick={() => {
+                                     setIsAnonymous(!isAnonymous)
+                                     setUserName('')
+                                     setError(null)
+                                 }}
+                                 className={`w-full py-3 rounded-lg font-semibold text-sm md:text-base transition-all duration-300 ${isAnonymous
+                                     ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg'
+                                     : 'bg-white/10 hover:bg-white/20 text-gray-300 border border-white/20'
+                                     } pointer-events-auto`}
+                                 style={{ pointerEvents: 'auto', touchAction: 'auto' }}
+                             >
+                                 {isAnonymous ? '🔒 Anónimo Activo' : '👤 Modo Anónimo'}
+                             </button>
+                         </div>
 
-                        <p className="text-xs text-gray-400 px-2">
-                            {isAnonymous
-                                ? '⚡ Prueba sin compartir datos • No aparecerás en el ranking'
-                                : '📊 La prueba durará aprox. 1-2 minutos • Aparecerás en el ranking'}
-                        </p>
+                         <p className="text-xs md:text-sm text-gray-400 px-2">
+                             {isAnonymous
+                                 ? '⚡ Sin datos • No en ranking'
+                                 : '📊 ~1-2 min • En ranking'}
+                         </p>
                     </>
                 ) : null}
 

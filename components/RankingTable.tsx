@@ -70,22 +70,23 @@ export default function RankingTable() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: 0.2 }}
-      className="glow-border rounded-2xl p-8 md:p-10 mb-12 backdrop-blur-sm"
+      className="glow-border rounded-2xl p-6 md:p-8 lg:p-10 mb-12 backdrop-blur-sm"
       id="ranking"
     >
       <div className="mb-8">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 md:gap-6">
           <div>
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-5xl">🏆</span>
-              <h2 className="text-4xl md:text-5xl font-black bg-gradient-to-r from-yellow-300 via-white to-yellow-200 bg-clip-text text-transparent">
+            <div className="flex items-center gap-2 md:gap-3 mb-4">
+              <span className="text-4xl md:text-5xl">🏆</span>
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-black bg-gradient-to-r from-yellow-300 via-white to-yellow-200 bg-clip-text text-transparent">
                 Ranking Global
               </h2>
             </div>
-            <p className="text-gray-400 text-base flex items-center gap-2">
-              <span className="text-2xl">👥</span>
+            <p className="text-gray-400 text-sm md:text-base flex items-center gap-2">
+              <span className="text-xl md:text-2xl">👥</span>
               <span className="font-semibold">{totalResults.toLocaleString()}</span>
-              usuarios compitiendo
+              <span className="hidden sm:inline">usuarios compitiendo</span>
+              <span className="sm:hidden">usuarios</span>
             </p>
           </div>
           <motion.div 
@@ -100,11 +101,11 @@ export default function RankingTable() {
       </div>
 
       {/* Controles de filtro y ordenamiento */}
-      <div className="mb-6 flex flex-wrap gap-3">
+      <div className="mb-6 flex flex-col sm:flex-row gap-3 sm:gap-2">
         <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => setFilterBy('all')}
-            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+            className={`px-3 md:px-4 py-2 rounded-lg font-semibold text-sm md:text-base transition-all ${
               filterBy === 'all'
                 ? 'bg-blue-600 text-white'
                 : 'bg-white/10 text-gray-400 hover:bg-white/20'
@@ -114,7 +115,7 @@ export default function RankingTable() {
           </button>
           <button
             onClick={() => setFilterBy('top100')}
-            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+            className={`px-3 md:px-4 py-2 rounded-lg font-semibold text-sm md:text-base transition-all ${
               filterBy === 'top100'
                 ? 'bg-yellow-600 text-white'
                 : 'bg-white/10 text-gray-400 hover:bg-white/20'
@@ -124,7 +125,7 @@ export default function RankingTable() {
           </button>
           <button
             onClick={() => setFilterBy('fast')}
-            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+            className={`px-3 md:px-4 py-2 rounded-lg font-semibold text-sm md:text-base transition-all ${
               filterBy === 'fast'
                 ? 'bg-green-600 text-white'
                 : 'bg-white/10 text-gray-400 hover:bg-white/20'
@@ -134,7 +135,7 @@ export default function RankingTable() {
           </button>
           <button
             onClick={() => setFilterBy('lowping')}
-            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+            className={`px-3 md:px-4 py-2 rounded-lg font-semibold text-sm md:text-base transition-all ${
               filterBy === 'lowping'
                 ? 'bg-cyan-600 text-white'
                 : 'bg-white/10 text-gray-400 hover:bg-white/20'

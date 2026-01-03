@@ -250,52 +250,83 @@ export default function SpeedTestCard({ onTestComplete }: SpeedTestCardProps) {
                                     </div>
                                 </div>
 
-                                {/* Métricas en vivo */}
-                                <div className="grid grid-cols-3 gap-3">
-                                    <motion.div
-                                        animate={{
-                                            scale: metrics.testPhase === 'download' ? [1, 1.05, 1] : 1,
-                                            borderColor: metrics.testPhase === 'download' ? ['rgba(59,130,246,0.5)', 'rgba(59,130,246,1)', 'rgba(59,130,246,0.5)'] : 'rgba(255,255,255,0.1)'
-                                        }}
-                                        transition={{ duration: 0.5 }}
-                                        className="border border-white/10 rounded-lg p-3 text-center"
-                                    >
-                                        <p className="text-xs text-gray-400 mb-1">Descarga</p>
-                                        <p className="text-2xl font-bold text-blue-400">
-                                            {metrics.currentDownload.toFixed(1)}
-                                        </p>
-                                        <p className="text-xs text-gray-500">Mbps</p>
-                                    </motion.div>
+                                {/* Métricas en vivo mejoradas */}
+                                <div className="space-y-4 mb-6">
+                                    {/* Barra de estado mejorada */}
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                                                {metrics.testPhase === 'download' && '⬇️ Midiendo Descarga'}
+                                                {metrics.testPhase === 'upload' && '⬆️ Midiendo Subida'}
+                                                {metrics.testPhase === 'ping' && '📡 Midiendo Ping'}
+                                            </span>
+                                            <span className="text-sm font-bold text-blue-400">{Math.round(progress)}%</span>
+                                        </div>
+                                        <div className="relative h-2 bg-white/10 rounded-full overflow-hidden border border-white/20">
+                                            <motion.div
+                                                animate={{ width: `${progress}%` }}
+                                                transition={{ type: 'spring', stiffness: 100, damping: 30 }}
+                                                className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 shadow-lg shadow-blue-500/50"
+                                            />
+                                        </div>
+                                    </div>
 
-                                    <motion.div
-                                        animate={{
-                                            scale: metrics.testPhase === 'upload' ? [1, 1.05, 1] : 1,
-                                            borderColor: metrics.testPhase === 'upload' ? ['rgba(59,130,246,0.5)', 'rgba(59,130,246,1)', 'rgba(59,130,246,0.5)'] : 'rgba(255,255,255,0.1)'
-                                        }}
-                                        transition={{ duration: 0.5 }}
-                                        className="border border-white/10 rounded-lg p-3 text-center"
-                                    >
-                                        <p className="text-xs text-gray-400 mb-1">Subida</p>
-                                        <p className="text-2xl font-bold text-green-400">
-                                            {metrics.currentUpload.toFixed(1)}
-                                        </p>
-                                        <p className="text-xs text-gray-500">Mbps</p>
-                                    </motion.div>
+                                    {/* Métricas instantáneas en tarjetas mejoradas */}
+                                    <div className="grid grid-cols-3 gap-3 mt-4">
+                                        <motion.div
+                                            animate={{
+                                                scale: metrics.testPhase === 'download' ? [1, 1.08, 1] : 1,
+                                                borderColor: metrics.testPhase === 'download' ?
+                                                    ['rgba(59,130,246,0.3)', 'rgba(59,130,246,1)', 'rgba(59,130,246,0.3)'] :
+                                                    'rgba(255,255,255,0.1)'
+                                            }}
+                                            transition={{ duration: 0.6 }}
+                                            className="border-2 rounded-lg p-3 text-center bg-gradient-to-br from-blue-500/10 to-transparent"
+                                        >
+                                            <p className="text-2xl mb-1">⬇️</p>
+                                            <p className="text-xs text-gray-400 mb-1 font-semibold">Descarga</p>
+                                            <p className="text-xl font-bold text-blue-400">
+                                                {metrics.currentDownload.toFixed(1)}
+                                            </p>
+                                            <p className="text-xs text-gray-500">Mbps</p>
+                                        </motion.div>
 
-                                    <motion.div
-                                        animate={{
-                                            scale: metrics.testPhase === 'ping' ? [1, 1.05, 1] : 1,
-                                            borderColor: metrics.testPhase === 'ping' ? ['rgba(59,130,246,0.5)', 'rgba(59,130,246,1)', 'rgba(59,130,246,0.5)'] : 'rgba(255,255,255,0.1)'
-                                        }}
-                                        transition={{ duration: 0.5 }}
-                                        className="border border-white/10 rounded-lg p-3 text-center"
-                                    >
-                                        <p className="text-xs text-gray-400 mb-1">Ping</p>
-                                        <p className="text-2xl font-bold text-yellow-400">
-                                            {metrics.currentPing.toFixed(1)}
-                                        </p>
-                                        <p className="text-xs text-gray-500">ms</p>
-                                    </motion.div>
+                                        <motion.div
+                                            animate={{
+                                                scale: metrics.testPhase === 'upload' ? [1, 1.08, 1] : 1,
+                                                borderColor: metrics.testPhase === 'upload' ?
+                                                    ['rgba(34,197,94,0.3)', 'rgba(34,197,94,1)', 'rgba(34,197,94,0.3)'] :
+                                                    'rgba(255,255,255,0.1)'
+                                            }}
+                                            transition={{ duration: 0.6 }}
+                                            className="border-2 rounded-lg p-3 text-center bg-gradient-to-br from-green-500/10 to-transparent"
+                                        >
+                                            <p className="text-2xl mb-1">⬆️</p>
+                                            <p className="text-xs text-gray-400 mb-1 font-semibold">Subida</p>
+                                            <p className="text-xl font-bold text-green-400">
+                                                {metrics.currentUpload.toFixed(1)}
+                                            </p>
+                                            <p className="text-xs text-gray-500">Mbps</p>
+                                        </motion.div>
+
+                                        <motion.div
+                                            animate={{
+                                                scale: metrics.testPhase === 'ping' ? [1, 1.08, 1] : 1,
+                                                borderColor: metrics.testPhase === 'ping' ?
+                                                    ['rgba(234,179,8,0.3)', 'rgba(234,179,8,1)', 'rgba(234,179,8,0.3)'] :
+                                                    'rgba(255,255,255,0.1)'
+                                            }}
+                                            transition={{ duration: 0.6 }}
+                                            className="border-2 rounded-lg p-3 text-center bg-gradient-to-br from-yellow-500/10 to-transparent"
+                                        >
+                                            <p className="text-2xl mb-1">📡</p>
+                                            <p className="text-xs text-gray-400 mb-1 font-semibold">Ping</p>
+                                            <p className="text-xl font-bold text-yellow-400">
+                                                {metrics.currentPing.toFixed(1)}
+                                            </p>
+                                            <p className="text-xs text-gray-500">ms</p>
+                                        </motion.div>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -400,16 +431,91 @@ export default function SpeedTestCard({ onTestComplete }: SpeedTestCardProps) {
                                 </div>
                             </div>
 
-                            {/* Info Adicional */}
+                            {/* Análisis detallado */}
                             <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.5 }}
-                                className="bg-gradient-to-r from-white/5 to-white/10 rounded-lg p-3 mb-6 border border-white/10"
+                                className="space-y-4 mb-6"
                             >
-                                <p className="text-xs text-gray-400 text-center">
-                                    <span className="text-green-400 font-semibold">Tu conexión es perfecta</span> para la mayoría de actividades en línea
-                                </p>
+                                {/* Estándares de referencia */}
+                                <div className="bg-gradient-to-r from-white/5 to-white/10 rounded-lg p-4 border border-white/10">
+                                    <p className="text-xs text-gray-400 font-semibold mb-3 uppercase tracking-wider">📊 Análisis de Calidad</p>
+
+                                    <div className="space-y-2">
+                                        {/* Descarga */}
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs text-gray-400">Descarga</span>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-24 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-gradient-to-r from-blue-500 to-blue-400"
+                                                        style={{ width: `${Math.min((result.downloadSpeed / 200) * 100, 100)}%` }}
+                                                    />
+                                                </div>
+                                                <span className={`text-xs font-semibold ${result.downloadSpeed >= 100 ? 'text-green-400' :
+                                                        result.downloadSpeed >= 50 ? 'text-yellow-400' :
+                                                            'text-red-400'
+                                                    }`}>
+                                                    {result.downloadSpeed >= 100 ? '✓' :
+                                                        result.downloadSpeed >= 50 ? '⚠' : '✗'}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Subida */}
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs text-gray-400">Subida</span>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-24 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-gradient-to-r from-green-500 to-green-400"
+                                                        style={{ width: `${Math.min((result.uploadSpeed / 50) * 100, 100)}%` }}
+                                                    />
+                                                </div>
+                                                <span className={`text-xs font-semibold ${result.uploadSpeed >= 20 ? 'text-green-400' :
+                                                        result.uploadSpeed >= 10 ? 'text-yellow-400' :
+                                                            'text-red-400'
+                                                    }`}>
+                                                    {result.uploadSpeed >= 20 ? '✓' :
+                                                        result.uploadSpeed >= 10 ? '⚠' : '✗'}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Latencia */}
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs text-gray-400">Latencia</span>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-24 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-gradient-to-r from-yellow-500 to-yellow-400"
+                                                        style={{ width: `${Math.max(0, Math.min((1 - result.ping / 100) * 100, 100))}%` }}
+                                                    />
+                                                </div>
+                                                <span className={`text-xs font-semibold ${result.ping <= 30 ? 'text-green-400' :
+                                                        result.ping <= 60 ? 'text-yellow-400' :
+                                                            'text-red-400'
+                                                    }`}>
+                                                    {result.ping <= 30 ? '✓' :
+                                                        result.ping <= 60 ? '⚠' : '✗'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Recomendación */}
+                                <div className="bg-gradient-to-r from-white/5 to-white/10 rounded-lg p-3 border border-white/10">
+                                    <p className="text-xs text-gray-400 font-semibold mb-2">💡 Recomendación</p>
+                                    <p className="text-xs text-gray-300 leading-relaxed">
+                                        {result.downloadSpeed >= 100 && result.uploadSpeed >= 20
+                                            ? '✅ Excelente para todas las actividades: streaming 4K, videollamadas, gaming online y trabajo remoto.'
+                                            : result.downloadSpeed >= 50 && result.uploadSpeed >= 10
+                                                ? '⚠️ Buena para la mayoría de actividades. Puede tener limitaciones en streaming 4K simultáneo.'
+                                                : '⚠️ Conexión básica. Se recomienda mejorar para streaming HD y llamadas de video estables.'}
+                                    </p>
+                                </div>
                             </motion.div>
                         </motion.div>
 

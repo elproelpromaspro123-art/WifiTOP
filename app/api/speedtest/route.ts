@@ -36,29 +36,39 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    let body
-    try {
-      body = await request.json()
-    } catch {
-      return NextResponse.json(
-        { error: 'Formato de solicitud inválido' },
-        { status: 400 }
-      )
-    }
+      let body
+      try {
+          body = await request.json()
+      } catch {
+          return NextResponse.json(
+              { error: 'Formato de solicitud inválido' },
+              { status: 400 }
+          )
+      }
 
-    const { userName } = body
+      const { userName } = body
 
-    // Validar nombre de usuario
-    const validation = validateUserName(userName)
-    if (!validation.valid) {
-      return NextResponse.json(
-        { error: validation.error },
-        { status: 400 }
-      )
-    }
+      // Validar nombre de usuario
+      const validation = validateUserName(userName)
+      if (!validation.valid) {
+          return NextResponse.json(
+              { error: validation.error },
+              { status: 400 }
+          )
+      }
 
-    // Ejecutar prueba de velocidad simulada
-    const result = await simulateSpeedTest()
+      // Ejecutar prueba de velocidad real
+      let result
+      try {
+          result = await simulateSpeedTest()
+      } catch (speedtestError) {
+          console.error('Speedtest error:', speedtestError)
+          const errorMsg = speedtestError instanceof Error ? speedtestError.message : 'Error desconocido en la prueba'
+          return NextResponse.json(
+              { error: errorMsg },
+              { status: 503 }
+          )
+      }
 
     // Validar resultado de prueba
     const resultValidation = validateSpeedTestResult(result)

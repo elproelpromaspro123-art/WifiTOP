@@ -389,9 +389,9 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="glow-border rounded-lg p-8 backdrop-blur-sm bg-gradient-to-br from-white/5 to-white/0"
+            className="glow-border rounded-lg p-8 backdrop-blur-sm bg-gradient-to-br from-white/5 to-white/0 pointer-events-auto"
         >
-            <div className="text-center">
+            <div className="text-center pointer-events-auto">
                 {!result ? (
                     <>
                         <div className="mb-6">
@@ -420,15 +420,15 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                         handleStartTest()
                                     }
                                 }}
-                                className="w-full px-4 py-3 rounded-lg mb-6 bg-white/5 border-2 border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:bg-white/10 transition-colors"
+                                className="w-full px-4 py-3 rounded-lg mb-6 bg-white/5 border-2 border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:bg-white/10 transition-colors pointer-events-auto"
                                 autoFocus
                             />
                         )}
 
-                        <div className="space-y-3 mb-6">
+                        <div className="space-y-3 mb-6 pointer-events-auto">
                             <button
                                 onClick={handleStartTest}
-                                className="w-full py-4 rounded-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all duration-300 text-white cursor-pointer active:scale-95 shadow-lg hover:shadow-xl shadow-blue-500/40"
+                                className="w-full py-4 rounded-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all duration-300 text-white cursor-pointer active:scale-95 shadow-lg hover:shadow-xl shadow-blue-500/40 pointer-events-auto"
                             >
                                 🚀 {isAnonymous ? 'Comenzar Prueba (Anónima)' : 'Comenzar Prueba'}
                             </button>
@@ -442,7 +442,7 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                 className={`w-full py-3 rounded-lg font-semibold transition-all duration-300 ${isAnonymous
                                     ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg'
                                     : 'bg-white/10 hover:bg-white/20 text-gray-300 border border-white/20'
-                                    }`}
+                                    } pointer-events-auto`}
                             >
                                 {isAnonymous ? '🔒 Modo Anónimo Activo' : '👤 Modo Anónimo'}
                             </button>

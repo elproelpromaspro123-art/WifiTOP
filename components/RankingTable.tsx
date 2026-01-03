@@ -150,13 +150,13 @@ export default function RankingTable() {
              id="sort-select"
              value={sortBy}
              onChange={(e) => setSortBy(e.target.value as SortOption)}
-             className="px-4 py-2 rounded-lg bg-white/10 text-gray-300 border border-white/20 cursor-pointer hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all pointer-events-auto relative z-20"
+             className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-white border-2 border-blue-500/50 cursor-pointer hover:from-blue-600/30 hover:to-purple-600/30 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all pointer-events-auto relative z-20 font-semibold shadow-lg shadow-blue-500/20"
              aria-label="Ordenar resultados por"
            >
-             <option value="speed">Ordenar: Velocidad ↓</option>
-             <option value="ping">Ordenar: Ping ↑</option>
-             <option value="upload">Ordenar: Subida ↓</option>
-             <option value="date">Ordenar: Reciente ↓</option>
+             <option value="speed" className="bg-slate-900 text-white">Ordenar: Velocidad ↓</option>
+             <option value="ping" className="bg-slate-900 text-white">Ordenar: Ping ↑</option>
+             <option value="upload" className="bg-slate-900 text-white">Ordenar: Subida ↓</option>
+             <option value="date" className="bg-slate-900 text-white">Ordenar: Reciente ↓</option>
            </select>
          </div>
       </div>

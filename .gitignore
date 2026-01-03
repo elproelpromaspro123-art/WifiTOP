@@ -38,7 +38,7 @@ lerna-debug.log*
 *.sln
 *.sw?
 
-# Documentation files not needed
+# Documentation files
 DEPLOYMENT.md
 FINAL_STEPS.md
 PROJECT_SUMMARY.md
@@ -49,4 +49,8 @@ SETUP.md
 WINDOWS_SETUP.md
 DEPLOY.ps1
 PUSH.cmd
+GIT_PUSH.bat
+push.ps1
+RUN_THIS.txt
+deploy.js
 .gitconfig

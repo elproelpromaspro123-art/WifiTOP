@@ -69,7 +69,6 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
     const handleStartTest = async () => {
         setError(null)
 
-        // Validar solo si no es anónimo
         if (!isAnonymous) {
             if (!userName.trim()) {
                 setError('Por favor ingresa tu nombre o selecciona modo anónimo')
@@ -102,7 +101,6 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                         phase: details.phase
                     })
 
-                    // Agregar dato al gráfico
                     const timeElapsed = (Date.now() - testStartTime) / 1000
                     setChartData(prev => {
                         const newData = { ...prev }
@@ -121,7 +119,6 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
 
             setProgress(98)
 
-            // Si es anónimo, no guardar en BD
             if (isAnonymous) {
                 setProgress(100)
                 setCurrentPhase(PHASES.complete)
@@ -171,7 +168,6 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
             setStatusMsg('Prueba completada')
             setResult(data.result)
 
-            // Guardar en histórico local
             addTest({
                 downloadSpeed: data.result.downloadSpeed,
                 uploadSpeed: data.result.uploadSpeed,
@@ -181,7 +177,6 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                 userName
             })
 
-            // Desbloquear badges y guardar en localStorage
             const newBadges = unlockNewBadges(
                 data.result.downloadSpeed,
                 data.result.uploadSpeed,
@@ -221,6 +216,174 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
         return { score: 3, label: 'Lento', color: 'text-red-400', emoji: '⚠️' }
     }
 
+    // ========== FULLSCREEN MODAL DURANTE TESTING ==========
+    if (testing) {
+        return (
+            <div className="fixed top-0 left-0 right-0 bottom-0 z-[9999] w-screen h-screen bg-gradient-to-b from-black via-slate-950 to-black overflow-y-auto pointer-events-auto" style={{ touchAction: 'auto', willChange: 'transform' }}>
+                <div className="w-screen min-h-screen p-4 md:p-8 flex flex-col items-center justify-center pointer-events-auto">
+                    {/* Header */}
+                    <div className="text-center mb-12 w-full">
+                        <motion.p
+                            className={`text-6xl md:text-7xl font-black mb-4 ${currentPhase.color}`}
+                            animate={{ scale: [1, 1.05, 1] }}
+                            transition={{ duration: 1, repeat: Infinity }}
+                        >
+                            {currentPhase.icon}
+                        </motion.p>
+                        <h3 className={`text-4xl md:text-5xl font-black mb-3 ${currentPhase.color}`}>
+                            {currentPhase.label}
+                        </h3>
+                        <p className="text-gray-300 text-xl">{statusMsg}</p>
+                    </div>
+
+                    {/* Barra de progreso */}
+                    <div className="w-full max-w-3xl mb-12 pointer-events-auto">
+                        <div className="flex justify-between text-sm text-gray-400 mb-4 font-semibold pointer-events-auto">
+                            <span>Progreso General</span>
+                            <span className="text-3xl font-bold text-blue-400">{Math.round(progress)}%</span>
+                        </div>
+                        <div className="w-full h-5 rounded-full bg-white/10 overflow-hidden border-2 border-white/20 pointer-events-auto">
+                            <motion.div
+                                animate={{ width: `${progress}%` }}
+                                transition={{ type: 'spring', stiffness: 80 }}
+                                className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 shadow-2xl shadow-blue-500/60"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Métricas en tiempo real */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-4xl mb-12 pointer-events-auto">
+                        {/* Ping */}
+                        <motion.div
+                            animate={{
+                                scale: currentPhase.name === 'ping' ? [1, 1.1, 1] : 1,
+                                opacity: currentPhase.name === 'ping' ? 1 : 0.6
+                            }}
+                            transition={{ duration: 0.4 }}
+                            className="p-6 rounded-xl bg-gradient-to-br from-yellow-500/20 to-transparent border-2 border-yellow-500/60 shadow-xl shadow-yellow-500/30"
+                        >
+                            <p className="text-4xl mb-3">📡</p>
+                            <p className="text-sm text-gray-400 mb-4 font-semibold uppercase tracking-wider">PING</p>
+                            <motion.p
+                                key={`ping-${testDetails.currentSpeed}`}
+                                initial={{ scale: 0.8, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                className="text-5xl font-black text-yellow-400"
+                            >
+                                {currentPhase.name === 'ping' && testDetails.currentSpeed > 0
+                                    ? testDetails.currentSpeed.toFixed(0)
+                                    : '--'}
+                            </motion.p>
+                            <p className="text-sm text-gray-500 mt-2">ms</p>
+                        </motion.div>
+
+                        {/* Descarga */}
+                        <motion.div
+                            animate={{
+                                scale: currentPhase.name === 'download' ? [1, 1.1, 1] : 1,
+                                opacity: currentPhase.name === 'download' ? 1 : 0.6
+                            }}
+                            transition={{ duration: 0.4 }}
+                            className="p-6 rounded-xl bg-gradient-to-br from-blue-500/20 to-transparent border-2 border-blue-500/60 shadow-xl shadow-blue-500/30"
+                        >
+                            <p className="text-4xl mb-3">⬇️</p>
+                            <p className="text-sm text-gray-400 mb-4 font-semibold uppercase tracking-wider">DESCARGA</p>
+                            <motion.p
+                                key={`download-${testDetails.currentSpeed}`}
+                                initial={{ scale: 0.8, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                className="text-5xl font-black text-blue-400"
+                            >
+                                {currentPhase.name === 'download' && testDetails.currentSpeed > 0
+                                    ? testDetails.currentSpeed.toFixed(1)
+                                    : '--'}
+                            </motion.p>
+                            <p className="text-sm text-gray-500 mt-2">Mbps</p>
+                        </motion.div>
+
+                        {/* Subida */}
+                        <motion.div
+                            animate={{
+                                scale: currentPhase.name === 'upload' ? [1, 1.1, 1] : 1,
+                                opacity: currentPhase.name === 'upload' ? 1 : 0.6
+                            }}
+                            transition={{ duration: 0.4 }}
+                            className="p-6 rounded-xl bg-gradient-to-br from-green-500/20 to-transparent border-2 border-green-500/60 shadow-xl shadow-green-500/30"
+                        >
+                            <p className="text-4xl mb-3">⬆️</p>
+                            <p className="text-sm text-gray-400 mb-4 font-semibold uppercase tracking-wider">SUBIDA</p>
+                            <motion.p
+                                key={`upload-${testDetails.currentSpeed}`}
+                                initial={{ scale: 0.8, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                className="text-5xl font-black text-green-400"
+                            >
+                                {currentPhase.name === 'upload' && testDetails.currentSpeed > 0
+                                    ? testDetails.currentSpeed.toFixed(1)
+                                    : '--'}
+                            </motion.p>
+                            <p className="text-sm text-gray-500 mt-2">Mbps</p>
+                        </motion.div>
+                    </div>
+
+                    {/* Gráficas en tiempo real */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-5xl mb-12 pointer-events-auto">
+                        {chartData.ping.length > 0 && (
+                            <SpeedChartLive
+                                data={chartData.ping}
+                                title="📡 Ping en Tiempo Real"
+                                unit="ms"
+                                color="#fbbf24"
+                                height={150}
+                            />
+                        )}
+                        {chartData.download.length > 0 && (
+                            <SpeedChartLive
+                                data={chartData.download}
+                                title="⬇️ Descarga en Tiempo Real"
+                                unit="Mbps"
+                                color="#3b82f6"
+                                height={150}
+                            />
+                        )}
+                        {chartData.upload.length > 0 && (
+                            <SpeedChartLive
+                                data={chartData.upload}
+                                title="⬆️ Subida en Tiempo Real"
+                                unit="Mbps"
+                                color="#22c55e"
+                                height={150}
+                            />
+                        )}
+                    </div>
+
+                    {/* Indicadores de fase */}
+                    <div className="flex justify-center items-center gap-12 mt-8 pointer-events-auto">
+                        {Object.values(PHASES).slice(1, 5).map((phase) => (
+                            <div key={phase.name} className="flex flex-col items-center">
+                                <motion.div
+                                    animate={{
+                                        scale: currentPhase.name === phase.name ? 1.4 : 1,
+                                        opacity: currentPhase.name === phase.name ||
+                                            Object.values(PHASES).findIndex(p => p.name === phase.name) < Object.values(PHASES).findIndex(p => p.name === currentPhase.name) ? 1 : 0.3
+                                    }}
+                                    className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-2 transition-all ${currentPhase.name === phase.name
+                                        ? 'border-blue-500 bg-blue-500/30 shadow-2xl shadow-blue-500/60'
+                                        : 'border-white/30'
+                                        }`}
+                                >
+                                    {phase.icon}
+                                </motion.div>
+                                <p className="text-sm text-gray-400 mt-3 text-center font-semibold">{phase.label.split(' ')[0]}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    // ========== NORMAL CARD VIEW ==========
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -246,220 +409,50 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
 
                         <ValidationError message={error} type="error" onClose={() => setError(null)} />
 
-                        {!testing ? (
-                            <>
-                                {!isAnonymous && (
-                                    <input
-                                        type="text"
-                                        placeholder="Tu nombre"
-                                        value={userName}
-                                        onChange={(e) => setUserName(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                handleStartTest()
-                                            }
-                                        }}
-                                        className="w-full px-4 py-3 rounded-lg mb-6 bg-white/5 border-2 border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:bg-white/10 transition-colors relative z-50 pointer-events-auto cursor-text"
-                                        autoFocus
-                                    />
-                                )}
-
-                                <div className="space-y-3 mb-6">
-                                    <button
-                                        onClick={handleStartTest}
-                                        className="w-full py-4 rounded-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all duration-300 text-white cursor-pointer relative z-50 pointer-events-auto active:scale-95"
-                                    >
-                                        🚀 {isAnonymous ? 'Comenzar Prueba (Anónima)' : 'Comenzar Prueba'}
-                                    </button>
-
-                                    <button
-                                        onClick={() => {
-                                            setIsAnonymous(!isAnonymous)
-                                            setUserName('')
-                                            setError(null)
-                                        }}
-                                        className={`w-full py-3 rounded-lg font-semibold transition-all duration-300 relative z-50 pointer-events-auto ${isAnonymous
-                                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                                            : 'bg-white/10 hover:bg-white/20 text-gray-300 border border-white/20'
-                                            }`}
-                                    >
-                                        {isAnonymous ? '🔒 Modo Anónimo Activo' : '👤 Modo Anónimo'}
-                                    </button>
-                                </div>
-
-                                <p className="text-xs text-gray-400 px-2">
-                                    {isAnonymous
-                                        ? '⚡ Prueba sin compartir datos • No aparecerás en el ranking'
-                                        : '📊 La prueba durará aprox. 2-3 minutos • Aparecerás en el ranking'}
-                                </p>
-                            </>
-                        ) : (
-                            <motion.div
-                                initial={{ height: 'auto' }}
-                                animate={{ height: 'auto' }}
-                                className="fixed inset-0 z-50 bg-gradient-to-b from-black via-slate-950 to-black overflow-auto md:fixed md:inset-0"
-                            >
-                                <div className="min-h-screen p-4 md:p-8 flex flex-col">
-                                    {/* Header */}
-                                    <div className="text-center mb-8">
-                                        <motion.p
-                                            className={`text-4xl md:text-5xl font-black ${currentPhase.color} mb-3`}
-                                            animate={{ scale: [1, 1.05, 1] }}
-                                            transition={{ duration: 1, repeat: Infinity }}
-                                        >
-                                            {currentPhase.icon}
-                                        </motion.p>
-                                        <h3 className={`text-3xl md:text-4xl font-black ${currentPhase.color} mb-2`}>
-                                            {currentPhase.label}
-                                        </h3>
-                                        <p className="text-gray-300 text-lg">{statusMsg}</p>
-                                    </div>
-
-                                    {/* Barra de progreso mejorada */}
-                                    <div className="mb-8 max-w-2xl mx-auto w-full">
-                                        <div className="flex justify-between text-sm text-gray-400 mb-3 font-semibold">
-                                            <span>Progreso General</span>
-                                            <span className="text-2xl font-bold text-blue-400">{Math.round(progress)}%</span>
-                                        </div>
-                                        <div className="w-full h-4 rounded-full bg-white/10 overflow-hidden border-2 border-white/20">
-                                            <motion.div
-                                                animate={{ width: `${progress}%` }}
-                                                transition={{ type: 'spring', stiffness: 80 }}
-                                                className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 shadow-xl shadow-blue-500/60"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Métricas en tiempo real - Grid centrado */}
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 max-w-4xl mx-auto w-full">
-                                        {/* Ping */}
-                                        <motion.div
-                                            animate={{
-                                                scale: currentPhase.name === 'ping' ? [1, 1.08, 1] : 1,
-                                                opacity: currentPhase.name === 'ping' ? 1 : 0.6
-                                            }}
-                                            transition={{ duration: 0.4 }}
-                                            className="p-4 rounded-lg bg-gradient-to-br from-yellow-500/15 to-transparent border-2 border-yellow-500/50 shadow-lg shadow-yellow-500/20"
-                                        >
-                                            <p className="text-2xl mb-2">📡</p>
-                                            <p className="text-xs text-gray-400 mb-3 font-semibold">PING</p>
-                                            <motion.p
-                                                key={`ping-${testDetails.currentSpeed}`}
-                                                initial={{ scale: 0.8, opacity: 0 }}
-                                                animate={{ scale: 1, opacity: 1 }}
-                                                className="text-3xl font-black text-yellow-400"
-                                            >
-                                                {currentPhase.name === 'ping' && testDetails.currentSpeed > 0
-                                                    ? testDetails.currentSpeed.toFixed(0)
-                                                    : '--'}
-                                            </motion.p>
-                                            <p className="text-xs text-gray-500 mt-1">ms</p>
-                                        </motion.div>
-
-                                        {/* Descarga */}
-                                        <motion.div
-                                            animate={{
-                                                scale: currentPhase.name === 'download' ? [1, 1.08, 1] : 1,
-                                                opacity: currentPhase.name === 'download' ? 1 : 0.6
-                                            }}
-                                            transition={{ duration: 0.4 }}
-                                            className="p-4 rounded-lg bg-gradient-to-br from-blue-500/15 to-transparent border-2 border-blue-500/50 shadow-lg shadow-blue-500/20"
-                                        >
-                                            <p className="text-2xl mb-2">⬇️</p>
-                                            <p className="text-xs text-gray-400 mb-3 font-semibold">DESCARGA</p>
-                                            <motion.p
-                                                key={`download-${testDetails.currentSpeed}`}
-                                                initial={{ scale: 0.8, opacity: 0 }}
-                                                animate={{ scale: 1, opacity: 1 }}
-                                                className="text-3xl font-black text-blue-400"
-                                            >
-                                                {currentPhase.name === 'download' && testDetails.currentSpeed > 0
-                                                    ? testDetails.currentSpeed.toFixed(1)
-                                                    : '--'}
-                                            </motion.p>
-                                            <p className="text-xs text-gray-500 mt-1">Mbps</p>
-                                        </motion.div>
-
-                                        {/* Subida */}
-                                        <motion.div
-                                            animate={{
-                                                scale: currentPhase.name === 'upload' ? [1, 1.08, 1] : 1,
-                                                opacity: currentPhase.name === 'upload' ? 1 : 0.6
-                                            }}
-                                            transition={{ duration: 0.4 }}
-                                            className="p-4 rounded-lg bg-gradient-to-br from-green-500/15 to-transparent border-2 border-green-500/50 shadow-lg shadow-green-500/20"
-                                        >
-                                            <p className="text-2xl mb-2">⬆️</p>
-                                            <p className="text-xs text-gray-400 mb-3 font-semibold">SUBIDA</p>
-                                            <motion.p
-                                                key={`upload-${testDetails.currentSpeed}`}
-                                                initial={{ scale: 0.8, opacity: 0 }}
-                                                animate={{ scale: 1, opacity: 1 }}
-                                                className="text-3xl font-black text-green-400"
-                                            >
-                                                {currentPhase.name === 'upload' && testDetails.currentSpeed > 0
-                                                    ? testDetails.currentSpeed.toFixed(1)
-                                                    : '--'}
-                                            </motion.p>
-                                            <p className="text-xs text-gray-500 mt-1">Mbps</p>
-                                        </motion.div>
-                                    </div>
-
-                                    {/* Gráficas en tiempo real */}
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto w-full">
-                                        {chartData.ping.length > 0 && (
-                                            <SpeedChartLive
-                                                data={chartData.ping}
-                                                title="📡 Ping en Tiempo Real"
-                                                unit="ms"
-                                                color="#fbbf24"
-                                                height={120}
-                                            />
-                                        )}
-                                        {chartData.download.length > 0 && (
-                                            <SpeedChartLive
-                                                data={chartData.download}
-                                                title="⬇️ Descarga en Tiempo Real"
-                                                unit="Mbps"
-                                                color="#3b82f6"
-                                                height={120}
-                                            />
-                                        )}
-                                        {chartData.upload.length > 0 && (
-                                            <SpeedChartLive
-                                                data={chartData.upload}
-                                                title="⬆️ Subida en Tiempo Real"
-                                                unit="Mbps"
-                                                color="#22c55e"
-                                                height={120}
-                                            />
-                                        )}
-                                    </div>
-
-                                    {/* Indicadores de fase */}
-                                    <div className="flex justify-center items-center gap-8 mt-8">
-                                        {Object.values(PHASES).slice(1, 5).map((phase) => (
-                                            <div key={phase.name} className="flex flex-col items-center">
-                                                <motion.div
-                                                    animate={{
-                                                        scale: currentPhase.name === phase.name ? 1.3 : 1,
-                                                        opacity: currentPhase.name === phase.name ||
-                                                            Object.values(PHASES).findIndex(p => p.name === phase.name) < Object.values(PHASES).findIndex(p => p.name === currentPhase.name) ? 1 : 0.4
-                                                    }}
-                                                    className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold border-2 transition-all ${currentPhase.name === phase.name
-                                                        ? 'border-blue-500 bg-blue-500/30 shadow-lg shadow-blue-500/50'
-                                                        : 'border-white/20'
-                                                        }`}
-                                                >
-                                                    {phase.icon}
-                                                </motion.div>
-                                                <p className="text-xs text-gray-400 mt-2 text-center font-semibold">{phase.label.split(' ')[0]}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </motion.div>
+                        {!isAnonymous && (
+                            <input
+                                type="text"
+                                placeholder="Tu nombre"
+                                value={userName}
+                                onChange={(e) => setUserName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        handleStartTest()
+                                    }
+                                }}
+                                className="w-full px-4 py-3 rounded-lg mb-6 bg-white/5 border-2 border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:bg-white/10 transition-colors"
+                                autoFocus
+                            />
                         )}
+
+                        <div className="space-y-3 mb-6">
+                            <button
+                                onClick={handleStartTest}
+                                className="w-full py-4 rounded-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all duration-300 text-white cursor-pointer active:scale-95 shadow-lg hover:shadow-xl shadow-blue-500/40"
+                            >
+                                🚀 {isAnonymous ? 'Comenzar Prueba (Anónima)' : 'Comenzar Prueba'}
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    setIsAnonymous(!isAnonymous)
+                                    setUserName('')
+                                    setError(null)
+                                }}
+                                className={`w-full py-3 rounded-lg font-semibold transition-all duration-300 ${isAnonymous
+                                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg'
+                                    : 'bg-white/10 hover:bg-white/20 text-gray-300 border border-white/20'
+                                    }`}
+                            >
+                                {isAnonymous ? '🔒 Modo Anónimo Activo' : '👤 Modo Anónimo'}
+                            </button>
+                        </div>
+
+                        <p className="text-xs text-gray-400 px-2">
+                            {isAnonymous
+                                ? '⚡ Prueba sin compartir datos • No aparecerás en el ranking'
+                                : '📊 La prueba durará aprox. 1-2 minutos • Aparecerás en el ranking'}
+                        </p>
                     </>
                 ) : null}
 
@@ -469,7 +462,7 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                             initial={{ scale: 0.8, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.8, opacity: 0 }}
-                            className="space-y-6"
+                            className="space-y-6 pointer-events-auto"
                         >
                             {/* Resultado Principal */}
                             <div className="text-center">
@@ -573,7 +566,7 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                     setStatusMsg('Listo')
                                     setUnlockedBadges([])
                                 }}
-                                className="w-full py-4 rounded-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 border border-blue-400 shadow-lg hover:shadow-xl shadow-blue-500/40 transition-all text-white cursor-pointer active:scale-95"
+                                className="w-full py-4 rounded-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 border border-blue-400 shadow-lg hover:shadow-xl shadow-blue-500/40 transition-all text-white cursor-pointer active:scale-95 pointer-events-auto"
                             >
                                 🔄 Realizar Otra Prueba
                             </motion.button>

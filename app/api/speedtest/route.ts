@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     // Detectar anomalías y fraude
     const anomalyDetection = detectAnomalies(result)
-    if (anomalyDetection.anomaly && anomalyDetection.confidence! > 70) {
+    if (anomalyDetection.anomaly && (anomalyDetection.confidence || 0) > 70) {
       console.warn(`Anomalía detectada para IP ${ip}:`, anomalyDetection)
       return NextResponse.json(
         { error: 'Resultado sospechoso detectado. Por favor intenta de nuevo.' },

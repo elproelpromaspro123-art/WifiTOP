@@ -317,7 +317,6 @@ export async function getGeoLocation(ip: string) {
         }
 
         return {
-            city: data.city || 'Desconocida',
             country: data.country || 'Desconocida',
             isp: data.isp || 'Desconocido',
         }

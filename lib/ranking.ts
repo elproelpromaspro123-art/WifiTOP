@@ -9,14 +9,13 @@ export interface RankingResult {
   downloadSpeed: number
   uploadSpeed: number
   ping: number
-  city?: string
   country?: string
   isp?: string
   createdAt: Date
 }
 
 /**
- * Obtiene el ranking actual (top 1000)
+ * Obtiene el ranking actual (top 10,000)
  */
 export async function getTopResults(limit: number = TOP_RESULTS_LIMIT) {
   try {
@@ -29,7 +28,6 @@ export async function getTopResults(limit: number = TOP_RESULTS_LIMIT) {
         download_speed as "downloadSpeed",
         upload_speed as "uploadSpeed",
         ping,
-        city,
         country,
         isp,
         created_at as "createdAt"
@@ -47,7 +45,7 @@ export async function getTopResults(limit: number = TOP_RESULTS_LIMIT) {
 }
 
 /**
- * Obtiene el valor mínimo de velocidad en el top 1000
+ * Obtiene el valor mínimo de velocidad en el top 10,000
  */
 export async function getMinimumTopSpeed() {
   try {
@@ -108,7 +106,7 @@ export async function getUserRank(userId: number) {
 }
 
 /**
- * Mantiene el ranking limitado a 1000 resultados
+ * Mantiene el ranking limitado a 10,000 resultados
  * Elimina resultados con velocidades más bajas cuando se excede el límite
  * Optimizado a una sola query
  */

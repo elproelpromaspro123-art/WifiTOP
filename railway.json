@@ -1,0 +1,9 @@
+{
+  "build": {
+    "builder": "dockerfile",
+    "dockerfile": "Dockerfile.server"
+  },
+  "deploy": {
+    "startCommand": "node server.js"
+  }
+}

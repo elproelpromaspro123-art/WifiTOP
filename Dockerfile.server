@@ -2,17 +2,17 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Instalar Node.js y npm
+RUN apt-get update && apt-get install -y nodejs npm && rm -rf /var/lib/apt/lists/*
+
 # Instalar speedtest-cli
 RUN pip install speedtest-cli
 
-# Copiar servidor
+# Copiar solo el archivo del servidor
 COPY server.js .
-
-# Instalar Node.js
-RUN apt-get update && apt-get install -y nodejs npm && rm -rf /var/lib/apt/lists/*
 
 # Puerto
 EXPOSE 3001
 
-# Ejecutar servidor
+# Ejecutar solo el servidor de speedtest
 CMD ["node", "server.js"]

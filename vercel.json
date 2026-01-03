@@ -2,11 +2,6 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "env": {
-    "DATABASE_URL": "@database_url",
-    "NEXT_PUBLIC_SITE_URL": "@site_url",
-    "NEXT_PUBLIC_SITE_NAME": "@site_name"
-  },
   "functions": {
     "api/**/*.ts": {
       "memory": 1024,

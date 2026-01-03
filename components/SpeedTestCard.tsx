@@ -84,7 +84,7 @@ export default function SpeedTestCard({ onTestComplete }: SpeedTestCardProps) {
 
         try {
             // Cargar librería de speedtest
-            if (!window.SpeedTest) {
+            if (!(window as any).SpeedTest) {
                 const script = document.createElement('script')
                 script.src = 'https://cdn.jsdelivr.net/npm/speedtest-js@1.0.0/speedtest.min.js'
                 script.async = true

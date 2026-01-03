@@ -4,6 +4,12 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import ValidationError from './ValidationError'
 
+declare global {
+    interface Window {
+        SpeedTest?: any
+    }
+}
+
 interface TestResult {
     downloadSpeed: number
     uploadSpeed: number

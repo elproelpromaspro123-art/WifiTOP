@@ -124,24 +124,15 @@ async function measureUpload(
             const controller = new AbortController()
             const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 minutos
             
-            // Generar datos en chunks para simular upload progresivo
-            const chunkSize = 1024 * 1024 // 1MB chunks
-            const chunks: Uint8Array[] = []
-            let totalBytes = 0
-
-            while (totalBytes < uploadSize) {
-                const bytesToAdd = Math.min(chunkSize, uploadSize - totalBytes)
-                const chunk = new Uint8Array(bytesToAdd)
-                // Rellenar con datos aleatorios para evitar compresión
-                for (let i = 0; i < chunk.length; i++) {
-                    chunk[i] = Math.floor(Math.random() * 256)
-                }
-                chunks.push(chunk)
-                totalBytes += bytesToAdd
+            // Generar datos para upload
+            const data = new Uint8Array(uploadSize)
+            // Rellenar con datos aleatorios para evitar compresión
+            for (let i = 0; i < data.length; i++) {
+                data[i] = Math.floor(Math.random() * 256)
             }
 
-            // Crear body desde chunks
-            const body = new Blob(chunks)
+            // Crear body desde datos
+            const body = new Blob([data])
             
             const startTime = performance.now()
             const response = await fetch('https://speed.cloudflare.com/__up', {

@@ -24,21 +24,28 @@ export default function RankingTable() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: 0.2 }}
-      className="glow-border rounded-lg p-6 mb-12"
+      className="glow-border rounded-lg p-8 mb-12"
       id="ranking"
     >
-      <div className="mb-6">
+      <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-black mb-2">🏆 Ranking Global</h2>
-            <p className="text-gray-400 text-sm">
+            <h2 className="text-4xl font-black mb-3 bg-gradient-to-r from-white via-blue-200 to-white bg-clip-text text-transparent">
+              🏆 Ranking Global
+            </h2>
+            <p className="text-gray-400 text-base flex items-center gap-2">
+              <span className="text-2xl">👥</span>
               {totalResults.toLocaleString()} usuarios probando su velocidad
             </p>
           </div>
-          <div className="text-right">
-            <p className="text-4xl font-black text-yellow-400">1000</p>
-            <p className="text-gray-400 text-xs">Mejor posición posible</p>
-          </div>
+          <motion.div 
+            animate={{ scale: [1, 1.05, 1] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="text-right bg-gradient-to-br from-yellow-500/10 to-orange-500/10 rounded-lg p-4 border border-yellow-500/20"
+          >
+            <p className="text-4xl font-black text-yellow-400">📈</p>
+            <p className="text-gray-400 text-xs mt-2">Actualizado en tiempo real</p>
+          </motion.div>
         </div>
       </div>
 

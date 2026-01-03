@@ -8,7 +8,7 @@ export default function Footer() {
   return (
     <footer className="glow-border border-b-0 border-l-0 border-r-0 mt-16">
       <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           <motion.div
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
@@ -28,11 +28,11 @@ export default function Footer() {
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
           >
-            <h4 className="font-semibold mb-4">Enlaces</h4>
+            <h4 className="font-semibold mb-4">Navegación</h4>
             <ul className="space-y-2 text-sm">
               <li><a href="/" className="text-gray-400 hover:text-white transition-colors">🏠 Inicio</a></li>
-              <li><a href="#ranking" className="text-gray-400 hover:text-white transition-colors">🏆 Ranking</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">⚙️ API</a></li>
+              <li><a href="#ranking" className="text-gray-400 hover:text-white transition-colors">🏆 Ranking Global</a></li>
+              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">📊 Tu Resultado</a></li>
             </ul>
           </motion.div>
 
@@ -42,25 +42,11 @@ export default function Footer() {
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
           >
-            <h4 className="font-semibold mb-4">Legal</h4>
+            <h4 className="font-semibold mb-4">Información</h4>
             <ul className="space-y-2 text-sm">
+              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">ℹ️ Acerca de</a></li>
               <li><a href="#" className="text-gray-400 hover:text-white transition-colors">🔒 Privacidad</a></li>
               <li><a href="#" className="text-gray-400 hover:text-white transition-colors">📋 Términos</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">🍪 Cookies</a></li>
-            </ul>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.3 }}
-          >
-            <h4 className="font-semibold mb-4">Síguenos</h4>
-            <ul className="space-y-2 text-sm">
-              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">𝕏 Twitter</a></li>
-              <li><a href="#" className="text-gray-400 hover:text-white transition-colors">📷 Instagram</a></li>
-              <li><a href="https://github.com/elproelpromaspro123-art/WifiTOP" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">💻 GitHub</a></li>
             </ul>
           </motion.div>
         </div>

@@ -49,22 +49,24 @@ export default function Home() {
         )}
         
         {/* Hero Section */}
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 py-12 text-center">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-8"
+            transition={{ duration: 0.6 }}
+            className="mb-4"
           >
-            <h1 className="text-5xl md:text-6xl font-black mb-3">
-              <span className="bg-gradient-to-r from-white via-blue-200 to-white bg-clip-text text-transparent">
+            <h1 className="text-6xl md:text-7xl font-black mb-4">
+              <span className="bg-gradient-to-r from-blue-400 via-white to-purple-400 bg-clip-text text-transparent">
                 WifiTOP
               </span>
             </h1>
-            <p className="text-xl text-gray-400">Presume tu velocidad 🚀 | Compite globalmente 🏆</p>
+            <p className="text-2xl text-gray-300 font-semibold mb-2">Presume tu velocidad 🚀</p>
+            <p className="text-lg text-gray-400">Compite con usuarios de todo el mundo 🏆</p>
           </motion.div>
         </div>
 
-        <div className="container mx-auto px-4 py-12">
+        <div className="container mx-auto px-4 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
             {/* SpeedTest Card */}
             <div className="lg:col-span-1">
@@ -91,12 +93,12 @@ export default function Home() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="mt-6 glow-border rounded-lg p-6"
+                className="mt-6 glow-border rounded-lg p-8 bg-gradient-to-br from-green-500/10 to-emerald-500/5"
               >
-                <h3 className="text-lg font-semibold mb-4">Velocidad Promedio</h3>
-                <p className="text-4xl font-bold">
+                <h3 className="text-lg font-semibold mb-4 text-gray-300">Velocidad Promedio Global</h3>
+                <p className="text-5xl font-black bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
                   {stats.avgSpeed.toFixed(2)}
-                  <span className="text-lg text-gray-400 ml-2">Mbps</span>
+                  <span className="text-xl text-gray-400 ml-3 font-semibold">Mbps</span>
                 </p>
               </motion.div>
               
@@ -104,22 +106,39 @@ export default function Home() {
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mt-6 glow-border rounded-lg p-6"
+                  className="mt-6 glow-border rounded-lg p-8 bg-gradient-to-br from-blue-500/10 to-purple-500/5"
                 >
-                  <h3 className="text-lg font-semibold mb-4">Tu Resultado</h3>
+                  <h3 className="text-lg font-semibold mb-6 text-gray-300">✅ Tu Resultado Actual</h3>
                   <div className="grid grid-cols-3 gap-4">
-                    <div className="text-center">
-                      <p className="text-gray-400 text-sm">Descarga</p>
-                      <p className="text-2xl font-bold">{results.downloadSpeed} Mbps</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-gray-400 text-sm">Subida</p>
-                      <p className="text-2xl font-bold">{results.uploadSpeed} Mbps</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-gray-400 text-sm">Ping</p>
-                      <p className="text-2xl font-bold">{results.ping} ms</p>
-                    </div>
+                    <motion.div
+                      initial={{ scale: 0.9 }}
+                      animate={{ scale: 1 }}
+                      className="text-center bg-white/5 rounded-lg p-4 border border-blue-500/30"
+                    >
+                      <p className="text-gray-400 text-xs font-semibold mb-2">⬇️ Descarga</p>
+                      <p className="text-3xl font-black text-blue-400">{results.downloadSpeed}</p>
+                      <p className="text-gray-500 text-xs mt-1">Mbps</p>
+                    </motion.div>
+                    <motion.div
+                      initial={{ scale: 0.9 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.1 }}
+                      className="text-center bg-white/5 rounded-lg p-4 border border-green-500/30"
+                    >
+                      <p className="text-gray-400 text-xs font-semibold mb-2">⬆️ Subida</p>
+                      <p className="text-3xl font-black text-green-400">{results.uploadSpeed}</p>
+                      <p className="text-gray-500 text-xs mt-1">Mbps</p>
+                    </motion.div>
+                    <motion.div
+                      initial={{ scale: 0.9 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.2 }}
+                      className="text-center bg-white/5 rounded-lg p-4 border border-yellow-500/30"
+                    >
+                      <p className="text-gray-400 text-xs font-semibold mb-2">📡 Ping</p>
+                      <p className="text-3xl font-black text-yellow-400">{results.ping}</p>
+                      <p className="text-gray-500 text-xs mt-1">ms</p>
+                    </motion.div>
                   </div>
                 </motion.div>
               )}
@@ -148,18 +167,25 @@ function StatsCard({ title, value, icon, loading = false }: StatsCardProps) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="glow-border rounded-lg p-6 hover:shadow-glow transition-all duration-300"
+      whileHover={{ scale: 1.02 }}
+      className="glow-border rounded-lg p-6 hover:shadow-glow transition-all duration-300 bg-gradient-to-br from-white/5 to-white/0"
     >
       <div className="flex items-center justify-between">
-        <div>
-          <p className="text-gray-400 text-sm mb-2">{title}</p>
+        <div className="flex-1">
+          <p className="text-gray-400 text-xs font-semibold mb-3 uppercase tracking-wider">{title}</p>
           {loading ? (
-            <div className="h-8 w-24 bg-white/10 rounded animate-pulse"></div>
+            <div className="h-10 w-32 bg-white/10 rounded-lg animate-pulse"></div>
           ) : (
-            <p className="text-3xl font-bold">{value}</p>
+            <p className="text-4xl font-black bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">{value}</p>
           )}
         </div>
-        <div className="text-4xl opacity-50">{icon}</div>
+        <motion.div 
+          animate={{ scale: [1, 1.1, 1] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          className="text-5xl ml-4"
+        >
+          {icon}
+        </motion.div>
       </div>
     </motion.div>
   )

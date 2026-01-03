@@ -110,6 +110,21 @@ export async function POST(request: NextRequest) {
     )
 
     const rank = rankResult.rows[0]?.rank
+    
+    // Generar mensaje basado en resultados
+    let message = 'Gracias por participar'
+    if (rank && rank <= 1000) {
+      message = `¡Felicidades! Entraste en el top 1000 en la posición #${rank}`
+    }
+    
+    // Mensaje adicional basado en estabilidad
+    if (result.stability !== undefined) {
+      if (result.stability > 95) {
+        message += ' | Excelente estabilidad de conexión ✅'
+      } else if (result.stability < 70) {
+        message += ' | Conexión un poco inestable, considera cambiar de ubicación'
+      }
+    }
 
     return NextResponse.json(
       {
@@ -119,11 +134,16 @@ export async function POST(request: NextRequest) {
           uploadSpeed: result.uploadSpeed,
           ping: result.ping,
           jitter: result.jitter,
+          minDownload: result.minDownload,
+          maxDownload: result.maxDownload,
+          minUpload: result.minUpload,
+          maxUpload: result.maxUpload,
+          minPing: result.minPing,
+          maxPing: result.maxPing,
+          stability: result.stability,
         },
         rank: rank && rank <= 1000 ? rank : null,
-        message: rank && rank <= 1000 
-          ? `¡Felicidades! Entraste en el top 1000 en la posición #${rank}`
-          : 'Gracias por participar',
+        message,
       },
       { status: 200 }
     )

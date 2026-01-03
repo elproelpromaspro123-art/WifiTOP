@@ -32,15 +32,6 @@ export default function Header() {
             >
               🏆 Ranking
             </motion.a>
-            <motion.a 
-              href="https://github.com/elproelpromaspro123-art/WifiTOP" 
-              target="_blank"
-              rel="noopener noreferrer"
-              whileHover={{ scale: 1.05 }}
-              className="text-gray-300 hover:text-white transition-colors font-semibold"
-            >
-              💻 GitHub
-            </motion.a>
           </div>
         </div>
       </nav>

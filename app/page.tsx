@@ -113,30 +113,30 @@ export default function Home() {
                     <motion.div
                       initial={{ scale: 0.9 }}
                       animate={{ scale: 1 }}
-                      className="text-center bg-white/5 rounded-lg p-4 border border-blue-500/30"
+                      className="text-center bg-gradient-to-br from-blue-500/10 to-transparent rounded-lg p-5 border-2 border-blue-500/40"
                     >
-                      <p className="text-gray-400 text-xs font-semibold mb-2">⬇️ Descarga</p>
-                      <p className="text-3xl font-black text-blue-400">{results.downloadSpeed}</p>
+                      <p className="text-gray-400 text-xs font-semibold mb-3">⬇️ DESCARGA</p>
+                      <p className="text-4xl font-black text-blue-400">{(results.downloadSpeed).toFixed(2)}</p>
                       <p className="text-gray-500 text-xs mt-1">Mbps</p>
                     </motion.div>
                     <motion.div
                       initial={{ scale: 0.9 }}
                       animate={{ scale: 1 }}
                       transition={{ delay: 0.1 }}
-                      className="text-center bg-white/5 rounded-lg p-4 border border-green-500/30"
+                      className="text-center bg-gradient-to-br from-green-500/10 to-transparent rounded-lg p-5 border-2 border-green-500/40"
                     >
-                      <p className="text-gray-400 text-xs font-semibold mb-2">⬆️ Subida</p>
-                      <p className="text-3xl font-black text-green-400">{results.uploadSpeed}</p>
+                      <p className="text-gray-400 text-xs font-semibold mb-3">⬆️ SUBIDA</p>
+                      <p className="text-4xl font-black text-green-400">{(results.uploadSpeed).toFixed(2)}</p>
                       <p className="text-gray-500 text-xs mt-1">Mbps</p>
                     </motion.div>
                     <motion.div
                       initial={{ scale: 0.9 }}
                       animate={{ scale: 1 }}
                       transition={{ delay: 0.2 }}
-                      className="text-center bg-white/5 rounded-lg p-4 border border-yellow-500/30"
+                      className="text-center bg-gradient-to-br from-yellow-500/10 to-transparent rounded-lg p-5 border-2 border-yellow-500/40"
                     >
-                      <p className="text-gray-400 text-xs font-semibold mb-2">📡 Ping</p>
-                      <p className="text-3xl font-black text-yellow-400">{results.ping}</p>
+                      <p className="text-gray-400 text-xs font-semibold mb-3">📡 PING</p>
+                      <p className="text-4xl font-black text-yellow-400">{(results.ping).toFixed(1)}</p>
                       <p className="text-gray-500 text-xs mt-1">ms</p>
                     </motion.div>
                   </div>

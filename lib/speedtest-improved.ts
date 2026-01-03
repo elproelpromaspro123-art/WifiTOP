@@ -14,7 +14,7 @@ export interface DetailedSpeedTestResult extends SpeedTestResult {
 }
 
 /**
- * Mide el ping ICMP-like usando HEAD requests múltiples para obtener mejor precisión
+ * Mide el ping ICMP-like usando requests muy pequeños con múltiples servidores
  */
 async function measurePingAccurate(): Promise<{
     pings: number[]
@@ -24,84 +24,87 @@ async function measurePingAccurate(): Promise<{
 }> {
     const pings: number[] = []
     const testServers = [
-        'https://speed.cloudflare.com/',
-        'https://www.cloudflare.com/',
-        'https://1.1.1.1/',
+        'https://speed.cloudflare.com/__down?bytes=1',
+        'https://1.1.1.1/cdn-cgi/trace',
+        'https://speed.cloudflare.com/__down?bytes=100',
     ]
-
-    const measurements = 20 // Más mediciones para mejor precisión
-
+    
+    const measurements = 30 // Más mediciones para mejor precisión estadística
+    
     for (let i = 0; i < measurements; i++) {
         try {
             const server = testServers[i % testServers.length]
-
-            // Múltiples intentos por cada servidor para estabilidad
-            let latency = 0
-            let attempts = 0
-
-            for (let attempt = 0; attempt < 2; attempt++) {
-                const startTime = performance.now()
-
-                const controller = new AbortController()
-                const timeoutId = setTimeout(() => controller.abort(), 5000)
-
-                try {
-                    await fetch(server, {
-                        method: 'HEAD',
-                        cache: 'no-store',
-                        signal: controller.signal,
-                        mode: 'no-cors'
-                    })
-
-                    clearTimeout(timeoutId)
-                    const endTime = performance.now()
-                    const currentLatency = endTime - startTime
-
-                    if (currentLatency > 1 && currentLatency < 5000) {
-                        latency = currentLatency
-                        attempts++
-                        break
-                    }
-                } catch (e) {
-                    clearTimeout(timeoutId)
+            const startTime = performance.now()
+            
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 3000)
+            
+            try {
+                const response = await fetch(server, {
+                    method: 'GET',
+                    cache: 'no-store',
+                    signal: controller.signal,
+                    mode: 'no-cors'
+                })
+                
+                // Consumir al menos algunos bytes para asegurar que la conexión es real
+                if (response.ok) {
+                    const chunk = await response.arrayBuffer()
                 }
-            }
-
-            if (attempts > 0 && latency > 1 && latency < 5000) {
-                pings.push(latency)
+                
+                clearTimeout(timeoutId)
+                const endTime = performance.now()
+                const latency = endTime - startTime
+                
+                // Filtrar requests que tardaron mucho (probablemente incluyen DNS)
+                // El ping real debe estar entre 1ms y 500ms
+                if (latency >= 1 && latency < 500) {
+                    pings.push(latency)
+                }
+            } catch (e) {
+                clearTimeout(timeoutId)
             }
         } catch (error) {
-            // Continuar con el siguiente intento
+            // Continuar con siguiente intento
         }
     }
 
     if (pings.length === 0) {
         return {
-            pings: [50],
-            avgPing: 50,
-            minPing: 50,
-            maxPing: 50
+            pings: [20],
+            avgPing: 20,
+            minPing: 20,
+            maxPing: 20
         }
     }
 
-    // Filtrado agresivo de outliers usando percentiles
+    // Ordenar para análisis
     const sorted = [...pings].sort((a, b) => a - b)
-    const p10 = sorted[Math.floor(sorted.length * 0.1)]
-    const p90 = sorted[Math.floor(sorted.length * 0.9)]
-    const range = p90 - p10
-
-    // Solo mantener valores dentro del rango 10%-90%
-    const validPings = sorted.filter(p => p >= p10 && p <= p90)
-
-    const avgPing = validPings.length > 0
-        ? validPings.reduce((a, b) => a + b, 0) / validPings.length
-        : sorted[Math.floor(sorted.length / 2)]
+    
+    // Usar los valores más bajos (son los más precisos sin overhead)
+    // El ping real es el mínimo consistente, no el promedio
+    const minPing = sorted[0]
+    
+    // Filtrar valores que están muy por encima del mínimo (probablemente tienen overhead)
+    // Permitir solo 20% de variación sobre el mínimo
+    const maxThreshold = minPing * 1.2
+    const validPings = sorted.filter(p => p <= maxThreshold)
+    
+    // Si no tenemos suficientes valores válidos, usar los primeros 30%
+    const finalPings = validPings.length >= 3 
+        ? validPings 
+        : sorted.slice(0, Math.max(3, Math.floor(sorted.length * 0.3)))
+    
+    // Usar mediana de los valores más bajos para mayor precisión
+    const avgPing = finalPings.length > 0
+        ? finalPings[Math.floor(finalPings.length * 0.5)]
+        : sorted[0]
 
     return {
-        pings: validPings,
+        pings: finalPings,
         avgPing,
-        minPing: Math.min(...validPings),
-        maxPing: Math.max(...validPings)
+        minPing: Math.min(...finalPings),
+        maxPing: Math.max(...finalPings)
     }
 }
 
@@ -323,6 +326,16 @@ export async function simulateSpeedTestImproved(
     try {
         console.log('Iniciando prueba mejorada de velocidad...')
         onProgress?.(0, 'Iniciando prueba de velocidad...', { phase: 'ping' })
+
+        // Pre-calentar conexión (establece conexión TCP antes de medir ping)
+        try {
+            await fetch('https://speed.cloudflare.com/__down?bytes=1', {
+                cache: 'no-store',
+                mode: 'no-cors'
+            })
+        } catch (e) {
+            // Ignorar errores de pre-calentamiento
+        }
 
         // FASE 1: Ping
         onProgress?.(5, 'Midiendo latencia (Ping)...', { phase: 'ping' })

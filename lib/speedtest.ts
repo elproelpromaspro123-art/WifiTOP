@@ -1,6 +1,6 @@
 import { SpeedTestResult } from '@/types'
 
-interface DetailedSpeedTestResult extends SpeedTestResult {
+export interface DetailedSpeedTestResult extends SpeedTestResult {
     minDownload?: number
     maxDownload?: number
     minUpload?: number

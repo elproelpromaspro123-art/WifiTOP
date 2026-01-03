@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
-import { simulateSpeedTest } from '@/lib/speedtest'
+import { simulateSpeedTest, type DetailedSpeedTestResult } from '@/lib/speedtest'
 
 export async function GET() {
   try {
     console.log('Iniciando prueba de speedtest...')
-    const result = await simulateSpeedTest()
+    const result: DetailedSpeedTestResult = await simulateSpeedTest()
     
     return NextResponse.json({
       success: true,

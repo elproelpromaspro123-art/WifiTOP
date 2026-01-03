@@ -70,7 +70,7 @@ export default function RankingTable() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  whileHover={{ backgroundColor: 'rgba(255,255,255,0.1)', paddingY: 20 }}
+                  whileHover={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
                   className="border-b border-white/5 hover:bg-white/10 transition-all duration-300 cursor-pointer"
                 >
                   <td className="py-4 px-4">

@@ -104,31 +104,32 @@ export default function Footer() {
                             )}
                         </motion.div>
                     ))}
+                </motion.div>
 
-                    {/* Divider */}
-                    <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent my-8"></div>
+                {/* Divider */}
+                <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent my-8"></div>
 
-                    {/* Bottom Footer */}
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        whileInView={{ opacity: 1 }}
-                        viewport={{ once: true }}
-                        className="flex flex-col md:flex-row items-center justify-between gap-4"
+                {/* Bottom Footer */}
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    viewport={{ once: true }}
+                    className="flex flex-col md:flex-row items-center justify-between gap-4"
+                >
+                    <div className="flex items-center gap-2">
+                        <span className="text-2xl">⚡</span>
+                        <p className="text-gray-400 text-sm">
+                            © {currentYear} <span className="font-bold text-white">WifiTOP</span>. Todos los derechos reservados.
+                        </p>
+                    </div>
+
+                    <motion.p
+                        whileHover={{ scale: 1.05 }}
+                        className="text-gray-400 text-sm bg-white/5 px-4 py-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
                     >
-                        <div className="flex items-center gap-2">
-                            <span className="text-2xl">⚡</span>
-                            <p className="text-gray-400 text-sm">
-                                © {currentYear} <span className="font-bold text-white">WifiTOP</span>. Todos los derechos reservados.
-                            </p>
-                        </div>
-
-                        <motion.p
-                            whileHover={{ scale: 1.05 }}
-                            className="text-gray-400 text-sm bg-white/5 px-4 py-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-                        >
-                            Hecho con 💙 para los amantes de la velocidad
-                        </motion.p>
-                    </motion.div>
+                        Hecho con 💙 para los amantes de la velocidad
+                    </motion.p>
+                </motion.div>
             </div>
         </footer>
     )

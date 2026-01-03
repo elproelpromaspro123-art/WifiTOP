@@ -12,28 +12,33 @@ function runSpeedtest(retries = 3) {
     const attemptSpeedtest = (attempt) => {
       console.log(`Intento de prueba ${attempt + 1}/${retries}...`)
 
-      exec('speedtest-cli --simple', { timeout: 600000, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+      exec('speedtest-cli --simple 2>&1', { timeout: 600000, maxBuffer: 10 * 1024 * 1024, shell: '/bin/bash' }, (error, stdout, stderr) => {
+        console.log(`[Intento ${attempt + 1}] Raw output:`, stdout)
+        console.log(`[Intento ${attempt + 1}] Stderr:`, stderr)
+        
         if (error) {
           console.error(`Intento ${attempt + 1} falló:`, error.message)
 
           if (attempt < retries - 1) {
-            console.log(`Reintentando en 2 segundos...`)
-            setTimeout(() => attemptSpeedtest(attempt + 1), 2000)
+            console.log(`Reintentando en 3 segundos...`)
+            setTimeout(() => attemptSpeedtest(attempt + 1), 3000)
           } else {
             reject(new Error(`Falló después de ${retries} intentos: ${error.message}`))
           }
           return
         }
 
-        const lines = stdout.trim().split('\n')
+        const lines = stdout.trim().split('\n').filter(line => line.trim())
+        
+        console.log(`[Intento ${attempt + 1}] Lines parsed:`, lines)
         
         if (lines.length < 3) {
-          console.error(`Formato inválido en intento ${attempt + 1}:`, lines)
+          console.error(`Formato inválido en intento ${attempt + 1}: esperaba 3 líneas, obtuve ${lines.length}`)
           
           if (attempt < retries - 1) {
-            setTimeout(() => attemptSpeedtest(attempt + 1), 2000)
+            setTimeout(() => attemptSpeedtest(attempt + 1), 3000)
           } else {
-            reject(new Error('Formato de respuesta inválido después de múltiples intentos'))
+            reject(new Error(`Formato de respuesta inválido después de ${retries} intentos`))
           }
           return
         }
@@ -42,19 +47,21 @@ function runSpeedtest(retries = 3) {
         const download = parseFloat(lines[1]) / 1000 // kbps a Mbps
         const upload = parseFloat(lines[2]) / 1000
 
+        console.log(`[Intento ${attempt + 1}] Parsed values:`, { ping, download, upload })
+
         // Validar que los valores sean válidos
-        if (isNaN(ping) || isNaN(download) || isNaN(upload)) {
+        if (isNaN(ping) || isNaN(download) || isNaN(upload) || download === 0 || upload === 0) {
           console.error(`Valores inválidos en intento ${attempt + 1}:`, { ping, download, upload })
           
           if (attempt < retries - 1) {
-            setTimeout(() => attemptSpeedtest(attempt + 1), 2000)
+            setTimeout(() => attemptSpeedtest(attempt + 1), 3000)
           } else {
             reject(new Error('No se pudieron obtener valores válidos después de múltiples intentos'))
           }
           return
         }
 
-        console.log(`Prueba completada: Ping=${ping}ms, Download=${download}Mbps, Upload=${upload}Mbps`)
+        console.log(`✓ Prueba completada: Ping=${ping}ms, Download=${download}Mbps, Upload=${upload}Mbps`)
         resolve({
           ping: Math.max(ping, 0.1),
           download: Math.max(download, 0.1),

@@ -145,10 +145,13 @@ export default function RankingTable() {
         </div>
 
         <div className="flex gap-2 ml-auto flex-wrap">
+          <label htmlFor="sort-select" className="sr-only">Ordenar resultados por</label>
           <select
+            id="sort-select"
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="px-4 py-2 rounded-lg bg-white/10 text-gray-300 border border-white/20 cursor-pointer hover:bg-white/20 transition-all"
+            className="px-4 py-2 rounded-lg bg-white/10 text-gray-300 border border-white/20 cursor-pointer hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            aria-label="Ordenar resultados por"
           >
             <option value="speed">Ordenar: Velocidad ↓</option>
             <option value="ping">Ordenar: Ping ↑</option>

@@ -57,19 +57,19 @@ export default function ShareButtons({
     >
       <button
         onClick={() => handleShare('twitter')}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/50 text-blue-300 font-semibold transition-all hover:scale-105"
+        className="flex items-center gap-2 px-5 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 border border-blue-400 text-white font-bold transition-all hover:scale-110 active:scale-95 cursor-pointer shadow-lg hover:shadow-xl shadow-blue-500/30"
       >
         𝕏 Twitter
       </button>
       <button
         onClick={() => handleShare('whatsapp')}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600/20 hover:bg-green-600/40 border border-green-500/50 text-green-300 font-semibold transition-all hover:scale-105"
+        className="flex items-center gap-2 px-5 py-3 rounded-lg bg-green-600 hover:bg-green-500 border border-green-400 text-white font-bold transition-all hover:scale-110 active:scale-95 cursor-pointer shadow-lg hover:shadow-xl shadow-green-500/30"
       >
         💬 WhatsApp
       </button>
       <button
         onClick={() => handleShare('facebook')}
-        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-700/20 hover:bg-blue-700/40 border border-blue-600/50 text-blue-300 font-semibold transition-all hover:scale-105"
+        className="flex items-center gap-2 px-5 py-3 rounded-lg bg-blue-700 hover:bg-blue-600 border border-blue-400 text-white font-bold transition-all hover:scale-110 active:scale-95 cursor-pointer shadow-lg hover:shadow-xl shadow-blue-600/30"
       >
         f Facebook
       </button>

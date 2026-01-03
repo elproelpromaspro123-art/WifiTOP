@@ -127,15 +127,14 @@ async function measureDownloadEnhanced(
     const pingResult = await measurePingAccurate()
     const estimatedSpeed = 100 // Estimación inicial conservadora
     
-    // Estrategia adaptativa:
-    // - Ping < 20ms y estamos en prueba = conexión muy buena
-    // - Usar tamaños progresivos hasta 1GB para máxima precisión
+    // Estrategia adaptativa: usar tamaños menores pero múltiples muestras
+    // - Optimizado para velocidad de prueba: ~30-40 segundos total
+    // - Mantiene precisión con múltiples muestras pequeñas
     testSizes = [
+        10000000,      // 10MB - rápido
+        25000000,      // 25MB 
         50000000,      // 50MB
         100000000,     // 100MB
-        200000000,     // 200MB
-        500000000,     // 500MB
-        1000000000,    // 1GB - para conexiones ultra rápidas
     ]
     
     let totalProgress = 0
@@ -263,8 +262,8 @@ async function measureUploadEnhanced(
     maxSpeed: number
 }> {
     const samples: number[] = []
-    // Tamaños adaptativos: desde 50MB a 500MB para máxima precisión en conexiones rápidas
-    const uploadSizes = [50000000, 100000000, 200000000, 350000000, 500000000]
+    // Tamaños adaptativos: optimizados para velocidad (~20-30s por upload)
+    const uploadSizes = [10000000, 25000000, 50000000, 100000000]
     let totalProgress = 0
 
     for (let testIndex = 0; testIndex < uploadSizes.length; testIndex++) {

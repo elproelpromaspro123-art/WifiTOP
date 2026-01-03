@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { useRanking } from '@/hooks/useRanking'
 import { getMedalEmoji, getSpeedColor, formatSpeed } from '@/lib/utils'
@@ -11,13 +12,58 @@ interface RankingEntry {
   downloadSpeed: number
   uploadSpeed: number
   ping: number
-  city?: string
   country?: string
   createdAt: string
 }
 
+type SortOption = 'speed' | 'ping' | 'upload' | 'date'
+type FilterOption = 'all' | 'top100' | 'top1000' | 'fast' | 'lowping'
+
 export default function RankingTable() {
   const { ranking, loading, totalResults } = useRanking()
+  const [sortBy, setSortBy] = useState<SortOption>('speed')
+  const [filterBy, setFilterBy] = useState<FilterOption>('all')
+
+  const filteredAndSorted = useMemo(() => {
+    let filtered = [...ranking]
+
+    // Aplicar filtros
+    switch (filterBy) {
+      case 'top100':
+        filtered = filtered.slice(0, 100)
+        break
+      case 'top1000':
+        filtered = filtered.slice(0, 1000)
+        break
+      case 'fast':
+        filtered = filtered.filter(r => r.downloadSpeed > 100)
+        break
+      case 'lowping':
+        filtered = filtered.filter(r => r.ping < 20)
+        break
+    }
+
+    // Aplicar ordenamiento
+    const sorted = filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'speed':
+          return b.downloadSpeed - a.downloadSpeed
+        case 'ping':
+          return a.ping - b.ping
+        case 'upload':
+          return b.uploadSpeed - a.uploadSpeed
+        case 'date':
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        default:
+          return 0
+      }
+    })
+
+    return sorted.map((entry, idx) => ({
+      ...entry,
+      displayRank: idx + 1
+    }))
+  }, [ranking, sortBy, filterBy])
 
   return (
     <motion.div
@@ -53,6 +99,65 @@ export default function RankingTable() {
         </div>
       </div>
 
+      {/* Controles de filtro y ordenamiento */}
+      <div className="mb-6 flex flex-wrap gap-3">
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={() => setFilterBy('all')}
+            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+              filterBy === 'all'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white/10 text-gray-400 hover:bg-white/20'
+            }`}
+          >
+            Todos
+          </button>
+          <button
+            onClick={() => setFilterBy('top100')}
+            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+              filterBy === 'top100'
+                ? 'bg-yellow-600 text-white'
+                : 'bg-white/10 text-gray-400 hover:bg-white/20'
+            }`}
+          >
+            🥇 Top 100
+          </button>
+          <button
+            onClick={() => setFilterBy('fast')}
+            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+              filterBy === 'fast'
+                ? 'bg-green-600 text-white'
+                : 'bg-white/10 text-gray-400 hover:bg-white/20'
+            }`}
+          >
+            ⚡ Rápidos
+          </button>
+          <button
+            onClick={() => setFilterBy('lowping')}
+            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+              filterBy === 'lowping'
+                ? 'bg-cyan-600 text-white'
+                : 'bg-white/10 text-gray-400 hover:bg-white/20'
+            }`}
+          >
+            📡 Bajo Ping
+          </button>
+        </div>
+
+        <div className="flex gap-2 ml-auto flex-wrap">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortOption)}
+            className="px-4 py-2 rounded-lg bg-white/10 text-gray-300 border border-white/20 cursor-pointer hover:bg-white/20 transition-all"
+          >
+            <option value="speed">Ordenar: Velocidad ↓</option>
+            <option value="ping">Ordenar: Ping ↑</option>
+            <option value="upload">Ordenar: Subida ↓</option>
+            <option value="date">Ordenar: Reciente ↓</option>
+          </select>
+        </div>
+      </div>
+
       {loading ? (
         <div className="flex justify-center items-center h-80">
           <motion.div
@@ -64,7 +169,7 @@ export default function RankingTable() {
             <p className="text-gray-400 font-semibold">Cargando ranking...</p>
           </motion.div>
         </div>
-      ) : ranking.length === 0 ? (
+      ) : filteredAndSorted.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -88,7 +193,7 @@ export default function RankingTable() {
               </tr>
             </thead>
             <tbody>
-              {ranking.map((entry, index) => (
+              {filteredAndSorted.map((entry, index) => (
                 <motion.tr
                   key={entry.id}
                   initial={{ opacity: 0, x: -30 }}
@@ -99,20 +204,20 @@ export default function RankingTable() {
                 >
                   <td className="py-4 px-4">
                     <div className="flex items-center space-x-3">
-                      {entry.rank <= 3 ? (
+                      {entry.displayRank <= 3 ? (
                         <motion.span
                           animate={{ scale: [1, 1.15, 1], rotate: [0, 5, -5, 0] }}
                           transition={{ duration: 2, repeat: Infinity }}
                           className="text-3xl drop-shadow-lg"
                         >
-                          {getMedalEmoji(entry.rank)}
+                          {getMedalEmoji(entry.displayRank)}
                         </motion.span>
                       ) : (
                         <motion.span
                           whileHover={{ scale: 1.2 }}
                           className="text-sm font-bold text-white w-8 h-8 rounded-full bg-gradient-to-br from-blue-500/30 to-purple-500/20 flex items-center justify-center group-hover:from-blue-500/50 group-hover:to-purple-500/40 transition-all border border-blue-500/30"
                         >
-                          #{entry.rank}
+                          #{entry.displayRank}
                         </motion.span>
                       )}
                     </div>
@@ -138,12 +243,12 @@ export default function RankingTable() {
                     <span className="text-xs text-gray-400 ml-1 font-semibold">ms</span>
                   </td>
                   <td className="py-4 px-4 text-gray-400 text-sm">
-                    {entry.city && entry.country ? (
+                    {entry.country ? (
                       <motion.span
                         whileHover={{ scale: 1.05 }}
                         className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-lg px-3 py-1 inline-block font-medium border border-blue-500/30 group-hover:border-blue-500/50 transition-all"
                       >
-                        📍 {entry.city}
+                        🌍 {entry.country}
                       </motion.span>
                     ) : (
                       <span className="text-gray-500 font-semibold">—</span>
@@ -163,7 +268,7 @@ export default function RankingTable() {
         className="mt-8 p-5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl border border-blue-500/30 backdrop-blur-sm"
       >
         <p className="text-sm text-gray-300 text-center font-medium">
-          <span className="text-blue-400 font-bold">💡 Tip:</span> El ranking se actualiza automáticamente cada hora. Los mejores 1000 resultados se muestran aquí.
+          <span className="text-blue-400 font-bold">💡 Tip:</span> El ranking se actualiza en tiempo real. Los mejores 10,000 resultados verificados se muestran aquí con detección automática de fraude.
         </p>
       </motion.div>
     </motion.div>

@@ -1,4 +1,4 @@
-export const RANKINGS_LIMIT = 1000
+export const RANKINGS_LIMIT = 100000
 export const REFRESH_INTERVAL_STATS = 60000 // 1 minuto
 export const REFRESH_INTERVAL_RANKING = 30000 // 30 segundos
 export const SPEEDTEST_DURATION = 5000 // 5 segundos

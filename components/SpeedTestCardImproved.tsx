@@ -3,7 +3,11 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { simulateSpeedTestImproved } from '@/lib/speedtest-improved'
+import { getBadgeInfo } from '@/lib/badges'
+import { useBadges } from '@/hooks/useBadges'
+import { useTestHistory } from '@/hooks/useTestHistory'
 import ValidationError from './ValidationError'
+import ShareButtons from './ShareButtons'
 
 interface TestResult {
     downloadSpeed: number
@@ -39,8 +43,11 @@ const PHASES: Record<string, TestPhase> = {
 }
 
 export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardProps) {
+    const { unlockNewBadges } = useBadges()
+    const { addTest } = useTestHistory()
     const [testing, setTesting] = useState(false)
     const [result, setResult] = useState<TestResult | null>(null)
+    const [unlockedBadges, setUnlockedBadges] = useState<string[]>([])
     const [userName, setUserName] = useState('')
     const [isAnonymous, setIsAnonymous] = useState(false)
     const [progress, setProgress] = useState(0)
@@ -139,6 +146,27 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
             setCurrentPhase(PHASES.complete)
             setStatusMsg('Prueba completada')
             setResult(data.result)
+
+            // Guardar en histórico local
+            addTest({
+                downloadSpeed: data.result.downloadSpeed,
+                uploadSpeed: data.result.uploadSpeed,
+                ping: data.result.ping,
+                jitter: data.result.jitter || 0,
+                stability: data.result.stability || 0,
+                userName
+            })
+
+            // Desbloquear badges y guardar en localStorage
+            const newBadges = unlockNewBadges(
+                data.result.downloadSpeed,
+                data.result.uploadSpeed,
+                data.result.ping,
+                data.result.jitter || 0,
+                data.result.stability || 0,
+                data.rank
+            )
+            setUnlockedBadges(newBadges)
 
             if (onTestComplete) {
                 onTestComplete(data.result)
@@ -430,6 +458,42 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                 )}
                             </div>
 
+                            {/* Badges desbloqueados */}
+                            {unlockedBadges.length > 0 && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-lg p-4 border border-purple-500/30"
+                                >
+                                    <p className="text-sm font-bold text-purple-300 mb-3">🏅 Badges Desbloqueados:</p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {unlockedBadges.map(badgeId => {
+                                            const badge = getBadgeInfo(badgeId)
+                                            return badge ? (
+                                                <motion.div
+                                                    key={badgeId}
+                                                    initial={{ scale: 0 }}
+                                                    animate={{ scale: 1 }}
+                                                    transition={{ type: 'spring' }}
+                                                    className={`bg-gradient-to-br ${badge.color} rounded-lg p-2 text-center text-xs`}
+                                                >
+                                                    <p className="text-lg mb-1">{badge.icon}</p>
+                                                    <p className="font-semibold text-white">{badge.name}</p>
+                                                </motion.div>
+                                            ) : null
+                                        })}
+                                    </div>
+                                </motion.div>
+                            )}
+
+                            {/* Botones de compartir */}
+                            <ShareButtons
+                              downloadSpeed={result.downloadSpeed}
+                              uploadSpeed={result.uploadSpeed}
+                              ping={result.ping}
+                              userName={userName || 'Usuario'}
+                            />
+
                             <button
                                 onClick={() => {
                                     setResult(null)
@@ -437,6 +501,7 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                     setProgress(0)
                                     setCurrentPhase(PHASES.idle)
                                     setStatusMsg('Listo')
+                                    setUnlockedBadges([])
                                 }}
                                 className="w-full py-3 rounded-lg font-semibold bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/50 hover:from-blue-600/40 hover:to-purple-600/40 transition-all text-white"
                             >

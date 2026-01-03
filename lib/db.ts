@@ -28,7 +28,6 @@ export async function initializeDatabase() {
         download_speed FLOAT NOT NULL,
         upload_speed FLOAT NOT NULL,
         ping FLOAT NOT NULL,
-        city VARCHAR(255),
         country VARCHAR(255),
         isp VARCHAR(255),
         ip_address VARCHAR(255),
@@ -48,6 +47,12 @@ export async function initializeDatabase() {
     await query(`
       CREATE INDEX IF NOT EXISTS idx_results_created_at 
       ON results(created_at DESC)
+    `)
+
+    // Create index on country for geo-based queries
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_results_country 
+      ON results(country)
     `)
 
     // Create rate_limits table

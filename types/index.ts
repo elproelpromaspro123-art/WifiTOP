@@ -3,6 +3,11 @@ export interface SpeedTestResult {
   uploadSpeed: number
   ping: number
   jitter: number
+  stability?: number
+  minDownload?: number
+  maxDownload?: number
+  minUpload?: number
+  maxUpload?: number
 }
 
 export interface RankingEntry {

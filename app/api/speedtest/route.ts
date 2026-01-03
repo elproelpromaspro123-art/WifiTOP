@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import { simulateSpeedTestImproved as simulateSpeedTest, getGeoLocation } from '@/lib/speedtest-improved'
 import { maintainRanking } from '@/lib/ranking'
-import { validateUserName, validateSpeedTestResult } from '@/lib/validation'
+import { validateUserName, validateSpeedTestResult, detectAnomalies } from '@/lib/validation'
 import { checkRateLimit } from '@/lib/rate-limit'
 
 function getRealIP(request: NextRequest): string {
@@ -90,14 +90,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Detectar anomalías y fraude
+    const anomalyDetection = detectAnomalies(result)
+    if (anomalyDetection.anomaly && anomalyDetection.confidence! > 70) {
+      console.warn(`Anomalía detectada para IP ${ip}:`, anomalyDetection)
+      return NextResponse.json(
+        { error: 'Resultado sospechoso detectado. Por favor intenta de nuevo.' },
+        { status: 400 }
+      )
+    }
+
     // Obtener geolocalización
     const geoLocation = await getGeoLocation(ip)
 
     // Guardar resultado en la base de datos
     const insertResult = await query(
       `
-      INSERT INTO results (user_name, download_speed, upload_speed, ping, ip_address, city, country, isp)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      INSERT INTO results (user_name, download_speed, upload_speed, ping, ip_address, country, isp)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id
       `,
       [
@@ -106,7 +116,6 @@ export async function POST(request: NextRequest) {
         result.uploadSpeed,
         result.ping,
         ip,
-        geoLocation?.city || null,
         geoLocation?.country || null,
         geoLocation?.isp || null,
       ]

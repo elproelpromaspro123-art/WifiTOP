@@ -1,6 +1,6 @@
 import { query } from './db'
 
-const TOP_RESULTS_LIMIT = 1000
+const TOP_RESULTS_LIMIT = 100000
 
 export interface RankingResult {
   id: number

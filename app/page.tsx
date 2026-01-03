@@ -1,11 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import SpeedTestCardImproved from '@/components/SpeedTestCardImproved'
 import RankingTable from '@/components/RankingTable'
+import UserBadgesDisplay from '@/components/UserBadgesDisplay'
+import TestHistoryDisplay from '@/components/TestHistoryDisplay'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import ValidationError from '@/components/ValidationError'
+import WhatsNewModal from '@/components/WhatsNewModal'
 import { useStats } from '@/hooks/useStats'
 import { useRanking } from '@/hooks/useRanking'
 import { motion } from 'framer-motion'
@@ -13,8 +16,18 @@ import { motion } from 'framer-motion'
 export default function Home() {
     const [results, setResults] = useState<any>(null)
     const [statsError, setStatsError] = useState<string | null>(null)
+    const [showWhatsNew, setShowWhatsNew] = useState(false)
     const { stats, loading, error, refetch } = useStats()
     const { refetch: refetchRanking } = useRanking()
+
+    // Mostrar modal de novedades solo la primera vez
+    useEffect(() => {
+        const hasSeenWhatsNew = localStorage.getItem('wifitop_seen_whatsnew')
+        if (!hasSeenWhatsNew) {
+            setShowWhatsNew(true)
+            localStorage.setItem('wifitop_seen_whatsnew', 'true')
+        }
+    }, [])
 
     const handleTestComplete = (result: any) => {
         setResults(result)
@@ -43,6 +56,8 @@ export default function Home() {
 
     return (
         <main className="min-h-screen bg-gradient-to-b from-black via-slate-950 to-black overflow-hidden">
+            <WhatsNewModal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} />
+
             {/* Animated Background */}
             <div className="fixed inset-0 pointer-events-none overflow-hidden">
                 <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
@@ -70,28 +85,28 @@ export default function Home() {
                         className="space-y-6"
                     >
                         {/* Main Title */}
-                        <div className="space-y-3">
-                            <h1 className="text-6xl md:text-8xl font-black tracking-tighter">
-                                <span className="bg-gradient-to-r from-blue-300 via-white to-purple-300 bg-clip-text text-transparent drop-shadow-2xl">
-                                    WifiTOP
-                                </span>
-                            </h1>
-                            <div className="space-y-2">
-                                <p className="text-2xl md:text-3xl font-bold text-white">Presume tu velocidad 🚀</p>
-                                <p className="text-lg md:text-xl text-gray-400">Compite con usuarios de todo el mundo</p>
-                            </div>
-                        </div>
+                         <div className="space-y-3">
+                             <h1 className="text-6xl md:text-8xl font-black tracking-tighter">
+                                 <span className="bg-gradient-to-r from-blue-300 via-white to-purple-300 bg-clip-text text-transparent drop-shadow-2xl">
+                                     WifiTOP
+                                 </span>
+                             </h1>
+                             <div className="space-y-2">
+                                 <p className="text-2xl md:text-3xl font-bold text-white">Presume tu velocidad de WiFi 🚀</p>
+                                 <p className="text-lg md:text-xl text-gray-400">Ranking global con 10,000+ usuarios | Mediciones precisas | Badges exclusivos</p>
+                             </div>
+                         </div>
 
-                        {/* CTA Divider */}
-                        <motion.div
-                            animate={{ width: ['0%', '100%'] }}
-                            transition={{ duration: 1, delay: 0.3 }}
-                            className="h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent mx-auto max-w-xs"
-                        />
+                         {/* CTA Divider */}
+                         <motion.div
+                             animate={{ width: ['0%', '100%'] }}
+                             transition={{ duration: 1, delay: 0.3 }}
+                             className="h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent mx-auto max-w-xs"
+                         />
 
-                        <p className="text-gray-400 text-base max-w-2xl mx-auto">
-                            La plataforma más precisa para medir tu velocidad de internet. Únete a miles de usuarios y demuestra que tienes la mejor conexión.
-                        </p>
+                         <p className="text-gray-400 text-base max-w-2xl mx-auto">
+                             Speedtest ultra preciso con detección automática de fraude. Compite con usuarios de todo el mundo, desbloquea badges únicos y demuestra que tienes la mejor conexión.
+                         </p>
                     </motion.div>
                 </section>
 
@@ -104,51 +119,59 @@ export default function Home() {
                         className="max-w-3xl mx-auto"
                     >
                         <div className="text-center mb-12">
-                            <h2 className="text-4xl md:text-5xl font-black mb-4 bg-gradient-to-r from-blue-300 via-white to-purple-300 bg-clip-text text-transparent">
-                                Acerca de WifiTOP
-                            </h2>
-                            <p className="text-gray-400 text-lg">Conoce nuestra plataforma de pruebas de velocidad</p>
-                        </div>
+                             <h2 className="text-4xl md:text-5xl font-black mb-4 bg-gradient-to-r from-blue-300 via-white to-purple-300 bg-clip-text text-transparent">
+                                 Sobre WifiTOP
+                             </h2>
+                             <p className="text-gray-400 text-lg">La plataforma definitiva de speedtest con ranking global</p>
+                         </div>
 
-                        <div className="glow-border rounded-xl p-8 backdrop-blur-sm bg-gradient-to-br from-white/5 to-white/0">
-                            <div className="space-y-6">
-                                <div>
-                                    <h3 className="text-xl font-bold text-white mb-3">¿Qué es WifiTOP?</h3>
-                                    <p className="text-gray-300 leading-relaxed">
-                                        WifiTOP es una plataforma moderna de pruebas de velocidad de internet que te permite medir con precisión tu velocidad de descarga, subida y latencia. Compite con usuarios de todo el mundo y demuestra que tienes la mejor conexión.
-                                    </p>
-                                </div>
+                         <div className="glow-border rounded-xl p-8 backdrop-blur-sm bg-gradient-to-br from-white/5 to-white/0">
+                             <div className="space-y-6">
+                                 <div>
+                                     <h3 className="text-xl font-bold text-white mb-3">¿Qué es WifiTOP?</h3>
+                                     <p className="text-gray-300 leading-relaxed">
+                                         WifiTOP es la plataforma más avanzada de pruebas de velocidad de internet. Mide con precisión tu descarga, subida, ping y jitter usando servidores globales de Cloudflare. Compite en un ranking de 10,000+ usuarios y desbloquea badges exclusivos mientras mantienes la integridad con detección automática de fraude.
+                                     </p>
+                                 </div>
 
-                                <div>
-                                    <h3 className="text-xl font-bold text-white mb-3">Características Principales</h3>
-                                    <ul className="space-y-2 text-gray-300">
-                                        <li className="flex items-start gap-3">
-                                            <span className="text-blue-400 font-bold">✓</span>
-                                            <span>Mediciones precisas con tecnología avanzada</span>
-                                        </li>
-                                        <li className="flex items-start gap-3">
-                                            <span className="text-blue-400 font-bold">✓</span>
-                                            <span>Ranking global en tiempo real</span>
-                                        </li>
-                                        <li className="flex items-start gap-3">
-                                            <span className="text-blue-400 font-bold">✓</span>
-                                            <span>Análisis detallado: ping, jitter, estabilidad</span>
-                                        </li>
-                                        <li className="flex items-start gap-3">
-                                            <span className="text-blue-400 font-bold">✓</span>
-                                            <span>Datos privados y seguros</span>
-                                        </li>
-                                    </ul>
-                                </div>
+                                 <div>
+                                     <h3 className="text-xl font-bold text-white mb-3">Lo que Obtienes</h3>
+                                     <ul className="space-y-2 text-gray-300">
+                                         <li className="flex items-start gap-3">
+                                             <span className="text-blue-400 font-bold">✓</span>
+                                             <span>Mediciones ultra precisas: descarga, subida, ping, jitter, estabilidad</span>
+                                         </li>
+                                         <li className="flex items-start gap-3">
+                                             <span className="text-blue-400 font-bold">✓</span>
+                                             <span>Ranking global en tiempo real con 10,000 mejores resultados</span>
+                                         </li>
+                                         <li className="flex items-start gap-3">
+                                             <span className="text-blue-400 font-bold">✓</span>
+                                             <span>12+ badges desbloqueables según tus logros</span>
+                                         </li>
+                                         <li className="flex items-start gap-3">
+                                             <span className="text-blue-400 font-bold">✓</span>
+                                             <span>Detección inteligente de fraude y anomalías</span>
+                                         </li>
+                                         <li className="flex items-start gap-3">
+                                             <span className="text-blue-400 font-bold">✓</span>
+                                             <span>Modo anónimo para pruebas privadas</span>
+                                         </li>
+                                         <li className="flex items-start gap-3">
+                                             <span className="text-blue-400 font-bold">✓</span>
+                                             <span>Compartir resultados en redes sociales</span>
+                                         </li>
+                                     </ul>
+                                 </div>
 
-                                <div className="pt-6 border-t border-white/10">
-                                    <h3 className="text-xl font-bold text-white mb-3">¿Por qué elegirnos?</h3>
-                                    <p className="text-gray-300 leading-relaxed">
-                                        Somos la plataforma más confiable y precisa para medir tu velocidad de internet. Con tecnología de punta y resultados instantáneos, WifiTOP es tu mejor aliado para entender y mejorar tu conexión.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
+                                 <div className="pt-6 border-t border-white/10">
+                                     <h3 className="text-xl font-bold text-white mb-3">¿Por qué WifiTOP?</h3>
+                                     <p className="text-gray-300 leading-relaxed">
+                                         Somos la única plataforma con detección automática de fraude, ranking verificado y badges exclusivos. Con tecnología de Cloudflare y análisis en tiempo real, WifiTOP es tu aliado definitivo para medir, compartir y mejorar tu conexión de internet.
+                                     </p>
+                                 </div>
+                             </div>
+                         </div>
                     </motion.div>
                 </section>
 
@@ -268,6 +291,12 @@ export default function Home() {
                     {/* Features Section */}
                     <FeaturesSection />
 
+                    {/* Test History Display */}
+                    <TestHistoryDisplay />
+
+                    {/* User Badges Display */}
+                    <UserBadgesDisplay />
+
                     {/* Ranking Table */}
                     <motion.div
                         initial={{ opacity: 0, y: 30 }}
@@ -340,23 +369,23 @@ function FeaturesSection() {
     const features = [
         {
             icon: '⚡',
-            title: 'Ultra Preciso',
-            description: 'Mediciones precisas con 260MB de datos para máxima exactitud'
+            title: 'Preciso con Cloudflare',
+            description: 'Mediciones ultra precisas con 1GB de datos y servidores globales'
         },
         {
             icon: '🏆',
-            title: 'Compite Globalmente',
-            description: 'Compite con usuarios de todo el mundo en tiempo real'
+            title: 'Ranking 10,000+',
+            description: 'Compite contra los mejores. Top 10,000 usuarios en tiempo real'
         },
         {
-            icon: '📊',
-            title: 'Análisis Detallado',
-            description: 'Obtén métricas completas: ping, jitter, estabilidad'
+            icon: '🛡️',
+            title: 'Anti-Fraude Automático',
+            description: 'Detección inteligente rechaza resultados sospechosos'
         },
         {
-            icon: '🔒',
-            title: 'Privado y Seguro',
-            description: 'Tus datos están protegidos y nunca se comparten'
+            icon: '🏅',
+            title: '12+ Badges Desbloqueables',
+            description: 'Speedster Extremo, Gaming Beast, Stability King y más'
         }
     ]
 
@@ -370,10 +399,10 @@ function FeaturesSection() {
             >
                 <div className="text-center">
                     <h2 className="text-4xl md:text-5xl font-black mb-4 bg-gradient-to-r from-blue-300 via-white to-purple-300 bg-clip-text text-transparent">
-                        Por qué elegirnos
+                        Por qué WifiTOP
                     </h2>
                     <p className="text-gray-400 max-w-xl mx-auto">
-                        La solución más moderna y confiable para medir tu velocidad de internet
+                        La única plataforma con fraude detection, ranking verificado y badges únicos
                     </p>
                 </div>
 

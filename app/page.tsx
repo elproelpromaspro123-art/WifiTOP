@@ -55,7 +55,7 @@ export default function Home() {
     }
 
     return (
-        <main className="min-h-screen bg-gradient-to-b from-black via-slate-950 to-black pointer-events-auto">
+        <main className="min-h-screen bg-gradient-to-b from-black via-slate-950 to-black pointer-events-auto" style={{ pointerEvents: 'auto', touchAction: 'auto' }}>
             <WhatsNewModal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} />
 
             {/* Animated Background */}
@@ -176,15 +176,16 @@ export default function Home() {
                 </section>
 
                 {/* Main Content Grid */}
-                 <div className="container mx-auto px-4 py-12 pointer-events-auto">
+                 <div className="container mx-auto px-4 py-12 pointer-events-auto" style={{ pointerEvents: 'auto', touchAction: 'auto' }}>
                     <motion.div
                         variants={containerVariants}
                         initial="hidden"
                         animate="visible"
                         className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16 pointer-events-auto"
+                        style={{ pointerEvents: 'auto', touchAction: 'auto' }}
                     >
                         {/* Speed Test Card */}
-                         <motion.div variants={itemVariants} className="lg:col-span-1 pointer-events-auto">
+                         <motion.div variants={itemVariants} className="lg:col-span-1 pointer-events-auto" style={{ pointerEvents: 'auto', touchAction: 'auto' }}>
                              <SpeedTestCardImproved onTestComplete={handleTestComplete} />
                          </motion.div>
 

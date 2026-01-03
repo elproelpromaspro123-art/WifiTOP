@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getTopResults, getTotalResultsCount } from '@/lib/ranking'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const results = await getTopResults(1000)

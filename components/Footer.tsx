@@ -32,18 +32,7 @@ export default function Footer() {
       items: [
         { label: '🏠 Inicio', href: '/', icon: 'home' },
         { label: '🏆 Ranking', href: '#ranking', icon: 'ranking' },
-        { label: '⚡ Prueba', href: '#', icon: 'test' },
-        { label: '📊 Estadísticas', href: '#', icon: 'stats' }
-      ],
-      isText: false
-    },
-    {
-      title: 'Información',
-      items: [
-        { label: 'ℹ️ Acerca de', href: '#about', icon: 'about' },
-        { label: '🔒 Privacidad', href: '#', icon: 'privacy' },
-        { label: '📋 Términos', href: '#', icon: 'terms' },
-        { label: '📧 Contacto', href: '#', icon: 'contact' }
+        { label: 'ℹ️ Acerca de', href: '#about', icon: 'about' }
       ],
       isText: false
     }
@@ -78,14 +67,14 @@ export default function Footer() {
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
-          className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12"
+          className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12"
         >
           {footerSections.map((section, idx) => (
             <motion.div key={idx} variants={itemVariants}>
               <h3 className="font-black text-lg mb-6 bg-gradient-to-r from-blue-300 via-white to-purple-300 bg-clip-text text-transparent">
                 {section.title}
               </h3>
-              
+
               {section.isText ? (
                 <div className="space-y-3">
                   {(section.items as string[]).map((item, i) => (
@@ -115,24 +104,6 @@ export default function Footer() {
               )}
             </motion.div>
           ))}
-
-          {/* Stats Box */}
-          <motion.div
-            variants={itemVariants}
-            className="bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-xl p-6 border border-blue-500/20 col-span-1"
-          >
-            <h3 className="font-black text-lg mb-6 text-white">Comunidad</h3>
-            <div className="space-y-4">
-              <div>
-                <p className="text-gray-400 text-xs font-semibold mb-2">Usuarios Activos</p>
-                <p className="text-3xl font-black bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">1000+</p>
-              </div>
-              <div className="pt-4 border-t border-white/10">
-                <p className="text-gray-400 text-xs font-semibold mb-2">Pruebas Completadas</p>
-                <p className="text-2xl font-bold text-green-400">5M+</p>
-              </div>
-            </div>
-          </motion.div>
         </motion.div>
 
         {/* Divider */}
@@ -151,7 +122,7 @@ export default function Footer() {
               © {currentYear} <span className="font-bold text-white">WifiTOP</span>. Todos los derechos reservados.
             </p>
           </div>
-          
+
           <motion.p
             whileHover={{ scale: 1.05 }}
             className="text-gray-400 text-sm bg-white/5 px-4 py-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"

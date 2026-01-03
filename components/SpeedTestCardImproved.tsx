@@ -179,7 +179,7 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
 
                                 <button
                                     onClick={handleStartTest}
-                                    className="w-full py-4 rounded-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all duration-300 text-white mb-4"
+                                    className="w-full py-4 rounded-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all duration-300 text-white mb-4 cursor-pointer relative z-10"
                                 >
                                     🚀 Comenzar Prueba
                                 </button>

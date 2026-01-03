@@ -10,174 +10,57 @@ interface DetailedSpeedTestResult extends SpeedTestResult {
     stability?: number
 }
 
-// Servidores LibreSpeed públicos
-const LIBRESPEED_SERVERS = [
-    'https://librespeed.org/speedtest/garbage.php',
-    'https://speedtest.fibertel.com.ar/speedtest/garbage.php',
-]
+const SPEEDTEST_SERVER = process.env.SPEEDTEST_SERVER_URL || 'http://localhost:3001'
 
 /**
- * Mide el ping haciendo peticiones HTTP a un servidor
- */
-async function measurePing(url: string): Promise<number[]> {
-    const pings: number[] = []
-    const attempts = 4
-
-    for (let i = 0; i < attempts; i++) {
-        try {
-            const startTime = performance.now()
-            const response = await fetch(url, {
-                method: 'HEAD',
-                cache: 'no-store',
-                signal: AbortSignal.timeout(5000),
-            })
-            const endTime = performance.now()
-            
-            if (response.ok || response.status === 200) {
-                pings.push(Math.max(endTime - startTime, 0.1))
-            }
-        } catch (error) {
-            console.error('Ping measurement error:', error)
-            pings.push(50 + Math.random() * 50)
-        }
-
-        // Pequeña pausa entre intentos
-        await new Promise(resolve => setTimeout(resolve, 100))
-    }
-
-    return pings
-}
-
-/**
- * Mide descarga real descargando un archivo
- */
-async function measureDownload(url: string): Promise<number> {
-    const measurements: number[] = []
-
-    // Hacer 3 mediciones
-    for (let i = 0; i < 3; i++) {
-        try {
-            const startTime = performance.now()
-            const response = await fetch(`${url}?r=${Math.random()}`, {
-                cache: 'no-store',
-                signal: AbortSignal.timeout(30000),
-            })
-
-            if (!response.ok) continue
-
-            const buffer = await response.arrayBuffer()
-            const endTime = performance.now()
-            const durationSeconds = (endTime - startTime) / 1000
-
-            if (durationSeconds > 0) {
-                const speedMbps = (buffer.byteLength * 8) / durationSeconds / 1024 / 1024
-                measurements.push(Math.max(speedMbps, 0.1))
-            }
-        } catch (error) {
-            console.error('Download measurement error:', error)
-            continue
-        }
-    }
-
-    return measurements.length > 0
-        ? measurements.reduce((a, b) => a + b, 0) / measurements.length
-        : 0
-}
-
-/**
- * Mide subida real enviando datos
- */
-async function measureUpload(url: string): Promise<number> {
-    const measurements: number[] = []
-
-    for (let i = 0; i < 2; i++) {
-        try {
-            const uploadSize = 4 * 1024 * 1024 // 4 MB
-            const data = new Uint8Array(uploadSize)
-
-            const startTime = performance.now()
-            const response = await fetch(url, {
-                method: 'POST',
-                body: data,
-                cache: 'no-store',
-                signal: AbortSignal.timeout(30000),
-            })
-
-            if (!response.ok) continue
-
-            const endTime = performance.now()
-            const durationSeconds = (endTime - startTime) / 1000
-
-            if (durationSeconds > 0) {
-                const speedMbps = (uploadSize * 8) / durationSeconds / 1024 / 1024
-                measurements.push(Math.max(speedMbps, 0.05))
-            }
-        } catch (error) {
-            console.error('Upload measurement error:', error)
-            continue
-        }
-    }
-
-    return measurements.length > 0
-        ? measurements.reduce((a, b) => a + b, 0) / measurements.length
-        : 0
-}
-
-/**
- * Realizar prueba de velocidad REAL con LibreSpeed
+ * Realiza prueba de velocidad real usando servidor externo con speedtest-cli
  */
 export async function simulateSpeedTest(): Promise<DetailedSpeedTestResult> {
     try {
-        const testUrl = LIBRESPEED_SERVERS[0]
+        console.log(`Conectando a servidor speedtest: ${SPEEDTEST_SERVER}`)
 
-        // Medir ping
-        const pings = await measurePing(testUrl)
-        if (pings.length === 0) {
-            throw new Error('No se pudo medir el ping')
+        const response = await fetch(`${SPEEDTEST_SERVER}/speedtest`, {
+            method: 'GET',
+            signal: AbortSignal.timeout(300000), // 5 minutos máximo
+        })
+
+        if (!response.ok) {
+            throw new Error(`Error del servidor: ${response.status}`)
         }
 
-        const avgPing = pings.reduce((a, b) => a + b, 0) / pings.length
-        const minPing = Math.min(...pings)
-        const maxPing = Math.max(...pings)
+        const data = await response.json()
 
-        // Medir descarga
-        const downloadSpeed = await measureDownload(testUrl)
-        if (downloadSpeed === 0) {
-            throw new Error('No se pudo medir la velocidad de descarga')
+        if (!data.success) {
+            throw new Error(data.error || 'Error desconocido en el servidor')
         }
 
-        // Medir subida
-        const uploadSpeed = await measureUpload(testUrl)
-        if (uploadSpeed === 0) {
-            throw new Error('No se pudo medir la velocidad de subida')
-        }
+        const downloadSpeed = data.download
+        const uploadSpeed = data.upload
+        const ping = data.ping
 
-        // Calcular jitter
-        const jitterValues: number[] = []
-        for (let i = 1; i < pings.length; i++) {
-            jitterValues.push(Math.abs(pings[i] - pings[i - 1]))
-        }
-        const avgJitter =
-            jitterValues.length > 0
-                ? jitterValues.reduce((a, b) => a + b, 0) / jitterValues.length
-                : 0
-
-        // Simular min/max basado en variabilidad
-        const downloadVariability = 0.08
+        // Simular min/max basado en pequeña variabilidad
+        const downloadVariability = 0.05
         const minDownload = downloadSpeed * (1 - downloadVariability)
         const maxDownload = downloadSpeed * (1 + downloadVariability)
 
-        const uploadVariability = 0.10
+        const uploadVariability = 0.08
         const minUpload = uploadSpeed * (1 - uploadVariability)
         const maxUpload = uploadSpeed * (1 + uploadVariability)
 
-        // Calcular estabilidad
+        const pingVariability = 0.10
+        const minPing = ping * (1 - pingVariability)
+        const maxPing = ping * (1 + pingVariability)
+
+        // Jitter estimado
+        const avgJitter = ping * 0.10
+
+        // Estabilidad
         const stability = Math.max(0, 100 - downloadVariability * 100)
 
         return {
             downloadSpeed: parseFloat(downloadSpeed.toFixed(2)),
             uploadSpeed: parseFloat(uploadSpeed.toFixed(2)),
-            ping: parseFloat(avgPing.toFixed(1)),
+            ping: parseFloat(ping.toFixed(1)),
             jitter: parseFloat(avgJitter.toFixed(1)),
             minDownload: parseFloat(minDownload.toFixed(2)),
             maxDownload: parseFloat(maxDownload.toFixed(2)),

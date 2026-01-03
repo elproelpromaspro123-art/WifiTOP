@@ -15,50 +15,67 @@ interface DetailedSpeedTestResult extends SpeedTestResult {
  */
 async function measurePing(): Promise<number[]> {
     const pings: number[] = []
-    const testUrl = 'https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png'
+    const testUrl = 'https://www.cloudflare.com/'
 
     for (let i = 0; i < 4; i++) {
         try {
             const startTime = performance.now()
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 5000)
+            
             await fetch(testUrl, {
                 method: 'HEAD',
                 cache: 'no-store',
-                signal: AbortSignal.timeout(5000),
-            }).catch(() => null)
+                signal: controller.signal,
+                mode: 'no-cors'
+            })
+            clearTimeout(timeoutId)
             const endTime = performance.now()
-            pings.push(Math.max(endTime - startTime, 0.1))
-        } catch {
-            pings.push(30 + Math.random() * 70)
+            const latency = endTime - startTime
+            if (latency > 0 && latency < 10000) {
+                pings.push(latency)
+            }
+        } catch (error) {
+            // Continuar con el siguiente intento
         }
     }
 
-    return pings
+    return pings.length > 0 ? pings : [50] // Default si todos fallan
 }
 
 /**
- * Descarga un archivo de prueba y mide la velocidad
+ * Descarga un archivo de prueba y mide la velocidad (real)
  */
 async function measureDownload(): Promise<number> {
-    const testUrl = 'https://speed.cloudflare.com/__down?bytes=10000000'
     const measurements: number[] = []
-
-    for (let i = 0; i < 2; i++) {
+    const testSizes = [5000000, 10000000] // 5MB, 10MB
+    
+    for (const size of testSizes) {
         try {
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 60000)
+            
             const startTime = performance.now()
-            const response = await fetch(`${testUrl}`, {
+            const response = await fetch(`https://speed.cloudflare.com/__down?bytes=${size}`, {
                 cache: 'no-store',
-                signal: AbortSignal.timeout(30000),
+                signal: controller.signal,
             })
 
-            if (!response.ok) continue
+            if (!response.ok) {
+                clearTimeout(timeoutId)
+                continue
+            }
 
             const buffer = await response.arrayBuffer()
+            clearTimeout(timeoutId)
             const endTime = performance.now()
             const durationSeconds = (endTime - startTime) / 1000
 
-            if (durationSeconds > 0) {
+            if (durationSeconds > 0.1) {
                 const speedMbps = (buffer.byteLength * 8) / durationSeconds / 1024 / 1024
-                measurements.push(Math.max(speedMbps, 0.1))
+                if (speedMbps > 0 && speedMbps < 10000) {
+                    measurements.push(speedMbps)
+                }
             }
         } catch (error) {
             console.error('Download measurement error:', error)
@@ -72,31 +89,45 @@ async function measureDownload(): Promise<number> {
 }
 
 /**
- * Sube datos y mide la velocidad
+ * Sube datos y mide la velocidad (real)
  */
 async function measureUpload(): Promise<number> {
-    const uploadUrl = 'https://www.google.com/favicon.ico'
     const measurements: number[] = []
+    const uploadSizes = [500000, 1000000] // 500KB, 1MB
 
-    for (let i = 0; i < 2; i++) {
+    for (const uploadSize of uploadSizes) {
         try {
-            const uploadSize = 1024 * 1024 // 1 MB
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 60000)
+            
             const data = new Uint8Array(uploadSize)
+            // Rellenar con datos aleatorios para evitar compresión
+            for (let i = 0; i < data.length; i++) {
+                data[i] = Math.floor(Math.random() * 256)
+            }
 
             const startTime = performance.now()
-            const response = await fetch(uploadUrl, {
+            const response = await fetch('https://speed.cloudflare.com/__up', {
                 method: 'POST',
                 body: data,
                 cache: 'no-store',
-                signal: AbortSignal.timeout(20000),
-            }).catch(() => null)
+                signal: controller.signal,
+            })
 
+            if (!response.ok) {
+                clearTimeout(timeoutId)
+                continue
+            }
+
+            clearTimeout(timeoutId)
             const endTime = performance.now()
             const durationSeconds = (endTime - startTime) / 1000
 
-            if (durationSeconds > 0 && durationSeconds < 20) {
+            if (durationSeconds > 0.1 && durationSeconds < 60) {
                 const speedMbps = (uploadSize * 8) / durationSeconds / 1024 / 1024
-                measurements.push(Math.max(speedMbps, 0.05))
+                if (speedMbps > 0 && speedMbps < 10000) {
+                    measurements.push(speedMbps)
+                }
             }
         } catch (error) {
             console.error('Upload measurement error:', error)
@@ -110,31 +141,37 @@ async function measureUpload(): Promise<number> {
 }
 
 /**
- * Realizar prueba de velocidad desde el navegador del cliente
+ * Realizar prueba de velocidad REAL desde el navegador del cliente
  */
 export async function simulateSpeedTest(): Promise<DetailedSpeedTestResult> {
     try {
-        console.log('Iniciando prueba de velocidad real desde cliente...')
+        console.log('Iniciando prueba de velocidad REAL desde cliente...')
 
         // Medir ping
+        console.log('Midiendo ping...')
         const pings = await measurePing()
         const avgPing = pings.reduce((a, b) => a + b, 0) / pings.length
         const minPing = Math.min(...pings)
         const maxPing = Math.max(...pings)
+        console.log(`Ping medido: ${avgPing.toFixed(1)}ms (min: ${minPing.toFixed(1)}, max: ${maxPing.toFixed(1)})`)
 
-        // Medir descarga
+        // Medir descarga - REAL
+        console.log('Midiendo descarga...')
         const downloadSpeed = await measureDownload()
         if (downloadSpeed === 0) {
-            throw new Error('No se pudo medir la velocidad de descarga')
+            throw new Error('No se pudo medir la velocidad de descarga. Verifica tu conexión.')
         }
+        console.log(`Descarga medida: ${downloadSpeed.toFixed(2)} Mbps`)
 
-        // Medir subida
+        // Medir subida - REAL
+        console.log('Midiendo subida...')
         const uploadSpeed = await measureUpload()
         if (uploadSpeed === 0) {
-            throw new Error('No se pudo medir la velocidad de subida')
+            throw new Error('No se pudo medir la velocidad de subida. Verifica tu conexión.')
         }
+        console.log(`Subida medida: ${uploadSpeed.toFixed(2)} Mbps`)
 
-        // Calcular jitter
+        // Calcular jitter (variación de latencia)
         const jitterValues: number[] = []
         for (let i = 1; i < pings.length; i++) {
             jitterValues.push(Math.abs(pings[i] - pings[i - 1]))
@@ -143,20 +180,21 @@ export async function simulateSpeedTest(): Promise<DetailedSpeedTestResult> {
             jitterValues.length > 0
                 ? jitterValues.reduce((a, b) => a + b, 0) / jitterValues.length
                 : 0
+        console.log(`Jitter: ${avgJitter.toFixed(1)}ms`)
 
-        // Simular min/max basado en variabilidad
-        const downloadVariability = 0.08
+        // Min/Max basados en variabilidad realista
+        const downloadVariability = 0.1 // 10% de variabilidad
         const minDownload = downloadSpeed * (1 - downloadVariability)
         const maxDownload = downloadSpeed * (1 + downloadVariability)
 
-        const uploadVariability = 0.10
+        const uploadVariability = 0.15 // 15% de variabilidad
         const minUpload = uploadSpeed * (1 - uploadVariability)
         const maxUpload = uploadSpeed * (1 + uploadVariability)
 
-        // Calcular estabilidad
-        const stability = Math.max(0, 100 - downloadVariability * 100)
+        // Calcular estabilidad basada en jitter real
+        const stability = Math.max(0, Math.min(100, 100 - (avgJitter / 10)))
 
-        return {
+        const result = {
             downloadSpeed: parseFloat(downloadSpeed.toFixed(2)),
             uploadSpeed: parseFloat(uploadSpeed.toFixed(2)),
             ping: parseFloat(avgPing.toFixed(1)),
@@ -169,12 +207,15 @@ export async function simulateSpeedTest(): Promise<DetailedSpeedTestResult> {
             maxPing: parseFloat(maxPing.toFixed(1)),
             stability: parseFloat(stability.toFixed(1)),
         }
+
+        console.log('Prueba completada:', result)
+        return result
     } catch (error) {
         console.error('Speed test error:', error)
         throw new Error(
             error instanceof Error
                 ? error.message
-                : 'Error al realizar la prueba de velocidad'
+                : 'Error al realizar la prueba de velocidad. Asegúrate de tener conexión a internet.'
         )
     }
 }

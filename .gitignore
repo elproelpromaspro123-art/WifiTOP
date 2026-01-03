@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Next.js
+.next/
+out/
+
+# Production
+build/
+dist/
+
+# Misc
+.DS_Store
+*.pem
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Documentation files not needed
+DEPLOYMENT.md
+FINAL_STEPS.md
+PROJECT_SUMMARY.md
+PUSH_TO_GITHUB.sh
+QUICKSTART.md
+README_PRODUCTION.md
+SETUP.md
+WINDOWS_SETUP.md
+DEPLOY.ps1
+PUSH.cmd
+.gitconfig

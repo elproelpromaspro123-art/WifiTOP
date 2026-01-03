@@ -176,16 +176,15 @@ export default function Home() {
                 </section>
 
                 {/* Main Content Grid */}
-                 <div className="container mx-auto px-4 py-8 md:py-16 pointer-events-auto" style={{ pointerEvents: 'auto', touchAction: 'auto' }}>
+                 <div className="container mx-auto px-4 py-8 md:py-16">
                     <motion.div
                         variants={containerVariants}
                         initial="hidden"
                         animate="visible"
-                        className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 mb-16 pointer-events-auto"
-                        style={{ pointerEvents: 'auto', touchAction: 'auto' }}
+                        className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 mb-16"
                     >
                         {/* Speed Test Card */}
-                         <motion.div variants={itemVariants} className="lg:col-span-1 pointer-events-auto" style={{ pointerEvents: 'auto', touchAction: 'auto' }}>
+                         <motion.div variants={itemVariants} className="lg:col-span-1">
                              <SpeedTestCardImproved onTestComplete={handleTestComplete} />
                          </motion.div>
 

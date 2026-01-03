@@ -385,26 +385,25 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
 
     // ========== NORMAL CARD VIEW ==========
      return (
-         <div className="w-full pointer-events-auto" style={{ pointerEvents: 'auto', touchAction: 'auto' }}>
+         <div className="w-full">
              <motion.div
                  initial={{ opacity: 0, y: 20 }}
                  animate={{ opacity: 1, y: 0 }}
                  transition={{ duration: 0.6 }}
-                 className="glow-border rounded-lg md:rounded-xl p-6 md:p-8 backdrop-blur-sm bg-gradient-to-br from-white/5 to-white/0 pointer-events-auto"
-                 style={{ pointerEvents: 'auto', touchAction: 'auto' }}
+                 className="glow-border rounded-lg md:rounded-xl p-6 md:p-8 backdrop-blur-sm bg-gradient-to-br from-white/5 to-white/0"
              >
-                 <div className="text-center pointer-events-auto" style={{ pointerEvents: 'auto', touchAction: 'auto' }}>
+                 <div className="text-center">
                  {!result ? (
                      <>
                          <div className="mb-8">
                              <motion.div
                                  animate={{ scale: [1, 1.1, 1] }}
                                  transition={{ duration: 2, repeat: Infinity }}
-                                 className="inline-block text-5xl md:text-6xl mb-4"
+                                 className="inline-block text-5xl md:text-6xl mb-4 pointer-events-none"
                              >
                                  {currentPhase.icon}
                              </motion.div>
-                             <h2 className="text-3xl md:text-4xl font-black mb-3 bg-gradient-to-r from-white to-blue-300 bg-clip-text text-transparent">
+                             <h2 className="text-3xl md:text-4xl font-black mb-3 bg-gradient-to-r from-white to-blue-300 bg-clip-text text-transparent pointer-events-none">
                                  Prueba tu WiFi
                              </h2>
                          </div>
@@ -422,17 +421,15 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                          handleStartTest()
                                      }
                                  }}
-                                 className="w-full px-4 py-3 md:py-4 rounded-lg mb-6 bg-white/5 border-2 border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:bg-white/10 transition-colors pointer-events-auto text-base"
-                                 style={{ pointerEvents: 'auto', touchAction: 'auto' }}
+                                 className="w-full px-4 py-3 md:py-4 rounded-lg mb-6 bg-white/5 border-2 border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:bg-white/10 transition-colors text-base cursor-text"
                                  autoFocus
                              />
                          )}
 
-                         <div className="space-y-3 mb-6 pointer-events-auto" style={{ pointerEvents: 'auto', touchAction: 'auto' }}>
+                         <div className="space-y-3 mb-6">
                              <button
                                  onClick={handleStartTest}
-                                 className="w-full py-3 md:py-4 rounded-lg font-bold text-base md:text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all duration-300 text-white cursor-pointer active:scale-95 shadow-lg hover:shadow-xl shadow-blue-500/40 pointer-events-auto"
-                                 style={{ pointerEvents: 'auto', touchAction: 'auto' }}
+                                 className="w-full py-3 md:py-4 rounded-lg font-bold text-base md:text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all duration-300 text-white cursor-pointer active:scale-95 shadow-lg hover:shadow-xl shadow-blue-500/40"
                              >
                                  🚀 {isAnonymous ? 'Comenzar (Anónima)' : 'Comenzar Prueba'}
                              </button>
@@ -443,32 +440,31 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                      setUserName('')
                                      setError(null)
                                  }}
-                                 className={`w-full py-3 rounded-lg font-semibold text-sm md:text-base transition-all duration-300 ${isAnonymous
+                                 className={`w-full py-3 rounded-lg font-semibold text-sm md:text-base transition-all duration-300 cursor-pointer ${isAnonymous
                                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg'
                                      : 'bg-white/10 hover:bg-white/20 text-gray-300 border border-white/20'
-                                     } pointer-events-auto`}
-                                 style={{ pointerEvents: 'auto', touchAction: 'auto' }}
+                                     }`}
                              >
                                  {isAnonymous ? '🔒 Anónimo Activo' : '👤 Modo Anónimo'}
                              </button>
                          </div>
 
-                         <p className="text-xs md:text-sm text-gray-400 px-2">
+                         <p className="text-xs md:text-sm text-gray-400 px-2 pointer-events-none">
                              {isAnonymous
                                  ? '⚡ Sin datos • No en ranking'
                                  : '📊 ~1-2 min • En ranking'}
                          </p>
-                    </>
-                ) : null}
+                     </>
+                 ) : null}
 
                 <AnimatePresence>
-                    {result && !testing && (
-                        <motion.div
-                            initial={{ scale: 0.8, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.8, opacity: 0 }}
-                            className="space-y-6 pointer-events-auto"
-                        >
+                     {result && !testing && (
+                         <motion.div
+                             initial={{ scale: 0.8, opacity: 0 }}
+                             animate={{ scale: 1, opacity: 1 }}
+                             exit={{ scale: 0.8, opacity: 0 }}
+                             className="space-y-6"
+                         >
                             {/* Resultado Principal */}
                             <div className="text-center">
                                 <motion.div
@@ -561,20 +557,20 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                             />
 
                             <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => {
-                                    setResult(null)
-                                    setUserName('')
-                                    setProgress(0)
-                                    setCurrentPhase(PHASES.idle)
-                                    setStatusMsg('Listo')
-                                    setUnlockedBadges([])
-                                }}
-                                className="w-full py-4 rounded-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 border border-blue-400 shadow-lg hover:shadow-xl shadow-blue-500/40 transition-all text-white cursor-pointer active:scale-95 pointer-events-auto"
-                            >
-                                🔄 Realizar Otra Prueba
-                            </motion.button>
+                                 whileHover={{ scale: 1.05 }}
+                                 whileTap={{ scale: 0.95 }}
+                                 onClick={() => {
+                                     setResult(null)
+                                     setUserName('')
+                                     setProgress(0)
+                                     setCurrentPhase(PHASES.idle)
+                                     setStatusMsg('Listo')
+                                     setUnlockedBadges([])
+                                 }}
+                                 className="w-full py-4 rounded-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 border border-blue-400 shadow-lg hover:shadow-xl shadow-blue-500/40 transition-all text-white cursor-pointer active:scale-95"
+                             >
+                                 🔄 Realizar Otra Prueba
+                             </motion.button>
                         </motion.div>
                     )}
                 </AnimatePresence>

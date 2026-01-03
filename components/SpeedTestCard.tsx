@@ -78,20 +78,27 @@ export default function SpeedTestCard({ onTestComplete }: SpeedTestCardProps) {
         })
 
         try {
-            // Simular progreso durante prueba
-            const progressInterval = setInterval(() => {
-                setProgress(prev => {
-                    const newProgress = prev + Math.random() * 25
-                    return newProgress > 95 ? 95 : newProgress
-                })
-            }, 800)
+            // Ejecutar prueba de velocidad REAL con callbacks de progreso
+            const testResult = await simulateSpeedTest((progress, status) => {
+                setProgress(progress)
+                setStatus(status)
 
-            // Ejecutar prueba de velocidad
-            const testResult = await simulateSpeedTest()
+                // Actualizar métricas según fase
+                if (status.includes('Descargando')) {
+                    setMetrics(prev => ({
+                        ...prev,
+                        testPhase: 'download'
+                    }))
+                } else if (status.includes('Subiendo')) {
+                    setMetrics(prev => ({
+                        ...prev,
+                        testPhase: 'upload'
+                    }))
+                }
+            })
 
-            clearInterval(progressInterval)
-            setProgress(90)
-            setStatus('Subiendo resultado...')
+            setProgress(98)
+            setStatus('Guardando resultado...')
 
             // Enviar resultado a API
             const response = await fetch('/api/speedtest', {

@@ -50,29 +50,35 @@ export default function ShareButtons({
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="flex gap-3 justify-center flex-wrap pointer-events-auto"
-    >
-      <button
-        onClick={() => handleShare('twitter')}
-        className="flex items-center gap-2 px-5 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 border border-blue-400 text-white font-bold transition-all hover:scale-110 active:scale-95 cursor-pointer shadow-lg hover:shadow-xl shadow-blue-500/30 pointer-events-auto"
+    <div className="w-full pointer-events-auto" style={{ pointerEvents: 'auto' }}>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex gap-3 justify-center flex-wrap pointer-events-auto"
+        style={{ pointerEvents: 'auto' }}
       >
-        𝕏 Twitter
-      </button>
-      <button
-        onClick={() => handleShare('whatsapp')}
-        className="flex items-center gap-2 px-5 py-3 rounded-lg bg-green-600 hover:bg-green-500 border border-green-400 text-white font-bold transition-all hover:scale-110 active:scale-95 cursor-pointer shadow-lg hover:shadow-xl shadow-green-500/30 pointer-events-auto"
-      >
-        💬 WhatsApp
-      </button>
-      <button
-        onClick={() => handleShare('facebook')}
-        className="flex items-center gap-2 px-5 py-3 rounded-lg bg-blue-700 hover:bg-blue-600 border border-blue-400 text-white font-bold transition-all hover:scale-110 active:scale-95 cursor-pointer shadow-lg hover:shadow-xl shadow-blue-600/30 pointer-events-auto"
-      >
-        f Facebook
-      </button>
-    </motion.div>
+        <button
+          onClick={() => handleShare('twitter')}
+          className="flex items-center gap-2 px-5 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 border border-blue-400 text-white font-bold transition-all hover:scale-110 active:scale-95 cursor-pointer shadow-lg hover:shadow-xl shadow-blue-500/30 pointer-events-auto"
+          style={{ pointerEvents: 'auto' }}
+        >
+          𝕏 Twitter
+        </button>
+        <button
+          onClick={() => handleShare('whatsapp')}
+          className="flex items-center gap-2 px-5 py-3 rounded-lg bg-green-600 hover:bg-green-500 border border-green-400 text-white font-bold transition-all hover:scale-110 active:scale-95 cursor-pointer shadow-lg hover:shadow-xl shadow-green-500/30 pointer-events-auto"
+          style={{ pointerEvents: 'auto' }}
+        >
+          💬 WhatsApp
+        </button>
+        <button
+          onClick={() => handleShare('facebook')}
+          className="flex items-center gap-2 px-5 py-3 rounded-lg bg-blue-700 hover:bg-blue-600 border border-blue-400 text-white font-bold transition-all hover:scale-110 active:scale-95 cursor-pointer shadow-lg hover:shadow-xl shadow-blue-600/30 pointer-events-auto"
+          style={{ pointerEvents: 'auto' }}
+        >
+          f Facebook
+        </button>
+      </motion.div>
+    </div>
   )
 }

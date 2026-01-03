@@ -385,13 +385,15 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
 
     // ========== NORMAL CARD VIEW ==========
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="glow-border rounded-lg p-8 backdrop-blur-sm bg-gradient-to-br from-white/5 to-white/0 pointer-events-auto"
-        >
-            <div className="text-center pointer-events-auto">
+        <div className="w-full pointer-events-auto" style={{ pointerEvents: 'auto' }}>
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                className="glow-border rounded-lg p-8 backdrop-blur-sm bg-gradient-to-br from-white/5 to-white/0 pointer-events-auto"
+                style={{ pointerEvents: 'auto' }}
+            >
+                <div className="text-center pointer-events-auto" style={{ pointerEvents: 'auto' }}>
                 {!result ? (
                     <>
                         <div className="mb-6">
@@ -573,7 +575,8 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                         </motion.div>
                     )}
                 </AnimatePresence>
-            </div>
-        </motion.div>
+                </div>
+            </motion.div>
+        </div>
     )
 }

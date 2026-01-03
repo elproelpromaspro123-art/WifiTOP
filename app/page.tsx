@@ -55,7 +55,7 @@ export default function Home() {
     }
 
     return (
-        <main className="min-h-screen bg-gradient-to-b from-black via-slate-950 to-black overflow-hidden">
+        <main className="min-h-screen bg-gradient-to-b from-black via-slate-950 to-black pointer-events-auto">
             <WhatsNewModal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} />
 
             {/* Animated Background */}
@@ -66,7 +66,7 @@ export default function Home() {
                 <div className="absolute -left-1/2 bottom-0 w-96 h-96 bg-pink-500/5 rounded-full blur-3xl animate-pulse"></div>
             </div>
 
-            <div className="relative z-10">
+            <div className="relative z-10 pointer-events-auto">
                 <Header />
 
                 {/* Error Display */}
@@ -176,17 +176,17 @@ export default function Home() {
                 </section>
 
                 {/* Main Content Grid */}
-                <div className="container mx-auto px-4 py-12">
+                 <div className="container mx-auto px-4 py-12 pointer-events-auto">
                     <motion.div
                         variants={containerVariants}
                         initial="hidden"
                         animate="visible"
-                        className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16"
+                        className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16 pointer-events-auto"
                     >
                         {/* Speed Test Card */}
-                        <motion.div variants={itemVariants} className="lg:col-span-1">
-                            <SpeedTestCardImproved onTestComplete={handleTestComplete} />
-                        </motion.div>
+                         <motion.div variants={itemVariants} className="lg:col-span-1 pointer-events-auto">
+                             <SpeedTestCardImproved onTestComplete={handleTestComplete} />
+                         </motion.div>
 
                         {/* Right Column - Stats */}
                         <motion.div variants={itemVariants} className="lg:col-span-2 space-y-6">

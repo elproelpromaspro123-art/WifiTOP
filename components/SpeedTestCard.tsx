@@ -68,116 +68,141 @@ export default function SpeedTestCard({ onTestComplete }: SpeedTestCardProps) {
 
         setTesting(true)
         setProgress(0)
-        setStatus('Iniciando prueba...')
+        setStatus('Midiendo ping...')
         setMetrics({
             currentDownload: 0,
             currentUpload: 0,
             currentPing: 0,
-            testPhase: 'download'
+            testPhase: 'ping'
         })
 
         try {
-            // Simular progreso realista en fases
-            let phaseProgress = 0
-            const downloadInterval = setInterval(() => {
-                setMetrics(prev => ({
-                    ...prev,
-                    currentDownload: Math.min(Math.random() * 500, 500),
-                    testPhase: 'download'
-                }))
-                phaseProgress += Math.random() * 8
-                if (phaseProgress >= 33) {
-                    clearInterval(downloadInterval)
-                    phaseProgress = 0
-                    // Inicio fase upload
-                    const uploadInterval = setInterval(() => {
-                        setMetrics(prev => ({
-                            ...prev,
-                            currentUpload: Math.min(Math.random() * 300, 300),
-                            testPhase: 'upload'
-                        }))
-                        phaseProgress += Math.random() * 8
-                        if (phaseProgress >= 33) {
-                            clearInterval(uploadInterval)
-                            // Inicio fase ping
-                            setMetrics(prev => ({
-                                ...prev,
-                                testPhase: 'ping'
-                            }))
-                        }
-                    }, 300)
+            // Cargar librería de speedtest
+            if (!window.SpeedTest) {
+                const script = document.createElement('script')
+                script.src = 'https://cdn.jsdelivr.net/npm/speedtest-js@1.0.0/speedtest.min.js'
+                script.async = true
+                document.head.appendChild(script)
+                
+                await new Promise((resolve) => {
+                    script.onload = resolve
+                })
+            }
+
+            // Usar librería de Speedtest.js
+            const tester = new (window as any).SpeedTest()
+
+            tester.onprogress = (progress: any) => {
+                const progressPercent = Math.round(progress.percent || 0)
+                setProgress(progressPercent)
+
+                if (progress.testState === 0) {
+                    setStatus('Midiendo ping...')
+                    setMetrics(prev => ({
+                        ...prev,
+                        currentPing: progress.pingStatus || 0,
+                        testPhase: 'ping'
+                    }))
+                } else if (progress.testState === 1) {
+                    setStatus('Descargando...')
+                    setMetrics(prev => ({
+                        ...prev,
+                        currentDownload: progress.dlStatus || 0,
+                        testPhase: 'download'
+                    }))
+                } else if (progress.testState === 2) {
+                    setStatus('Subiendo...')
+                    setMetrics(prev => ({
+                        ...prev,
+                        currentUpload: progress.ulStatus || 0,
+                        testPhase: 'upload'
+                    }))
                 }
-            }, 300)
+            }
 
-            // Realizar prueba de velocidad
-            const response = await fetch('/api/speedtest', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userName }),
-            })
+            tester.onend = async (result: any) => {
+                const testResult = {
+                    ping: Math.round(result.ping),
+                    downloadSpeed: Math.round(result.dlStatus * 100) / 100,
+                    uploadSpeed: Math.round(result.ulStatus * 100) / 100,
+                    jitter: Math.round((result.jitter || 0) * 100) / 100
+                }
 
-            clearInterval(downloadInterval)
-
-            // Validar respuesta
-            if (!response.ok) {
-                let errorMsg = 'Error al procesar la prueba'
+                // Enviar resultado a API
                 try {
-                    const errorData = await response.json()
-                    errorMsg = errorData.error || errorMsg
-                } catch {
-                    // Si no se puede parsear JSON, usar mensaje genérico
+                    const response = await fetch('/api/speedtest', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userName, testResult }),
+                    })
+
+                    if (!response.ok) {
+                        let errorMsg = 'Error al procesar la prueba'
+                        try {
+                            const errorData = await response.json()
+                            errorMsg = errorData.error || errorMsg
+                        } catch {}
+
+                        if (response.status === 429) {
+                            const retryAfter = response.headers.get('Retry-After')
+                            const seconds = retryAfter ? parseInt(retryAfter) : 60
+                            setError(`Demasiados intentos. Espera ${seconds} segundos`)
+                        } else {
+                            setError(errorMsg)
+                        }
+                        setTesting(false)
+                        setMetrics({ currentDownload: 0, currentUpload: 0, currentPing: 0, testPhase: 'idle' })
+                        return
+                    }
+
+                    let data
+                    try {
+                        data = await response.json()
+                    } catch {
+                        setError('Respuesta del servidor inválida')
+                        setTesting(false)
+                        setMetrics({ currentDownload: 0, currentUpload: 0, currentPing: 0, testPhase: 'idle' })
+                        return
+                    }
+
+                    if (!data.success || !data.result) {
+                        setError(data.error || 'Error desconocido')
+                        setTesting(false)
+                        setMetrics({ currentDownload: 0, currentUpload: 0, currentPing: 0, testPhase: 'idle' })
+                        return
+                    }
+
+                    setProgress(100)
+                    setStatus('Completado')
+                    setMetrics({
+                        currentDownload: data.result.downloadSpeed,
+                        currentUpload: data.result.uploadSpeed,
+                        currentPing: data.result.ping,
+                        testPhase: 'complete'
+                    })
+                    setResult(data.result)
+
+                    if (onTestComplete) {
+                        onTestComplete(data.result)
+                    }
+
+                    // Mostrar resultado por 5 segundos antes de permitir otra prueba
+                    setTimeout(() => {
+                        setTesting(false)
+                        setProgress(0)
+                        setStatus('Listo')
+                        setMetrics({ currentDownload: 0, currentUpload: 0, currentPing: 0, testPhase: 'idle' })
+                    }, 5000)
+                } catch (error) {
+                    const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
+                    console.error('Error en prueba:', error)
+                    setError(`Error: ${errorMsg}`)
+                    setTesting(false)
+                    setMetrics({ currentDownload: 0, currentUpload: 0, currentPing: 0, testPhase: 'idle' })
                 }
-
-                if (response.status === 429) {
-                    const retryAfter = response.headers.get('Retry-After')
-                    const seconds = retryAfter ? parseInt(retryAfter) : 60
-                    setError(`Demasiados intentos. Espera ${seconds} segundos`)
-                } else {
-                    setError(errorMsg)
-                }
-                setTesting(false)
-                setMetrics({ currentDownload: 0, currentUpload: 0, currentPing: 0, testPhase: 'idle' })
-                return
             }
 
-            let data
-            try {
-                data = await response.json()
-            } catch {
-                setError('Respuesta del servidor inválida')
-                setTesting(false)
-                setMetrics({ currentDownload: 0, currentUpload: 0, currentPing: 0, testPhase: 'idle' })
-                return
-            }
-
-            if (!data.success || !data.result) {
-                setError(data.error || 'Error desconocido')
-                setTesting(false)
-                setMetrics({ currentDownload: 0, currentUpload: 0, currentPing: 0, testPhase: 'idle' })
-                return
-            }
-
-            setProgress(100)
-            setStatus('Completado')
-            setMetrics({
-                currentDownload: data.result.downloadSpeed,
-                currentUpload: data.result.uploadSpeed,
-                currentPing: data.result.ping,
-                testPhase: 'complete'
-            })
-            setResult(data.result)
-
-            if (onTestComplete) {
-                onTestComplete(data.result)
-            }
-
-            // Mostrar resultado por 5 segundos antes de permitir otra prueba
-            setTimeout(() => {
-                setTesting(false)
-                setProgress(0)
-                setStatus('Listo')
-                setMetrics({ currentDownload: 0, currentUpload: 0, currentPing: 0, testPhase: 'idle' })
-            }, 5000)
+            tester.start()
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
             console.error('Error en prueba:', error)
@@ -185,6 +210,8 @@ export default function SpeedTestCard({ onTestComplete }: SpeedTestCardProps) {
             setTesting(false)
             setMetrics({ currentDownload: 0, currentUpload: 0, currentPing: 0, testPhase: 'idle' })
         }
+
+        // Nota: El resto del flujo ocurre en tester.onend()
     }
 
     const validateUserName = (name: string): string | null => {

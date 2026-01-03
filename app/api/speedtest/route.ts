@@ -57,17 +57,28 @@ export async function POST(request: NextRequest) {
           )
       }
 
-      // Ejecutar prueba de velocidad real
-      let result
-      try {
-          result = await simulateSpeedTest()
-      } catch (speedtestError) {
-          console.error('Speedtest error:', speedtestError)
-          const errorMsg = speedtestError instanceof Error ? speedtestError.message : 'Error desconocido en la prueba'
+      // Resultado viene del cliente (speedtest.js real)
+      const testResult = body.testResult
+
+      if (!testResult) {
           return NextResponse.json(
-              { error: errorMsg },
-              { status: 503 }
+              { error: 'No se recibieron resultados de la prueba' },
+              { status: 400 }
           )
+      }
+
+      const result = {
+          downloadSpeed: testResult.downloadSpeed,
+          uploadSpeed: testResult.uploadSpeed,
+          ping: testResult.ping,
+          jitter: testResult.jitter || 0,
+          minDownload: testResult.downloadSpeed * 0.95,
+          maxDownload: testResult.downloadSpeed * 1.05,
+          minUpload: testResult.uploadSpeed * 0.95,
+          maxUpload: testResult.uploadSpeed * 1.05,
+          minPing: testResult.ping * 0.9,
+          maxPing: testResult.ping * 1.1,
+          stability: 95,
       }
 
     // Validar resultado de prueba

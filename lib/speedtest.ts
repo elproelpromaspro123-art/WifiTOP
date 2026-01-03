@@ -34,9 +34,13 @@ export async function simulateSpeedTest(): Promise<DetailedSpeedTestResult> {
             throw new Error(data.error || 'Error desconocido en el servidor')
         }
 
-        const downloadSpeed = data.download
-        const uploadSpeed = data.upload
-        const ping = data.ping
+        const downloadSpeed = data.download ?? 0
+        const uploadSpeed = data.upload ?? 0
+        const ping = data.ping ?? 0
+
+        if (downloadSpeed === 0 || uploadSpeed === 0 || ping === 0) {
+            throw new Error('El servidor devolvió valores inválidos')
+        }
 
         // Simular min/max basado en pequeña variabilidad
         const downloadVariability = 0.05

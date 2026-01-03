@@ -4,6 +4,70 @@ const url = require('url')
 
 const PORT = process.env.PORT || 3001
 
+/**
+ * Ejecuta speedtest-cli con reintentos
+ */
+function runSpeedtest(retries = 3) {
+  return new Promise((resolve, reject) => {
+    const attemptSpeedtest = (attempt) => {
+      console.log(`Intento de prueba ${attempt + 1}/${retries}...`)
+
+      exec('speedtest-cli --simple', { timeout: 600000, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+        if (error) {
+          console.error(`Intento ${attempt + 1} falló:`, error.message)
+
+          if (attempt < retries - 1) {
+            console.log(`Reintentando en 2 segundos...`)
+            setTimeout(() => attemptSpeedtest(attempt + 1), 2000)
+          } else {
+            reject(new Error(`Falló después de ${retries} intentos: ${error.message}`))
+          }
+          return
+        }
+
+        const lines = stdout.trim().split('\n')
+        
+        if (lines.length < 3) {
+          console.error(`Formato inválido en intento ${attempt + 1}:`, lines)
+          
+          if (attempt < retries - 1) {
+            setTimeout(() => attemptSpeedtest(attempt + 1), 2000)
+          } else {
+            reject(new Error('Formato de respuesta inválido después de múltiples intentos'))
+          }
+          return
+        }
+
+        const ping = parseFloat(lines[0])
+        const download = parseFloat(lines[1]) / 1000 // kbps a Mbps
+        const upload = parseFloat(lines[2]) / 1000
+
+        // Validar que los valores sean válidos
+        if (isNaN(ping) || isNaN(download) || isNaN(upload)) {
+          console.error(`Valores inválidos en intento ${attempt + 1}:`, { ping, download, upload })
+          
+          if (attempt < retries - 1) {
+            setTimeout(() => attemptSpeedtest(attempt + 1), 2000)
+          } else {
+            reject(new Error('No se pudieron obtener valores válidos después de múltiples intentos'))
+          }
+          return
+        }
+
+        console.log(`Prueba completada: Ping=${ping}ms, Download=${download}Mbps, Upload=${upload}Mbps`)
+        resolve({
+          ping: Math.max(ping, 0.1),
+          download: Math.max(download, 0.1),
+          upload: Math.max(upload, 0.05),
+          timestamp: new Date().toISOString()
+        })
+      })
+    }
+
+    attemptSpeedtest(0)
+  })
+}
+
 const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url, true)
 
@@ -19,36 +83,29 @@ const server = http.createServer((req, res) => {
 
   // GET /speedtest - ejecutar prueba
   if (parsedUrl.pathname === '/speedtest' && req.method === 'GET') {
-    console.log('Iniciando prueba de velocidad...')
+    console.log('═══════════════════════════════════')
+    console.log('Iniciando prueba de velocidad real...')
+    console.log('═══════════════════════════════════')
 
-    exec('speedtest-cli --simple', { timeout: 300000 }, (error, stdout, stderr) => {
-      if (error) {
-        console.error('Error ejecutando speedtest:', error)
+    runSpeedtest(3)
+      .then((result) => {
+        res.writeHead(200)
+        res.end(JSON.stringify({
+          success: true,
+          ping: result.ping,
+          download: result.download,
+          upload: result.upload,
+          timestamp: result.timestamp
+        }))
+      })
+      .catch((error) => {
+        console.error('Error en prueba de velocidad:', error)
         res.writeHead(500)
-        res.end(JSON.stringify({ error: 'Error al ejecutar speedtest-cli' }))
-        return
-      }
-
-      const lines = stdout.trim().split('\n')
-      if (lines.length < 3) {
-        res.writeHead(400)
-        res.end(JSON.stringify({ error: 'Formato inválido' }))
-        return
-      }
-
-      const ping = parseFloat(lines[0])
-      const download = parseFloat(lines[1]) / 1000 // kbps a Mbps
-      const upload = parseFloat(lines[2]) / 1000
-
-      res.writeHead(200)
-      res.end(JSON.stringify({
-        success: true,
-        ping,
-        download,
-        upload,
-        timestamp: new Date().toISOString()
-      }))
-    })
+        res.end(JSON.stringify({
+          success: false,
+          error: error.message || 'Error desconocido en speedtest-cli'
+        }))
+      })
     return
   }
 
@@ -64,5 +121,7 @@ const server = http.createServer((req, res) => {
 })
 
 server.listen(PORT, () => {
-  console.log(`Servidor speedtest ejecutándose en puerto ${PORT}`)
+  console.log(`✓ Servidor speedtest ejecutándose en puerto ${PORT}`)
+  console.log(`✓ Endpoint: GET /speedtest`)
+  console.log(`✓ Health check: GET /health`)
 })

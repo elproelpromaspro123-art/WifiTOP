@@ -11,24 +11,25 @@
     "migrate": "node scripts/migrate.js"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "@hookform/resolvers": "^3.3.4",
+    "axios": "^1.6.2",
+    "date-fns": "^2.30.0",
+    "framer-motion": "^10.16.4",
     "next": "^14.0.0",
     "pg": "^8.11.3",
-    "@hookform/resolvers": "^3.3.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "react-hook-form": "^7.48.0",
-    "zod": "^3.22.4",
-    "axios": "^1.6.2",
-    "framer-motion": "^10.16.4",
-    "date-fns": "^2.30.0"
+    "zod": "^3.22.4"
   },
   "devDependencies": {
-    "typescript": "^5.3.3",
     "@types/node": "^20.10.6",
+    "@types/pg": "^8.16.0",
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
-    "tailwindcss": "^3.4.1",
+    "autoprefixer": "^10.4.16",
     "postcss": "^8.4.32",
-    "autoprefixer": "^10.4.16"
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.3.3"
   }
 }

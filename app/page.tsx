@@ -7,16 +7,21 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import ValidationError from '@/components/ValidationError'
 import { useStats } from '@/hooks/useStats'
+import { useRanking } from '@/hooks/useRanking'
 import { motion } from 'framer-motion'
 
 export default function Home() {
   const [results, setResults] = useState<any>(null)
   const [statsError, setStatsError] = useState<string | null>(null)
   const { stats, loading, error, refetch } = useStats()
+  const { refetch: refetchRanking } = useRanking()
 
   const handleTestComplete = (result: any) => {
     setResults(result)
-    setTimeout(refetch, 1000)
+    setTimeout(() => {
+      refetch()
+      refetchRanking()
+    }, 1000)
   }
 
   if (error && error !== statsError) {
@@ -334,41 +339,5 @@ function FeaturesSection() {
         </div>
       </motion.div>
     </section>
-  )
-}
-
-interface StatsCardProps {
-  title: string
-  value: string
-  icon: string
-  loading?: boolean
-}
-
-function StatsCard({ title, value, icon, loading = false }: StatsCardProps) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ scale: 1.02 }}
-      className="glow-border rounded-lg p-6 hover:shadow-glow transition-all duration-300 bg-gradient-to-br from-white/5 to-white/0"
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <p className="text-gray-400 text-xs font-semibold mb-3 uppercase tracking-wider">{title}</p>
-          {loading ? (
-            <div className="h-10 w-32 bg-white/10 rounded-lg animate-pulse"></div>
-          ) : (
-            <p className="text-4xl font-black bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">{value}</p>
-          )}
-        </div>
-        <motion.div 
-          animate={{ scale: [1, 1.1, 1] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className="text-5xl ml-4"
-        >
-          {icon}
-        </motion.div>
-      </div>
-    </motion.div>
   )
 }

@@ -58,7 +58,7 @@ export function useRanking(): UseRankingReturn {
     isMountedRef.current = true
     fetchRanking()
     
-    const interval = setInterval(fetchRanking, 20000) // Reducido a 20 segundos para actualizaciones más frecuentes
+    const interval = setInterval(fetchRanking, 10000) // 10 segundos para actualizaciones más rápidas
     
     return () => {
       isMountedRef.current = false

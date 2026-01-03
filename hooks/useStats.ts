@@ -55,7 +55,7 @@ export function useStats(): UseStatsReturn {
     isMountedRef.current = true
     fetchStats()
     
-    const interval = setInterval(fetchStats, 45000) // Reducido a 45 segundos para actualizaciones más rápidas
+    const interval = setInterval(fetchStats, 15000) // 15 segundos para actualizaciones instantáneas
     
     return () => {
       isMountedRef.current = false

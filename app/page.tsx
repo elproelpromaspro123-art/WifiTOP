@@ -16,142 +16,324 @@ export default function Home() {
 
   const handleTestComplete = (result: any) => {
     setResults(result)
-    // Actualizar stats después de completar test
     setTimeout(refetch, 1000)
   }
 
-  // Mostrar error si cambia
   if (error && error !== statsError) {
     setStatsError(error)
   }
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1, delayChildren: 0.2 }
+    }
+  }
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
+  }
+
   return (
-    <main className="min-h-screen bg-dark-bg overflow-hidden">
-      {/* Background elements */}
+    <main className="min-h-screen bg-gradient-to-b from-black via-slate-950 to-black overflow-hidden">
+      {/* Animated Background */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-green-500/5 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute top-1/2 right-0 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-green-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-1/2 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute -left-1/2 bottom-0 w-96 h-96 bg-pink-500/5 rounded-full blur-3xl animate-pulse"></div>
       </div>
 
       <div className="relative z-10">
         <Header />
-        
+
         {/* Error Display */}
         {statsError && (
           <div className="container mx-auto px-4 mt-4">
-            <ValidationError
-              message={statsError}
-              type="error"
-              onClose={() => setStatsError(null)}
-            />
+            <ValidationError message={statsError} type="error" onClose={() => setStatsError(null)} />
           </div>
         )}
-        
-        {/* Hero Section */}
-        <div className="container mx-auto px-4 py-12 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="mb-4"
-          >
-            <h1 className="text-6xl md:text-7xl font-black mb-4">
-              <span className="bg-gradient-to-r from-blue-400 via-white to-purple-400 bg-clip-text text-transparent">
-                WifiTOP
-              </span>
-            </h1>
-            <p className="text-2xl text-gray-300 font-semibold mb-2">Presume tu velocidad 🚀</p>
-            <p className="text-lg text-gray-400">Compite con usuarios de todo el mundo 🏆</p>
-          </motion.div>
-        </div>
 
-        <div className="container mx-auto px-4 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-            {/* SpeedTest Card */}
-            <div className="lg:col-span-1">
-              <SpeedTestCardImproved onTestComplete={handleTestComplete} />
+        {/* Hero Section */}
+        <section className="container mx-auto px-4 py-16 md:py-24 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: -30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="space-y-6"
+          >
+            {/* Main Title */}
+            <div className="space-y-3">
+              <h1 className="text-6xl md:text-8xl font-black tracking-tighter">
+                <span className="bg-gradient-to-r from-blue-300 via-white to-purple-300 bg-clip-text text-transparent drop-shadow-2xl">
+                  WifiTOP
+                </span>
+              </h1>
+              <div className="space-y-2">
+                <p className="text-2xl md:text-3xl font-bold text-white">Presume tu velocidad 🚀</p>
+                <p className="text-lg md:text-xl text-gray-400">Compite con usuarios de todo el mundo</p>
+              </div>
             </div>
 
-            {/* Stats Cards */}
-            <div className="lg:col-span-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <StatsCard 
+            {/* CTA Divider */}
+            <motion.div
+              animate={{ width: ['0%', '100%'] }}
+              transition={{ duration: 1, delay: 0.3 }}
+              className="h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent mx-auto max-w-xs"
+            />
+
+            <p className="text-gray-400 text-base max-w-2xl mx-auto">
+              La plataforma más precisa para medir tu velocidad de internet. Únete a miles de usuarios y demuestra que tienes la mejor conexión.
+            </p>
+          </motion.div>
+        </section>
+
+        {/* Main Content Grid */}
+        <div className="container mx-auto px-4 py-12">
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16"
+          >
+            {/* Speed Test Card */}
+            <motion.div variants={itemVariants} className="lg:col-span-1">
+              <SpeedTestCardImproved onTestComplete={handleTestComplete} />
+            </motion.div>
+
+            {/* Right Column - Stats */}
+            <motion.div variants={itemVariants} className="lg:col-span-2 space-y-6">
+              {/* Stats Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <StatsCard
                   title="Pruebas Completadas"
                   value={stats.total.toLocaleString()}
                   icon="📊"
                   loading={loading}
+                  color="from-blue-500/20 to-blue-500/5"
+                  textColor="text-blue-400"
                 />
-                <StatsCard 
+                <StatsCard
                   title="Velocidad Máxima"
-                  value={`${stats.maxSpeed.toFixed(2)} Mbps`}
+                  value={`${stats.maxSpeed.toFixed(2)}`}
+                  unit="Mbps"
                   icon="⚡"
                   loading={loading}
+                  color="from-purple-500/20 to-purple-500/5"
+                  textColor="text-purple-400"
                 />
               </div>
 
+              {/* Average Speed Card */}
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="mt-6 glow-border rounded-lg p-8 bg-gradient-to-br from-green-500/10 to-emerald-500/5"
+                whileHover={{ scale: 1.02 }}
+                className="glow-border rounded-xl p-8 bg-gradient-to-br from-green-500/15 to-emerald-500/5 hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300"
               >
-                <h3 className="text-lg font-semibold mb-4 text-gray-300">Velocidad Promedio Global</h3>
-                <p className="text-5xl font-black bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
-                  {stats.avgSpeed.toFixed(2)}
-                  <span className="text-xl text-gray-400 ml-3 font-semibold">Mbps</span>
-                </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">📈 Velocidad Promedio</h3>
+                    <p className="text-5xl md:text-6xl font-black bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
+                      {stats.avgSpeed.toFixed(2)}
+                    </p>
+                    <p className="text-gray-400 text-sm mt-2">Mbps Global</p>
+                  </div>
+                  <motion.div
+                    animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    className="text-6xl opacity-20"
+                  >
+                    📊
+                  </motion.div>
+                </div>
               </motion.div>
-              
+
+              {/* User Results */}
               {results && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-6 glow-border rounded-lg p-8 bg-gradient-to-br from-blue-500/10 to-purple-500/5"
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.5 }}
+                  className="glow-border rounded-xl p-8 bg-gradient-to-br from-blue-500/15 via-purple-500/10 to-transparent hover:shadow-lg hover:shadow-blue-500/20 transition-all duration-300"
                 >
-                  <h3 className="text-lg font-semibold mb-6 text-gray-300">✅ Tu Resultado Actual</h3>
-                  <div className="grid grid-cols-3 gap-4">
-                    <motion.div
-                      initial={{ scale: 0.9 }}
-                      animate={{ scale: 1 }}
-                      className="text-center bg-gradient-to-br from-blue-500/10 to-transparent rounded-lg p-5 border-2 border-blue-500/40"
-                    >
-                      <p className="text-gray-400 text-xs font-semibold mb-3">⬇️ DESCARGA</p>
-                      <p className="text-4xl font-black text-blue-400">{(results.downloadSpeed).toFixed(2)}</p>
-                      <p className="text-gray-500 text-xs mt-1">Mbps</p>
-                    </motion.div>
-                    <motion.div
-                      initial={{ scale: 0.9 }}
-                      animate={{ scale: 1 }}
-                      transition={{ delay: 0.1 }}
-                      className="text-center bg-gradient-to-br from-green-500/10 to-transparent rounded-lg p-5 border-2 border-green-500/40"
-                    >
-                      <p className="text-gray-400 text-xs font-semibold mb-3">⬆️ SUBIDA</p>
-                      <p className="text-4xl font-black text-green-400">{(results.uploadSpeed).toFixed(2)}</p>
-                      <p className="text-gray-500 text-xs mt-1">Mbps</p>
-                    </motion.div>
-                    <motion.div
-                      initial={{ scale: 0.9 }}
-                      animate={{ scale: 1 }}
-                      transition={{ delay: 0.2 }}
-                      className="text-center bg-gradient-to-br from-yellow-500/10 to-transparent rounded-lg p-5 border-2 border-yellow-500/40"
-                    >
-                      <p className="text-gray-400 text-xs font-semibold mb-3">📡 PING</p>
-                      <p className="text-4xl font-black text-yellow-400">{(results.ping).toFixed(1)}</p>
-                      <p className="text-gray-500 text-xs mt-1">ms</p>
-                    </motion.div>
+                  <div className="flex items-center gap-3 mb-6">
+                    <span className="text-3xl">✅</span>
+                    <h3 className="text-lg font-semibold text-gray-300">Tu Resultado Actual</h3>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: 'DESCARGA', icon: '⬇️', value: results.downloadSpeed, unit: 'Mbps', color: 'from-blue-500', textColor: 'text-blue-400', borderColor: 'border-blue-500/50' },
+                      { label: 'SUBIDA', icon: '⬆️', value: results.uploadSpeed, unit: 'Mbps', color: 'from-green-500', textColor: 'text-green-400', borderColor: 'border-green-500/50' },
+                      { label: 'PING', icon: '📡', value: results.ping, unit: 'ms', color: 'from-yellow-500', textColor: 'text-yellow-400', borderColor: 'border-yellow-500/50' },
+                    ].map((metric, idx) => (
+                      <motion.div
+                        key={metric.label}
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ delay: idx * 0.1 }}
+                        className={`text-center bg-gradient-to-br ${metric.color}/10 to-transparent rounded-lg p-4 border-2 ${metric.borderColor} hover:shadow-lg transition-all duration-300`}
+                      >
+                        <p className="text-2xl mb-2">{metric.icon}</p>
+                        <p className="text-gray-400 text-xs font-semibold mb-2">{metric.label}</p>
+                        <p className={`text-3xl font-black ${metric.textColor}`}>
+                          {metric.value.toFixed(metric.label === 'PING' ? 0 : 1)}
+                        </p>
+                        <p className="text-gray-500 text-xs mt-1">{metric.unit}</p>
+                      </motion.div>
+                    ))}
+                  </div>
+
+                  {/* Additional Info */}
+                  <div className="mt-6 pt-6 border-t border-white/10 grid grid-cols-2 gap-4">
+                    {results.stability && (
+                      <div>
+                        <p className="text-xs text-gray-400 font-semibold mb-2">Estabilidad</p>
+                        <p className="text-2xl font-bold text-emerald-400">{results.stability.toFixed(0)}%</p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-xs text-gray-400 font-semibold mb-2">Jitter</p>
+                      <p className="text-2xl font-bold text-cyan-400">{results.jitter.toFixed(1)}ms</p>
+                    </div>
                   </div>
                 </motion.div>
               )}
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
+
+          {/* Features Section */}
+          <FeaturesSection />
 
           {/* Ranking Table */}
-          <RankingTable />
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <RankingTable />
+          </motion.div>
         </div>
 
         <Footer />
       </div>
     </main>
+  )
+}
+
+interface StatsCardProps {
+  title: string
+  value: string
+  unit?: string
+  icon: string
+  loading?: boolean
+  color?: string
+  textColor?: string
+}
+
+function StatsCard({
+  title,
+  value,
+  unit,
+  icon,
+  loading = false,
+  color = 'from-white/10 to-white/5',
+  textColor = 'text-white'
+}: StatsCardProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ scale: 1.03 }}
+      transition={{ duration: 0.3 }}
+      className={`glow-border rounded-xl p-6 bg-gradient-to-br ${color} hover:shadow-lg transition-all duration-300 group`}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">{title}</p>
+          {loading ? (
+            <div className="h-10 w-32 bg-white/10 rounded-lg animate-pulse"></div>
+          ) : (
+            <div className="flex items-baseline gap-2">
+              <p className={`text-4xl md:text-5xl font-black ${textColor}`}>{value}</p>
+              {unit && <span className="text-gray-400 text-sm font-semibold">{unit}</span>}
+            </div>
+          )}
+        </div>
+        <motion.div
+          animate={{ scale: [1, 1.15, 1] }}
+          transition={{ duration: 2.5, repeat: Infinity }}
+          className="text-5xl opacity-40 group-hover:opacity-60 transition-opacity"
+        >
+          {icon}
+        </motion.div>
+      </div>
+    </motion.div>
+  )
+}
+
+function FeaturesSection() {
+  const features = [
+    {
+      icon: '⚡',
+      title: 'Ultra Preciso',
+      description: 'Mediciones precisas con 260MB de datos para máxima exactitud'
+    },
+    {
+      icon: '🏆',
+      title: 'Compite Globalmente',
+      description: 'Compite con usuarios de todo el mundo en tiempo real'
+    },
+    {
+      icon: '📊',
+      title: 'Análisis Detallado',
+      description: 'Obtén métricas completas: ping, jitter, estabilidad'
+    },
+    {
+      icon: '🔒',
+      title: 'Privado y Seguro',
+      description: 'Tus datos están protegidos y nunca se comparten'
+    }
+  ]
+
+  return (
+    <section className="my-16 py-12 rounded-2xl bg-gradient-to-r from-blue-500/10 via-purple-500/5 to-pink-500/10 border border-white/10">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        className="space-y-12"
+      >
+        <div className="text-center">
+          <h2 className="text-4xl md:text-5xl font-black mb-4 bg-gradient-to-r from-blue-300 via-white to-purple-300 bg-clip-text text-transparent">
+            Por qué elegirnos
+          </h2>
+          <p className="text-gray-400 max-w-xl mx-auto">
+            La solución más moderna y confiable para medir tu velocidad de internet
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 px-4">
+          {features.map((feature, idx) => (
+            <motion.div
+              key={idx}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: idx * 0.1 }}
+              whileHover={{ scale: 1.05, translateY: -5 }}
+              className="bg-gradient-to-br from-white/5 to-transparent rounded-xl p-6 border border-white/10 hover:border-white/30 transition-all duration-300"
+            >
+              <p className="text-4xl mb-4">{feature.icon}</p>
+              <h3 className="text-lg font-bold text-white mb-2">{feature.title}</h3>
+              <p className="text-sm text-gray-400">{feature.description}</p>
+            </motion.div>
+          ))}
+        </div>
+      </motion.div>
+    </section>
   )
 }
 

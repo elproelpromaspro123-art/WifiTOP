@@ -50,13 +50,13 @@ async function measureDownload(
     onProgress?: (progress: number, speed: number) => void
 ): Promise<number> {
     const measurements: number[] = []
-    const testSizes = [10000000, 20000000] // 10MB + 20MB (más rápido, preciso)
+    const testSizes = [50000000, 100000000, 150000000] // 50MB + 100MB + 150MB (como Speedtest)
     
     for (let testIndex = 0; testIndex < testSizes.length; testIndex++) {
         const size = testSizes[testIndex]
         try {
             const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), 120000)
+            const timeoutId = setTimeout(() => controller.abort(), 180000)
             
             const startTime = performance.now()
             const response = await fetch(`https://speed.cloudflare.com/__down?bytes=${size}`, {
@@ -77,31 +77,36 @@ async function measureDownload(
             }
 
             let downloadedBytes = 0
-            const chunkTimestamps: number[] = []
-            const chunkSizes: number[] = []
+            let lastReportTime = startTime
+            let lastReportedBytes = 0
             
             while (true) {
                 const { done, value } = await reader.read()
                 if (done) break
                 
                 downloadedBytes += value.length
-                chunkSizes.push(value.length)
-                chunkTimestamps.push(performance.now())
+                const now = performance.now()
                 
-                // Calcular velocidad instantánea
-                const elapsedSec = (performance.now() - startTime) / 1000
-                const instantSpeed = (downloadedBytes * 8) / elapsedSec / 1024 / 1024
-                
-                // Reportar progreso (0-90% para descarga)
-                const downloadProgress = (testIndex * 50) + (downloadedBytes / size) * 50
-                onProgress?.(Math.min(downloadProgress, 90), instantSpeed)
+                // Reportar cada 200ms para no saturar updates
+                if (now - lastReportTime > 200) {
+                    const elapsedSec = (now - startTime) / 1000
+                    const instantSpeed = (downloadedBytes * 8) / elapsedSec / 1024 / 1024
+                    
+                    // Reportar progreso (0-90% para descarga)
+                    const downloadProgress = (testIndex * 30) + (downloadedBytes / size) * 30
+                    onProgress?.(Math.min(downloadProgress, 90), instantSpeed)
+                    
+                    lastReportTime = now
+                    lastReportedBytes = downloadedBytes
+                }
             }
 
             clearTimeout(timeoutId)
             const endTime = performance.now()
             const durationSeconds = (endTime - startTime) / 1000
 
-            if (durationSeconds > 0.3) {
+            // Solo usar si duró al menos 2 segundos (suficiente para estabilizar)
+            if (durationSeconds > 2.0) {
                 const speedMbps = (size * 8) / durationSeconds / 1024 / 1024
                 if (speedMbps > 0 && speedMbps < 10000) {
                     measurements.push(speedMbps)
@@ -118,9 +123,13 @@ async function measureDownload(
     if (measurements.length === 0) return 0
     if (measurements.length === 1) return measurements[0]
     
-    // Eliminar el valor más alto y más bajo si hay más de 2
+    // Usar mediana de las mediciones (más resistente a outliers que promedio)
     const sorted = [...measurements].sort((a, b) => a - b)
-    return sorted.reduce((a, b) => a + b, 0) / sorted.length
+    if (sorted.length === 2) {
+        return (sorted[0] + sorted[1]) / 2
+    }
+    // Si hay 3+ mediciones, retornar la mediana
+    return sorted[Math.floor(sorted.length / 2)]
 }
 
 /**
@@ -130,13 +139,13 @@ async function measureUpload(
     onProgress?: (progress: number, speed: number) => void
 ): Promise<number> {
     const measurements: number[] = []
-    const uploadSizes = [5000000, 10000000] // 5MB + 10MB (más rápido, preciso)
+    const uploadSizes = [30000000, 60000000, 100000000] // 30MB + 60MB + 100MB (como Speedtest)
 
     for (let testIndex = 0; testIndex < uploadSizes.length; testIndex++) {
         const uploadSize = uploadSizes[testIndex]
         try {
             const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), 120000)
+            const timeoutId = setTimeout(() => controller.abort(), 180000)
             
             // Generar datos para upload (aleatorios para evitar compresión)
             const data = new Uint8Array(uploadSize)
@@ -163,12 +172,13 @@ async function measureUpload(
             const endTime = performance.now()
             const durationSeconds = (endTime - startTime) / 1000
 
-            if (durationSeconds > 0.3 && durationSeconds < 120) {
+            // Solo usar si duró al menos 2 segundos (suficiente para estabilizar)
+            if (durationSeconds > 2.0 && durationSeconds < 180) {
                 const speedMbps = (uploadSize * 8) / durationSeconds / 1024 / 1024
                 if (speedMbps > 0 && speedMbps < 10000) {
                     measurements.push(speedMbps)
-                    // Reportar progreso (90-95% para subida)
-                    onProgress?.(90 + testIndex * 2.5, speedMbps)
+                    // Reportar progreso (90-96% para subida)
+                    onProgress?.(90 + testIndex * 2, speedMbps)
                     console.log(`Subida ${testIndex + 1}: ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s)`)
                 }
             }
@@ -182,8 +192,13 @@ async function measureUpload(
     if (measurements.length === 0) return 0
     if (measurements.length === 1) return measurements[0]
     
+    // Usar mediana de las mediciones (más resistente a outliers que promedio)
     const sorted = [...measurements].sort((a, b) => a - b)
-    return sorted.reduce((a, b) => a + b, 0) / sorted.length
+    if (sorted.length === 2) {
+        return (sorted[0] + sorted[1]) / 2
+    }
+    // Si hay 3+ mediciones, retornar la mediana
+    return sorted[Math.floor(sorted.length / 2)]
 }
 
 /**

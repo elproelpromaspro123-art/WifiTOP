@@ -42,6 +42,7 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
     const [testing, setTesting] = useState(false)
     const [result, setResult] = useState<TestResult | null>(null)
     const [userName, setUserName] = useState('')
+    const [isAnonymous, setIsAnonymous] = useState(false)
     const [progress, setProgress] = useState(0)
     const [currentPhase, setCurrentPhase] = useState<TestPhase>(PHASES.idle)
     const [statusMsg, setStatusMsg] = useState('Listo')
@@ -54,14 +55,17 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
     const handleStartTest = async () => {
         setError(null)
 
-        if (!userName.trim()) {
-            setError('Por favor ingresa tu nombre')
-            return
-        }
+        // Validar solo si no es anónimo
+        if (!isAnonymous) {
+            if (!userName.trim()) {
+                setError('Por favor ingresa tu nombre o selecciona modo anónimo')
+                return
+            }
 
-        if (userName.trim().length < 2) {
-            setError('El nombre debe tener al menos 2 caracteres')
-            return
+            if (userName.trim().length < 2) {
+                setError('El nombre debe tener al menos 2 caracteres')
+                return
+            }
         }
 
         setTesting(true)
@@ -85,6 +89,29 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
             })
 
             setProgress(98)
+
+            // Si es anónimo, no guardar en BD
+            if (isAnonymous) {
+                setProgress(100)
+                setCurrentPhase(PHASES.complete)
+                setStatusMsg('Prueba completada')
+                setResult({
+                    downloadSpeed: testResult.downloadSpeed,
+                    uploadSpeed: testResult.uploadSpeed,
+                    ping: testResult.ping,
+                    jitter: testResult.jitter || 0
+                })
+
+                setTimeout(() => {
+                    setTesting(false)
+                    setProgress(0)
+                    setCurrentPhase(PHASES.idle)
+                    setStatusMsg('Listo')
+                    setTestDetails({ currentSpeed: 0, phase: 'ping' })
+                }, 5000)
+                return
+            }
+
             setStatusMsg('Guardando resultado...')
 
             const response = await fetch('/api/speedtest', {
@@ -169,23 +196,49 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
 
                         {!testing ? (
                             <>
-                                <input
-                                    type="text"
-                                    placeholder="Tu nombre"
-                                    value={userName}
-                                    onChange={(e) => setUserName(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-lg mb-6 bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50 transition-colors"
-                                />
+                                {!isAnonymous && (
+                                    <input
+                                        type="text"
+                                        placeholder="Tu nombre"
+                                        value={userName}
+                                        onChange={(e) => setUserName(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                handleStartTest()
+                                            }
+                                        }}
+                                        className="w-full px-4 py-3 rounded-lg mb-6 bg-white/5 border-2 border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:bg-white/10 transition-colors relative z-50 pointer-events-auto cursor-text"
+                                        autoFocus
+                                    />
+                                )}
 
-                                <button
-                                    onClick={handleStartTest}
-                                    className="w-full py-4 rounded-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all duration-300 text-white mb-4 cursor-pointer relative z-10"
-                                >
-                                    🚀 Comenzar Prueba
-                                </button>
+                                <div className="space-y-3 mb-6">
+                                    <button
+                                        onClick={handleStartTest}
+                                        className="w-full py-4 rounded-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all duration-300 text-white cursor-pointer relative z-50 pointer-events-auto active:scale-95"
+                                    >
+                                        🚀 {isAnonymous ? 'Comenzar Prueba (Anónima)' : 'Comenzar Prueba'}
+                                    </button>
 
-                                <p className="text-xs text-gray-400">
-                                    La prueba durará aprox. 2-3 minutos para máxima precisión (260MB de datos)
+                                    <button
+                                        onClick={() => {
+                                            setIsAnonymous(!isAnonymous)
+                                            setUserName('')
+                                            setError(null)
+                                        }}
+                                        className={`w-full py-3 rounded-lg font-semibold transition-all duration-300 relative z-50 pointer-events-auto ${isAnonymous
+                                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                                            : 'bg-white/10 hover:bg-white/20 text-gray-300 border border-white/20'
+                                            }`}
+                                    >
+                                        {isAnonymous ? '🔒 Modo Anónimo Activo' : '👤 Modo Anónimo'}
+                                    </button>
+                                </div>
+
+                                <p className="text-xs text-gray-400 px-2">
+                                    {isAnonymous
+                                        ? '⚡ Prueba sin compartir datos • No aparecerás en el ranking'
+                                        : '📊 La prueba durará aprox. 2-3 minutos • Aparecerás en el ranking'}
                                 </p>
                             </>
                         ) : (

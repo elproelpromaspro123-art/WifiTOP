@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react'
 import { motion } from 'framer-motion'
-import Link from 'next/link'
 
 export default function Error({
   error,
@@ -63,18 +62,14 @@ export default function Error({
             🔄 Intentar de nuevo
           </motion.button>
 
-          <motion.div
+          <motion.a
+            href="/"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            asChild
+            className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500/30 to-purple-500/30 hover:from-blue-500/50 hover:to-purple-500/50 rounded-lg font-semibold transition-all duration-300 text-white border border-blue-500/50 flex items-center justify-center gap-2"
           >
-            <Link
-              href="/"
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500/30 to-purple-500/30 hover:from-blue-500/50 hover:to-purple-500/50 rounded-lg font-semibold transition-all duration-300 text-white border border-blue-500/50 flex items-center justify-center gap-2"
-            >
-              🏠 Volver al inicio
-            </Link>
-          </motion.div>
+            🏠 Volver al inicio
+          </motion.a>
         </div>
 
         {/* Help text */}

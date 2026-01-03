@@ -88,15 +88,23 @@ export default function SpeedTestCard({ onTestComplete }: SpeedTestCardProps) {
                 const script = document.createElement('script')
                 script.src = 'https://cdn.jsdelivr.net/npm/speedtest-js@1.0.0/speedtest.min.js'
                 script.async = true
-                document.head.appendChild(script)
                 
-                await new Promise((resolve) => {
+                await new Promise((resolve, reject) => {
                     script.onload = resolve
+                    script.onerror = () => reject(new Error('No se pudo cargar la librería de speedtest'))
+                    document.head.appendChild(script)
                 })
             }
 
             // Usar librería de Speedtest.js
             const tester = new (window as any).SpeedTest()
+
+            // Timeout de 90 segundos para la prueba
+            const testTimeout = setTimeout(() => {
+                setTesting(false)
+                setError('La prueba tardó demasiado. Intenta de nuevo.')
+                setMetrics({ currentDownload: 0, currentUpload: 0, currentPing: 0, testPhase: 'idle' })
+            }, 90000)
 
             tester.onprogress = (progress: any) => {
                 const progressPercent = Math.round(progress.percent || 0)
@@ -126,7 +134,26 @@ export default function SpeedTestCard({ onTestComplete }: SpeedTestCardProps) {
                 }
             }
 
+            tester.onerror = (error: any) => {
+                clearTimeout(testTimeout)
+                console.error('SpeedTest error:', error)
+                setTesting(false)
+                setError(`Error en la prueba: ${error || 'Error desconocido'}`)
+                setMetrics({ currentDownload: 0, currentUpload: 0, currentPing: 0, testPhase: 'idle' })
+            }
+
             tester.onend = async (result: any) => {
+                clearTimeout(testTimeout)
+                
+                // Validar que tenemos resultados válidos
+                if (!result || typeof result.dlStatus !== 'number' || typeof result.ulStatus !== 'number' || typeof result.ping !== 'number') {
+                    console.error('Resultado inválido de speedtest:', result)
+                    setTesting(false)
+                    setError('No se obtuvieron resultados válidos de la prueba')
+                    setMetrics({ currentDownload: 0, currentUpload: 0, currentPing: 0, testPhase: 'idle' })
+                    return
+                }
+
                 const testResult = {
                     ping: Math.round(result.ping),
                     downloadSpeed: Math.round(result.dlStatus * 100) / 100,

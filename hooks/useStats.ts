@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react'
 import { StatsData } from '@/types'
 
-export function useStats() {
+interface UseStatsReturn {
+  stats: StatsData
+  loading: boolean
+  error: string | null
+  refetch: () => Promise<void>
+}
+
+export function useStats(): UseStatsReturn {
   const [stats, setStats] = useState<StatsData>({ total: 0, maxSpeed: 0, avgSpeed: 0 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -13,15 +20,22 @@ export function useStats() {
       const response = await fetch('/api/stats')
       
       if (!response.ok) {
-        throw new Error('Failed to fetch stats')
+        const data = await response.json().catch(() => ({ error: 'Error al obtener estadísticas' }))
+        throw new Error(data.error || 'Error al obtener estadísticas')
       }
       
       const data = await response.json()
-      if (data.success) {
+      if (!data.success) {
+        throw new Error(data.error || 'Error desconocido')
+      }
+
+      if (data.stats) {
         setStats(data.stats)
+        setError(null)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
+      const message = err instanceof Error ? err.message : 'Error desconocido'
+      setError(message)
       console.error('Error fetching stats:', err)
     } finally {
       setLoading(false)

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
+import ValidationError from './ValidationError'
 
 interface TestResult {
   downloadSpeed: number
@@ -20,6 +21,7 @@ export default function SpeedTestCard({ onTestComplete }: SpeedTestCardProps) {
   const [userName, setUserName] = useState('')
   const [progress, setProgress] = useState(0)
   const [status, setStatus] = useState('Listo')
+  const [error, setError] = useState<string | null>(null)
 
   const getInternetRating = (speed: number) => {
     if (speed >= 500) return { score: 10, label: 'Excepcional', color: 'text-green-400', emoji: '🔥' }
@@ -42,8 +44,12 @@ export default function SpeedTestCard({ onTestComplete }: SpeedTestCardProps) {
   }
 
   const handleStartTest = async () => {
-    if (!userName.trim()) {
-      alert('Por favor ingresa tu nombre')
+    setError(null)
+
+    // Validar nombre
+    const nameError = validateUserName(userName)
+    if (nameError) {
+      setError(nameError)
       return
     }
 
@@ -70,12 +76,48 @@ export default function SpeedTestCard({ onTestComplete }: SpeedTestCardProps) {
         body: JSON.stringify({ userName }),
       })
 
-      const data = await response.json()
       clearInterval(progressInterval)
+
+      // Validar respuesta
+      if (!response.ok) {
+        let errorMsg = 'Error al procesar la prueba'
+        try {
+          const errorData = await response.json()
+          errorMsg = errorData.error || errorMsg
+        } catch {
+          // Si no se puede parsear JSON, usar mensaje genérico
+        }
+
+        if (response.status === 429) {
+          const retryAfter = response.headers.get('Retry-After')
+          const seconds = retryAfter ? parseInt(retryAfter) : 60
+          setError(`Demasiados intentos. Espera ${seconds} segundos`)
+        } else {
+          setError(errorMsg)
+        }
+        setTesting(false)
+        return
+      }
+
+      let data
+      try {
+        data = await response.json()
+      } catch {
+        setError('Respuesta del servidor inválida')
+        setTesting(false)
+        return
+      }
+
+      if (!data.success || !data.result) {
+        setError(data.error || 'Error desconocido')
+        setTesting(false)
+        return
+      }
+
       setProgress(100)
       setStatus('Completado')
-
       setResult(data.result)
+      
       if (onTestComplete) {
         onTestComplete(data.result)
       }
@@ -87,10 +129,24 @@ export default function SpeedTestCard({ onTestComplete }: SpeedTestCardProps) {
         setStatus('Listo')
       }, 5000)
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
       console.error('Error en prueba:', error)
-      setStatus('Error en la prueba')
+      setError(`Error: ${errorMsg}`)
       setTesting(false)
     }
+  }
+
+  const validateUserName = (name: string): string | null => {
+    if (!name.trim()) {
+      return 'Por favor ingresa tu nombre'
+    }
+    if (name.trim().length < 2) {
+      return 'El nombre debe tener al menos 2 caracteres'
+    }
+    if (name.trim().length > 255) {
+      return 'El nombre es muy largo (máximo 255 caracteres)'
+    }
+    return null
   }
 
   return (
@@ -105,6 +161,12 @@ export default function SpeedTestCard({ onTestComplete }: SpeedTestCardProps) {
         <p className="text-gray-400 text-sm mb-6">
           Descubre la velocidad real de tu conexión
         </p>
+
+        <ValidationError
+          message={error}
+          type="error"
+          onClose={() => setError(null)}
+        />
 
         {!result ? (
           <>

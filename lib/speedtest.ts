@@ -1,9 +1,4 @@
-export interface SpeedTestResult {
-  downloadSpeed: number
-  uploadSpeed: number
-  ping: number
-  jitter: number
-}
+import { SpeedTestResult } from '@/types'
 
 /**
  * Simula una prueba de velocidad realista
@@ -44,12 +39,30 @@ export async function simulateSpeedTest(): Promise<SpeedTestResult> {
  */
 export async function getGeoLocation(ip: string) {
   try {
-    // En producción, usar servicios como ip-api.com o maxmind
-    // Por ahora, retornamos datos genéricos
+    const apiKey = process.env.NEXT_PUBLIC_GEOIP_API_KEY
+    if (!apiKey) {
+      console.warn('GEOIP_API_KEY no configurada')
+      return null
+    }
+
+    const response = await fetch(`https://api.ip-api.com/json/${ip}?key=${apiKey}`, {
+      next: { revalidate: 86400 }, // Cache 24h
+    })
+
+    if (!response.ok) {
+      return null
+    }
+
+    const data = await response.json()
+    
+    if (data.status !== 'success') {
+      return null
+    }
+
     return {
-      city: 'Ciudad',
-      country: 'País',
-      isp: 'ISP',
+      city: data.city || 'Desconocida',
+      country: data.country || 'Desconocida',
+      isp: data.isp || 'Desconocido',
     }
   } catch (error) {
     console.error('Error getting geolocation:', error)

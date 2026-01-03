@@ -5,14 +5,20 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const results = await getTopResults(1000)
-    const totalResults = await getTotalResultsCount()
+    const [results, totalResults] = await Promise.all([
+      getTopResults(1000),
+      getTotalResultsCount(),
+    ])
+
+    if (!Array.isArray(results)) {
+      throw new Error('Invalid results format')
+    }
 
     return NextResponse.json(
       {
         success: true,
-        results,
-        totalResults,
+        results: results || [],
+        totalResults: Math.max(0, totalResults || 0),
       },
       {
         headers: {
@@ -23,7 +29,7 @@ export async function GET() {
   } catch (error) {
     console.error('Ranking error:', error)
     return NextResponse.json(
-      { error: 'Error al obtener el ranking' },
+      { success: false, error: 'Error al obtener el ranking' },
       { status: 500 }
     )
   }

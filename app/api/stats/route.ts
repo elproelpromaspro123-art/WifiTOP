@@ -17,17 +17,17 @@ export async function GET() {
       `SELECT AVG(download_speed) as avg_speed FROM results`
     )
 
-    const total = parseInt(totalResult.rows[0]?.count || '0', 10)
-    const maxSpeed = maxSpeedResult.rows[0]?.max_speed || 0
-    const avgSpeed = avgSpeedResult.rows[0]?.avg_speed || 0
+    const total = Math.max(0, parseInt(totalResult.rows[0]?.count || '0', 10))
+    const maxSpeed = Math.max(0, maxSpeedResult.rows[0]?.max_speed || 0)
+    const avgSpeed = Math.max(0, avgSpeedResult.rows[0]?.avg_speed || 0)
 
     return NextResponse.json(
       {
         success: true,
         stats: {
           total,
-          maxSpeed: parseFloat(maxSpeed.toFixed(2)),
-          avgSpeed: parseFloat(avgSpeed.toFixed(2)),
+          maxSpeed: Math.round(maxSpeed * 100) / 100,
+          avgSpeed: Math.round(avgSpeed * 100) / 100,
         },
       },
       {
@@ -39,7 +39,7 @@ export async function GET() {
   } catch (error) {
     console.error('Stats error:', error)
     return NextResponse.json(
-      { error: 'Error al obtener estadísticas' },
+      { success: false, error: 'Error al obtener estadísticas' },
       { status: 500 }
     )
   }

@@ -110,44 +110,24 @@ export async function getUserRank(userId: number) {
 /**
  * Mantiene el ranking limitado a 1000 resultados
  * Elimina resultados con velocidades más bajas cuando se excede el límite
+ * Optimizado a una sola query
  */
 export async function maintainRanking() {
   try {
-    // Obtener el ID del resultado con la menor velocidad en el top 1000
-    const countResult = await query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM results`
-    )
-    
-    const totalCount = parseInt(countResult.rows[0]?.count || '0', 10)
-    
-    if (totalCount > TOP_RESULTS_LIMIT) {
-      // Obtener la velocidad mínima del top 1000
-      const minResult = await query<{ download_speed: number }>(
-        `
-        SELECT download_speed
+    // Usar una sola query con CTE para mantener el ranking
+    await query(
+      `
+      WITH ranked AS (
+        SELECT id, ROW_NUMBER() OVER (ORDER BY download_speed DESC) as rank
         FROM results
-        ORDER BY download_speed DESC
-        LIMIT 1 OFFSET $1
-        `,
-        [TOP_RESULTS_LIMIT - 1]
       )
-      
-      const minSpeed = minResult.rows[0]?.download_speed
-      
-      // Eliminar resultados con velocidad menor que la mínima del top 1000
-      await query(
-        `
-        DELETE FROM results
-        WHERE download_speed < $1
-        AND id NOT IN (
-          SELECT id FROM results
-          ORDER BY download_speed DESC
-          LIMIT $2
-        )
-        `,
-        [minSpeed, TOP_RESULTS_LIMIT]
+      DELETE FROM results
+      WHERE id IN (
+        SELECT id FROM ranked WHERE rank > $1
       )
-    }
+      `,
+      [TOP_RESULTS_LIMIT]
+    )
   } catch (error) {
     console.error('Error maintaining ranking:', error)
     throw error

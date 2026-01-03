@@ -5,17 +5,24 @@ import SpeedTestCard from '@/components/SpeedTestCard'
 import RankingTable from '@/components/RankingTable'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import ValidationError from '@/components/ValidationError'
 import { useStats } from '@/hooks/useStats'
 import { motion } from 'framer-motion'
 
 export default function Home() {
   const [results, setResults] = useState<any>(null)
-  const { stats, loading, refetch } = useStats()
+  const [statsError, setStatsError] = useState<string | null>(null)
+  const { stats, loading, error, refetch } = useStats()
 
   const handleTestComplete = (result: any) => {
     setResults(result)
     // Actualizar stats después de completar test
     setTimeout(refetch, 1000)
+  }
+
+  // Mostrar error si cambia
+  if (error && error !== statsError) {
+    setStatsError(error)
   }
 
   return (
@@ -29,6 +36,17 @@ export default function Home() {
 
       <div className="relative z-10">
         <Header />
+        
+        {/* Error Display */}
+        {statsError && (
+          <div className="container mx-auto px-4 mt-4">
+            <ValidationError
+              message={statsError}
+              type="error"
+              onClose={() => setStatsError(null)}
+            />
+          </div>
+        )}
         
         {/* Hero Section */}
         <div className="container mx-auto px-4 py-8">

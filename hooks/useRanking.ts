@@ -1,7 +1,15 @@
 import { useState, useEffect } from 'react'
 import { RankingEntry } from '@/types'
 
-export function useRanking() {
+interface UseRankingReturn {
+  ranking: RankingEntry[]
+  loading: boolean
+  error: string | null
+  totalResults: number
+  refetch: () => Promise<void>
+}
+
+export function useRanking(): UseRankingReturn {
   const [ranking, setRanking] = useState<RankingEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -14,14 +22,21 @@ export function useRanking() {
       const response = await fetch('/api/ranking')
       
       if (!response.ok) {
-        throw new Error('Failed to fetch ranking')
+        const data = await response.json().catch(() => ({ error: 'Error al obtener ranking' }))
+        throw new Error(data.error || 'Error al obtener ranking')
       }
       
       const data = await response.json()
+      if (!data.success) {
+        throw new Error(data.error || 'Error desconocido')
+      }
+
       setRanking(data.results || [])
       setTotalResults(data.totalResults || 0)
+      setError(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
+      const message = err instanceof Error ? err.message : 'Error desconocido'
+      setError(message)
       console.error('Error fetching ranking:', err)
     } finally {
       setLoading(false)

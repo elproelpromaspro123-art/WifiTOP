@@ -50,6 +50,23 @@ export async function initializeDatabase() {
       ON results(created_at DESC)
     `)
 
+    // Create rate_limits table
+    await query(`
+      CREATE TABLE IF NOT EXISTS rate_limits (
+        ip_address VARCHAR(255) PRIMARY KEY,
+        request_count INTEGER DEFAULT 1,
+        last_request TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        hour_requests INTEGER DEFAULT 1,
+        last_hour_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+
+    // Create index for cleanup queries
+    await query(`
+      CREATE INDEX IF NOT EXISTS idx_rate_limits_last_request
+      ON rate_limits(last_request)
+    `)
+
     console.log('Database initialized successfully')
   } catch (error) {
     console.error('Failed to initialize database:', error)

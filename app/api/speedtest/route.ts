@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
-import { simulateSpeedTest, getGeoLocation } from '@/lib/speedtest'
+import { simulateSpeedTestImproved as simulateSpeedTest, getGeoLocation } from '@/lib/speedtest-improved'
 import { maintainRanking } from '@/lib/ranking'
 import { validateUserName, validateSpeedTestResult } from '@/lib/validation'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -68,18 +68,18 @@ export async function POST(request: NextRequest) {
       }
 
       const result = {
-          downloadSpeed: testResult.downloadSpeed,
-          uploadSpeed: testResult.uploadSpeed,
-          ping: testResult.ping,
-          jitter: testResult.jitter || 0,
-          minDownload: testResult.downloadSpeed * 0.95,
-          maxDownload: testResult.downloadSpeed * 1.05,
-          minUpload: testResult.uploadSpeed * 0.95,
-          maxUpload: testResult.uploadSpeed * 1.05,
-          minPing: testResult.ping * 0.9,
-          maxPing: testResult.ping * 1.1,
-          stability: 95,
-      }
+           downloadSpeed: testResult.downloadSpeed,
+           uploadSpeed: testResult.uploadSpeed,
+           ping: testResult.ping,
+           jitter: testResult.jitter || 0,
+           minDownload: testResult.minDownload || (testResult.downloadSpeed * 0.95),
+           maxDownload: testResult.maxDownload || (testResult.downloadSpeed * 1.05),
+           minUpload: testResult.minUpload || (testResult.uploadSpeed * 0.95),
+           maxUpload: testResult.maxUpload || (testResult.uploadSpeed * 1.05),
+           minPing: testResult.minPing || (testResult.ping * 0.9),
+           maxPing: testResult.maxPing || (testResult.ping * 1.1),
+           stability: testResult.stability || 95,
+       }
 
     // Validar resultado de prueba
     const resultValidation = validateSpeedTestResult(result)

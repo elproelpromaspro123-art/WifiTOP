@@ -18,9 +18,9 @@ export default function TestPage() {
 
     try {
       // Importar directamente la función para probar
-      const { simulateSpeedTest } = await import('@/lib/speedtest')
+      const { simulateSpeedTestImproved: simulateSpeedTest } = await import('@/lib/speedtest-improved')
       
-      const result = await simulateSpeedTest((progress, status) => {
+      const result = await simulateSpeedTest((progress, status, details) => {
         setProgress(progress)
         setStatus(status)
       })
@@ -145,10 +145,11 @@ export default function TestPage() {
 
         <strong style={{ color: '#d32f2f' }}>⚠️ Importante:</strong>
         <ul>
-          <li>✅ Prueba requiere descargar/subir ~75-100MB de datos</li>
-          <li>✅ La prueba es más lenta si tu conexión es lenta (es normal)</li>
+          <li>✅ Prueba requiere descargar/subir ~90-110MB de datos</li>
+          <li>✅ Durará 60-90 segundos aprox.</li>
           <li>✅ Mide REALES: no simuladas</li>
-          <li>✅ Busca buenos valores con buena conexión WiFi</li>
+          <li>✅ Proporciona resultados más precisos que la versión anterior</li>
+          <li>✅ Ping más preciso (filtra outliers automáticamente)</li>
         </ul>
       </div>
     </div>

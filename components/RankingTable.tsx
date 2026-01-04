@@ -92,7 +92,7 @@ export default function RankingTable() {
           <motion.div 
             animate={{ scale: [1, 1.08, 1], rotate: [0, 2, -2, 0] }}
             transition={{ duration: 3, repeat: Infinity }}
-            className="bg-gradient-to-br from-yellow-500/20 to-orange-500/10 rounded-xl p-6 border border-yellow-500/30 backdrop-blur-sm min-w-fit"
+            className="bg-gradient-to-br from-yellow-500/20 to-orange-500/10 rounded-xl p-6 border border-yellow-500/30 min-w-fit"
           >
             <p className="text-5xl font-black text-yellow-400 mb-2">📈</p>
             <p className="text-gray-300 text-xs font-semibold">Actualizado en tiempo real</p>
@@ -269,7 +269,7 @@ export default function RankingTable() {
         initial={{ opacity: 0, y: 10 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
-        className="mt-8 p-5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl border border-blue-500/30 backdrop-blur-sm"
+        className="mt-8 p-5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl border border-blue-500/30"
       >
         <p className="text-sm text-gray-300 text-center font-medium">
           <span className="text-blue-400 font-bold">💡 Tip:</span> El ranking se actualiza en tiempo real. Los mejores 10,000 resultados verificados se muestran aquí con detección automática de fraude.

@@ -458,13 +458,13 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                  ) : null}
 
                 <AnimatePresence>
-                     {result && !testing && (
-                         <motion.div
-                             initial={{ scale: 0.8, opacity: 0 }}
-                             animate={{ scale: 1, opacity: 1 }}
-                             exit={{ scale: 0.8, opacity: 0 }}
-                             className="space-y-6"
-                         >
+                      {result && !testing && (
+                          <motion.div
+                              initial={{ scale: 0.8, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0.8, opacity: 0 }}
+                              className="space-y-6 pointer-events-auto relative z-10"
+                          >
                             {/* Resultado Principal */}
                             <div className="text-center">
                                 <motion.div
@@ -567,7 +567,7 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                      setStatusMsg('Listo')
                                      setUnlockedBadges([])
                                  }}
-                                 className="w-full py-4 rounded-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 border border-blue-400 shadow-lg hover:shadow-xl shadow-blue-500/40 transition-all text-white cursor-pointer active:scale-95"
+                                 className="w-full py-4 rounded-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 border border-blue-400 shadow-lg hover:shadow-xl shadow-blue-500/40 transition-all text-white cursor-pointer active:scale-95 pointer-events-auto relative z-10"
                              >
                                  🔄 Realizar Otra Prueba
                              </motion.button>

@@ -125,7 +125,7 @@ export default function Home() {
                              <p className="text-gray-400 text-base md:text-lg">La plataforma definitiva de speedtest con ranking global</p>
                          </div>
 
-                         <div className="glow-border rounded-xl p-6 md:p-8 backdrop-blur-sm bg-gradient-to-br from-white/5 to-white/0">
+                         <div className="glow-border rounded-xl p-6 md:p-8 bg-gradient-to-br from-white/5 to-white/0">
                              <div className="space-y-6">
                                  <div>
                                      <h3 className="text-xl font-bold text-white mb-3">¿Qué es WifiTOP?</h3>

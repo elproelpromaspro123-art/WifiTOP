@@ -50,11 +50,11 @@ export default function ShareButtons({
   }
 
   return (
-    <div className="w-full pointer-events-auto" style={{ pointerEvents: 'auto' }}>
+    <div className="w-full pointer-events-auto relative z-10" style={{ pointerEvents: 'auto' }}>
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex gap-3 justify-center flex-wrap pointer-events-auto"
+        className="flex gap-3 justify-center flex-wrap pointer-events-auto relative z-10"
         style={{ pointerEvents: 'auto' }}
       >
         <button

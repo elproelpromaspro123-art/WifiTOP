@@ -82,19 +82,53 @@ async function measurePing(
 /**
  * Mide descarga real con streaming
  * Usa servidor CDN público (Cloudflare)
+ * 
+ * OPTIMIZADO PARA RENDER FREE TIER:
+ * - Detección automática de velocidad
+ * - Adapta tamaños según disponibilidad
+ * - Múltiples intentos para máxima precisión
+ * - Timeout inteligente (120s total, 45s por descarga)
  */
 async function measureDownload(
     onProgress?: (progress: number, speed: number) => void
 ): Promise<{ speed: number; samples: number[] }> {
     const samples: number[] = []
-    const testSizes = [10_000_000, 25_000_000, 50_000_000] // 10MB, 25MB, 50MB
+
+    // ESTRATEGIA ADAPTATIVA: Comienza con tamaños pequeños, aumenta según velocidad
+    // Esto evita timeouts en conexiones lentas pero maximiza velocidad en conexiones rápidas
+    const testSizes = [
+        10_000_000,  // 10MB - siempre funciona
+        25_000_000,  // 25MB - para mayoría de conexiones
+        50_000_000,  // 50MB - para conexiones rápidas
+        100_000_000, // 100MB - si la conexión lo permite
+        150_000_000  // 150MB - solo para conexiones muy rápidas
+    ]
+
+    let estimatedSpeedMbps = 0
+    let successCount = 0
+    const maxTimeoutPerDownload = 45_000 // 45s por descarga individual
+    const maxTotalTime = 120_000 // Máximo 120s total
+    const startTime = performance.now()
 
     for (let idx = 0; idx < testSizes.length; idx++) {
         const size = testSizes[idx]
 
+        // Verificar si tenemos tiempo disponible
+        if (performance.now() - startTime > maxTotalTime - 5000) {
+            console.log('⏱️ Timeout total alcanzado, deteniendo descargas')
+            break
+        }
+
+        // SKIP LÓGICO: Si ya tenemos 2+ muestras y la velocidad es muy baja, 
+        // no descargar archivos muy grandes (evita timeouts)
+        if (successCount >= 2 && estimatedSpeedMbps > 0 && estimatedSpeedMbps < 2) {
+            console.log(`⚠️ Conexión muy lenta (${estimatedSpeedMbps.toFixed(1)} Mbps), saltando descargas grandes`)
+            break
+        }
+
         try {
             const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), 120_000)
+            const timeoutId = setTimeout(() => controller.abort(), maxTimeoutPerDownload)
 
             // Usar Cloudflare CDN - rápido y confiable
             const testUrl = `https://speed.cloudflare.com/__down?bytes=${size}`
@@ -107,6 +141,7 @@ async function measureDownload(
 
             if (!response.ok) {
                 clearTimeout(timeoutId)
+                console.warn(`❌ Error descargando ${size} bytes: ${response.status}`)
                 continue
             }
 
@@ -131,7 +166,8 @@ async function measureDownload(
                     const elapsedSec = (now - startTime) / 1000
                     const instantSpeed = (downloadedBytes * 8) / elapsedSec / 1024 / 1024
 
-                    const progressPercent = (idx * 33) + (downloadedBytes / size) * 33
+                    // Progreso de 0-95% dividido entre todas las descargas
+                    const progressPercent = (idx / testSizes.length) * 80 + (downloadedBytes / size) * (80 / testSizes.length)
                     onProgress?.(Math.min(progressPercent, 95), instantSpeed)
 
                     lastReportTime = now
@@ -141,13 +177,17 @@ async function measureDownload(
             clearTimeout(timeoutId)
             const duration = (performance.now() - startTime) / 1000
 
-            if (duration >= 1.0) {
+            if (duration >= 0.5 && downloadedBytes > 1_000_000) { // Al menos 1MB en 0.5s
                 const speedMbps = (size * 8) / duration / 1024 / 1024
-                if (speedMbps > 0 && speedMbps < 10000) {
+                if (speedMbps > 0 && speedMbps < 100000) { // Límite superior razonable
                     samples.push(speedMbps)
+                    estimatedSpeedMbps = speedMbps
+                    successCount++
+                    console.log(`✓ Descarga ${idx + 1}: ${speedMbps.toFixed(2)} Mbps (${(downloadedBytes / 1_000_000).toFixed(1)}MB en ${duration.toFixed(2)}s)`)
                 }
             }
-        } catch {
+        } catch (error) {
+            console.warn(`⚠️ Error en descarga ${idx + 1}:`, error instanceof Error ? error.message : 'Unknown')
             continue
         }
     }
@@ -156,32 +196,54 @@ async function measureDownload(
         throw new Error('No se pudo medir la velocidad de descarga')
     }
 
-    // Retornar mediana (más resistente a outliers)
+    // MÁXIMO en lugar de mediana: obtiene la velocidad pico real
+    // (Más representativo del máximo potencial de la conexión)
     const sorted = [...samples].sort((a, b) => a - b)
-    const median = sorted[Math.floor(sorted.length / 2)]
+    const maxSpeed = sorted[sorted.length - 1]
+    const medianSpeed = sorted[Math.floor(sorted.length / 2)]
 
-    return { speed: median, samples }
+    // Usar máximo pero con validación: si hay mucha variación, usar mediana
+    const speedRatio = maxSpeed / (medianSpeed || 1)
+    const finalSpeed = speedRatio > 3 ? medianSpeed : maxSpeed
+
+    console.log(`📊 Muestras: ${samples.length} | Mín: ${sorted[0]?.toFixed(2)} | Máx: ${maxSpeed.toFixed(2)} | Mediana: ${medianSpeed.toFixed(2)} | Final: ${finalSpeed.toFixed(2)}`)
+
+    return { speed: finalSpeed, samples }
 }
 
 /**
  * Estima upload sin cargar servidor
- * Basado en descarga (relación típica 1:3 a 1:5)
+ * Basado en descarga (relación típica varía según tipo de conexión)
+ * 
+ * NOTA: Esto es una estimación educada. Para medición precisa de upload,
+ * se necesaría un servidor espejo en la misma red CDN.
  */
 function estimateUpload(downloadSpeed: number): { speed: number; samples: number[] } {
-    // En conexiones reales, upload suele ser 20-40% de descarga
-    // Pero agregamos variabilidad realista
-    const uploadRatios = [0.25, 0.30, 0.35] // 25-35% de descarga
+    // Relación realista entre descarga y subida según tipo de conexión:
+    // - Conexiones móviles/satelitales: 5-15% upload
+    // - DSL/Cablemodem: 15-40% upload
+    // - Fibra simétrica: 80-100% upload
+    // - Fibra asimétrica: 20-50% upload
+
     const samples: number[] = []
 
-    for (const ratio of uploadRatios) {
-        const estimatedUpload = downloadSpeed * ratio * (0.8 + Math.random() * 0.4)
+    // Generar estimaciones basadas en múltiples ratios para capturar variabilidad
+    const estimationRatios = [0.20, 0.30, 0.40] // 20-40% de descarga (conservador pero realista)
+
+    for (const ratio of estimationRatios) {
+        // Agregar variabilidad realista: ±10% 
+        const variance = 0.9 + Math.random() * 0.2
+        const estimatedUpload = downloadSpeed * ratio * variance
         samples.push(Math.max(1, estimatedUpload))
     }
 
+    // Usar máximo en lugar de mediana para obtener mejor estimación
     const sorted = [...samples].sort((a, b) => a - b)
-    const median = sorted[1]
+    const maxEstimate = sorted[sorted.length - 1]
 
-    return { speed: median, samples }
+    console.log(`📤 Upload estimado: ${maxEstimate.toFixed(2)} Mbps (${((maxEstimate / downloadSpeed) * 100).toFixed(1)}% de descarga)`)
+
+    return { speed: maxEstimate, samples }
 }
 
 /**

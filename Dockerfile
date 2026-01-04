@@ -1,18 +1,45 @@
-FROM python:3.11-slim
+# Build Next.js
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Instalar Node.js y npm
-RUN apt-get update && apt-get install -y nodejs npm && rm -rf /var/lib/apt/lists/*
+# Copiar package.json
+COPY package*.json ./
+
+# Instalar dependencias
+RUN npm ci
+
+# Copiar código
+COPY . .
+
+# Build Next.js
+RUN npm run build
+
+# Runtime
+FROM node:20-alpine
+
+WORKDIR /app
 
 # Instalar speedtest-cli
-RUN pip install speedtest-cli
+RUN apk add --no-cache python3 py3-pip && \
+    pip3 install speedtest-cli
 
-# Copiar solo el archivo del servidor
+# Copiar package.json
+COPY package*.json ./
+
+# Instalar dependencias de runtime
+RUN npm ci --production
+
+# Copiar built Next.js app
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copiar server.js
 COPY server.js .
 
-# Puerto
-EXPOSE 3001
+# Exponer puerto 3000 (Next.js)
+EXPOSE 3000
 
-# Ejecutar solo el servidor de speedtest
-CMD ["node", "server.js"]
+# Iniciar ambos serviços
+CMD npm run start & node server.js & wait

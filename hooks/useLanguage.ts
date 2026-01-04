@@ -29,7 +29,9 @@ export function useLanguage() {
     }
 
     languageListeners.add(listener)
-    return () => languageListeners.delete(listener)
+    return () => {
+      languageListeners.delete(listener)
+    }
   }, [])
 
   // Cambiar idioma y guardar en localStorage + notificar a todos los listeners

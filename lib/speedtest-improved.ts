@@ -265,8 +265,8 @@ async function measurePingAccurate(
 }
 
 /**
-  * Mide subida con un único archivo para mayor precisión
-  * Usa 1GB balanceado entre precisión y evitar timeouts
+  * Mide subida con un archivo de 200MB
+  * Reduce problemas de CORS y memoria en navegadores
   */
 async function measureUploadEnhanced(
     onProgress?: (progress: number, speed: number, statusMsg: string) => void
@@ -279,7 +279,8 @@ async function measureUploadEnhanced(
     const samples: number[] = []
 
     try {
-        const uploadSize = 1024 * 1024 * 1024  // 1GB - balance entre precisión y evitar timeouts
+        // Usar 200MB - límite seguro para navegadores sin problemas de memoria
+        const uploadSize = 200 * 1024 * 1024
 
         console.log(`Subiendo archivo de ${(uploadSize / 1024 / 1024).toFixed(0)}MB...`)
 
@@ -389,8 +390,8 @@ async function measureUploadEnhanced(
                 reject(new Error('Subida cancelada'))
             })
 
-            xhr.open('POST', 'https://speed.cloudflare.com/__up')
-            xhr.send(blob)
+            xhr.open('POST', 'https://speed.cloudflare.com/__up', true)
+             xhr.send(blob)
 
             // Timeout de 30 minutos
             setTimeout(() => xhr.abort(), 1800000)

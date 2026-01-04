@@ -2,10 +2,29 @@ services:
   - type: web
     name: wifitop
     runtime: node
+    region: oregon
+    plan: free
     buildCommand: npm install && npm run build
     startCommand: npm run start
     envVars:
       - key: NODE_ENV
         value: production
-      - key: NEXT_PUBLIC_API_URL
-        scope: build
+      - key: NEXT_PUBLIC_SITE_NAME
+        value: WifiTOP
+      - fromGroup: wifitop
+  
+  - type: postgres
+    name: wifitop-db
+    region: oregon
+    plan: free
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: Allow all
+
+envGroups:
+  - name: wifitop
+    envVars:
+      - key: DATABASE_URL
+        scope: connect
+      - key: NEXT_PUBLIC_SITE_URL
+        value: https://wifitop.onrender.com

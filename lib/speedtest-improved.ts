@@ -224,7 +224,7 @@ async function measureUploadReal(
             
             // Generar datos aleatorios en chunks (menos memoria)
             const chunkSize = 10 * 1024 * 1024 // 10MB chunks
-            const chunks: Uint8Array[] = []
+            const chunks: BlobPart[] = []
             for (let offset = 0; offset < uploadSize; offset += chunkSize) {
                 const size = Math.min(chunkSize, uploadSize - offset)
                 const chunk = new Uint8Array(size)
@@ -253,7 +253,7 @@ async function measureUploadReal(
             try {
                 const uploadSize = uploadSizes[testIndex]
                 const chunkSize = 10 * 1024 * 1024
-                const chunks: Uint8Array[] = []
+                const chunks: BlobPart[] = []
                 for (let offset = 0; offset < uploadSize; offset += chunkSize) {
                     const size = Math.min(chunkSize, uploadSize - offset)
                     const chunk = new Uint8Array(size)

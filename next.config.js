@@ -5,8 +5,11 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
-  experimental: {
-    proxyClientMaxBodySize: '100mb'
+  // Aumentar tamaño máximo de request body en API routes
+  api: {
+    bodyParser: {
+      sizeLimit: '500mb'
+    }
   },
   headers: async () => {
     return [

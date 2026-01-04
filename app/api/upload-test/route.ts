@@ -7,9 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
  * Optimizado para Render Free Tier
  */
 
-export const config = {
-    maxDuration: 300, // 5 minutos máximo para upload lento
-}
+export const maxDuration = 300 // 5 minutos máximo para upload lento
 
 export async function POST(request: NextRequest) {
     try {

@@ -2,7 +2,7 @@ const http = require('http')
 const { exec } = require('child_process')
 const url = require('url')
 
-const PORT = process.env.PORT || 3001
+const PORT = 3001 // Puerto interno para speedtest
 
 /**
  * Rate limiter simple basado en IP

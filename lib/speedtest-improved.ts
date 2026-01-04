@@ -200,8 +200,9 @@ async function measureDownloadReal(
 }
 
 /**
- * Subida REAL con múltiples archivos pequeños para medir variabilidad
- * Usa XHR con progress tracking para precisión
+ * Subida REAL - 2 tests con archivos más grandes para precisión
+ * 250MB y 350MB - Usa XHR con progress tracking
+ * Fallback a endpoint local si Cloudflare falla
  */
 async function measureUploadReal(
     onProgress?: (progress: number, speed: number, statusMsg: string) => void
@@ -212,98 +213,71 @@ async function measureUploadReal(
     maxSpeed: number
 }> {
     const samples: number[] = []
-    const uploadSizes = [50 * 1024 * 1024, 75 * 1024 * 1024, 100 * 1024 * 1024] // 50MB, 75MB, 100MB
+    const uploadSizes = [250 * 1024 * 1024, 350 * 1024 * 1024] // 250MB, 350MB
+    let cloudflareWorking = true
 
     for (let testIndex = 0; testIndex < uploadSizes.length; testIndex++) {
         const uploadSize = uploadSizes[testIndex]
         
         try {
-            // Generar datos aleatorios (prevenir compresión)
-            const data = new Uint8Array(uploadSize)
-            for (let i = 0; i < data.length; i++) {
-                data[i] = Math.floor(Math.random() * 256)
+            console.log(`[Upload ${testIndex + 1}/2] Generando ${(uploadSize / 1024 / 1024).toFixed(0)}MB de datos...`)
+            
+            // Generar datos aleatorios en chunks (menos memoria)
+            const chunkSize = 10 * 1024 * 1024 // 10MB chunks
+            const chunks: Uint8Array[] = []
+            for (let offset = 0; offset < uploadSize; offset += chunkSize) {
+                const size = Math.min(chunkSize, uploadSize - offset)
+                const chunk = new Uint8Array(size)
+                for (let i = 0; i < size; i++) {
+                    chunk[i] = Math.floor(Math.random() * 256)
+                }
+                chunks.push(chunk)
             }
 
-            const speed = await new Promise<number>((resolve, reject) => {
-                const xhr = new XMLHttpRequest()
-                const startTime = performance.now()
-                let lastReportTime = startTime
+            const blob = new Blob(chunks, { type: 'application/octet-stream' })
+            console.log(`[Upload ${testIndex + 1}/2] Blob creado: ${blob.size} bytes`)
 
-                xhr.upload.addEventListener('progress', (e) => {
-                    if (!e.lengthComputable) return
-
-                    const now = performance.now()
-                    const elapsed = (now - startTime) / 1000
-
-                    if (now - lastReportTime >= 500 && elapsed > 0.5) {
-                        const uploadedBytes = e.loaded
-                        const speed = (uploadedBytes * 8) / elapsed / 1024 / 1024
-                        const blockProgress = 71 + (testIndex * 8) + (uploadedBytes / uploadSize) * 8
-                        
-                        onProgress?.(
-                            Math.min(blockProgress, 95),
-                            speed,
-                            `⬆️ Test ${testIndex + 1}/3: ${(uploadedBytes / 1024 / 1024).toFixed(0)}MB de ${(uploadSize / 1024 / 1024).toFixed(0)}MB | ${speed.toFixed(1)} Mbps`
-                        )
-                        lastReportTime = now
-                    }
-                })
-
-                xhr.addEventListener('load', () => {
-                    const endTime = performance.now()
-                    const durationSeconds = (endTime - startTime) / 1000
-
-                    if (xhr.status !== 200 && xhr.status !== 204) {
-                        reject(new Error(`HTTP ${xhr.status}`))
-                        return
-                    }
-
-                    if (durationSeconds < 0.5) {
-                        reject(new Error('Upload muy rápido'))
-                        return
-                    }
-
-                    const speedMbps = (uploadSize * 8) / durationSeconds / 1024 / 1024
-                    if (speedMbps <= 0 || speedMbps > 100000) {
-                        reject(new Error('Velocidad fuera de rango'))
-                        return
-                    }
-
-                    console.log(`✓ Upload ${testIndex + 1}: ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s)`)
-                    resolve(speedMbps)
-                })
-
-                xhr.addEventListener('error', () => {
-                    reject(new Error('Error de red en upload'))
-                })
-
-                xhr.addEventListener('abort', () => {
-                    reject(new Error('Upload cancelado'))
-                })
-
-                xhr.timeout = 180000 // 3 minutos
-
-                xhr.addEventListener('timeout', () => {
-                    reject(new Error('Timeout en upload'))
-                })
-
-                const blob = new Blob([data], { type: 'application/octet-stream' })
-                xhr.open('POST', 'https://speed.cloudflare.com/__up', true)
-                xhr.setRequestHeader('Content-Type', 'application/octet-stream')
-                
-                console.log(`Enviando upload ${testIndex + 1}...`)
-                xhr.send(blob)
-            })
+            // Intentar con Cloudflare primero, luego fallback al endpoint local
+            const speed = cloudflareWorking
+                ? await uploadToCloudflare(blob, uploadSize, testIndex, onProgress)
+                : await uploadToLocalEndpoint(blob, uploadSize, testIndex, onProgress)
 
             samples.push(speed)
+            console.log(`[Upload ${testIndex + 1}/2] Completado. Samples: ${samples.join(', ')}`)
         } catch (error) {
-            console.error(`Upload error:`, error)
-            continue
+            console.error(`[Upload ${testIndex + 1}/2] Fallo con Cloudflare:`, error)
+            
+            // Marcar Cloudflare como no funcionando y intentar endpoint local
+            cloudflareWorking = false
+            
+            try {
+                const uploadSize = uploadSizes[testIndex]
+                const chunkSize = 10 * 1024 * 1024
+                const chunks: Uint8Array[] = []
+                for (let offset = 0; offset < uploadSize; offset += chunkSize) {
+                    const size = Math.min(chunkSize, uploadSize - offset)
+                    const chunk = new Uint8Array(size)
+                    for (let i = 0; i < size; i++) {
+                        chunk[i] = Math.floor(Math.random() * 256)
+                    }
+                    chunks.push(chunk)
+                }
+                const blob = new Blob(chunks, { type: 'application/octet-stream' })
+                
+                console.log(`[Upload ${testIndex + 1}/2] Intentando fallback al endpoint local...`)
+                const speed = await uploadToLocalEndpoint(blob, uploadSize, testIndex, onProgress)
+                samples.push(speed)
+                console.log(`[Upload ${testIndex + 1}/2] Completado con fallback. Samples: ${samples.join(', ')}`)
+            } catch (fallbackError) {
+                console.error(`[Upload ${testIndex + 1}/2] Fallback también falló:`, fallbackError)
+                continue
+            }
         }
     }
 
     if (samples.length === 0) {
-        throw new Error('No se pudo medir subida')
+        console.error('Upload: No se completó ningún test')
+        throw new Error('No se pudo medir subida (error de red o servidor no disponible)')
     }
 
     const sorted = [...samples].sort((a, b) => a - b)
@@ -311,12 +285,210 @@ async function measureUploadReal(
     const maxSpeed = sorted[sorted.length - 1]
     const speed = sorted[Math.floor(sorted.length / 2)] // Mediana
 
+    console.log(`Upload Final: Samples=${samples}, Min=${minSpeed.toFixed(2)}, Max=${maxSpeed.toFixed(2)}, Median=${speed.toFixed(2)}`)
+
     return {
         speed,
         samples,
         minSpeed,
         maxSpeed
     }
+}
+
+/**
+ * Subida a Cloudflare
+ */
+async function uploadToCloudflare(
+    blob: Blob,
+    uploadSize: number,
+    testIndex: number,
+    onProgress?: (progress: number, speed: number, statusMsg: string) => void
+): Promise<number> {
+    return new Promise<number>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        const startTime = performance.now()
+        let lastReportTime = startTime
+
+        xhr.upload.addEventListener('progress', (e) => {
+            if (!e.lengthComputable) return
+
+            const now = performance.now()
+            const elapsed = (now - startTime) / 1000
+
+            if (now - lastReportTime >= 500 && elapsed > 1) {
+                const uploadedBytes = e.loaded
+                const speed = (uploadedBytes * 8) / elapsed / 1024 / 1024
+                const blockProgress = 71 + (testIndex * 13) + (uploadedBytes / uploadSize) * 13
+                
+                console.log(`[Upload ${testIndex + 1}/2 Progress] ${uploadedBytes / 1024 / 1024 | 0}MB / ${uploadSize / 1024 / 1024 | 0}MB @ ${speed.toFixed(2)} Mbps`)
+                
+                onProgress?.(
+                    Math.min(blockProgress, 96),
+                    speed,
+                    `⬆️ Test ${testIndex + 1}/2: ${(uploadedBytes / 1024 / 1024).toFixed(0)}MB de ${(uploadSize / 1024 / 1024).toFixed(0)}MB | ${speed.toFixed(1)} Mbps`
+                )
+                lastReportTime = now
+            }
+        })
+
+        xhr.addEventListener('loadstart', () => {
+            console.log(`[Upload ${testIndex + 1}/2 Cloudflare] Iniciado - Enviando ${(uploadSize / 1024 / 1024).toFixed(0)}MB`)
+        })
+
+        xhr.addEventListener('load', () => {
+            const endTime = performance.now()
+            const durationSeconds = (endTime - startTime) / 1000
+
+            console.log(`[Upload ${testIndex + 1}/2 Cloudflare] Load event - Status: ${xhr.status}, Duration: ${durationSeconds.toFixed(2)}s`)
+
+            if (xhr.status !== 200 && xhr.status !== 204) {
+                console.error(`[Upload ${testIndex + 1}/2 Cloudflare] HTTP ${xhr.status} error`)
+                reject(new Error(`HTTP ${xhr.status} - ${xhr.statusText}`))
+                return
+            }
+
+            if (durationSeconds < 1) {
+                console.error(`[Upload ${testIndex + 1}/2 Cloudflare] Muy rápido: ${durationSeconds.toFixed(2)}s`)
+                reject(new Error('Upload muy rápido, datos no válidos'))
+                return
+            }
+
+            const speedMbps = (uploadSize * 8) / durationSeconds / 1024 / 1024
+            console.log(`[Upload ${testIndex + 1}/2 Cloudflare] Speed: ${speedMbps.toFixed(2)} Mbps`)
+
+            if (speedMbps <= 0 || speedMbps > 100000) {
+                console.error(`[Upload ${testIndex + 1}/2 Cloudflare] Speed fuera de rango: ${speedMbps}`)
+                reject(new Error(`Velocidad fuera de rango: ${speedMbps.toFixed(2)} Mbps`))
+                return
+            }
+
+            console.log(`✓ Upload ${testIndex + 1} (Cloudflare): ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s)`)
+            resolve(speedMbps)
+        })
+
+        xhr.addEventListener('error', (e) => {
+            console.error(`[Upload ${testIndex + 1}/2 Cloudflare] XHR error event`, e)
+            reject(new Error('Error de red en upload'))
+        })
+
+        xhr.addEventListener('abort', () => {
+            console.error(`[Upload ${testIndex + 1}/2 Cloudflare] Aborted`)
+            reject(new Error('Upload cancelado'))
+        })
+
+        xhr.addEventListener('timeout', () => {
+            console.error(`[Upload ${testIndex + 1}/2 Cloudflare] Timeout`)
+            reject(new Error('Timeout en upload'))
+        })
+
+        xhr.timeout = 300000 // 5 minutos
+
+        try {
+            xhr.open('POST', 'https://speed.cloudflare.com/__up', true)
+            xhr.setRequestHeader('Content-Type', 'application/octet-stream')
+            console.log(`[Upload ${testIndex + 1}/2 Cloudflare] Enviando...`)
+            xhr.send(blob)
+        } catch (e) {
+            console.error(`[Upload ${testIndex + 1}/2 Cloudflare] Error al enviar:`, e)
+            reject(e instanceof Error ? e : new Error(String(e)))
+        }
+    })
+}
+
+/**
+ * Subida a endpoint local (/api/upload-test)
+ */
+async function uploadToLocalEndpoint(
+    blob: Blob,
+    uploadSize: number,
+    testIndex: number,
+    onProgress?: (progress: number, speed: number, statusMsg: string) => void
+): Promise<number> {
+    return new Promise<number>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        const startTime = performance.now()
+        let lastReportTime = startTime
+
+        xhr.upload.addEventListener('progress', (e) => {
+            if (!e.lengthComputable) return
+
+            const now = performance.now()
+            const elapsed = (now - startTime) / 1000
+
+            if (now - lastReportTime >= 500 && elapsed > 1) {
+                const uploadedBytes = e.loaded
+                const speed = (uploadedBytes * 8) / elapsed / 1024 / 1024
+                const blockProgress = 71 + (testIndex * 13) + (uploadedBytes / uploadSize) * 13
+                
+                console.log(`[Upload ${testIndex + 1}/2 Local Progress] ${uploadedBytes / 1024 / 1024 | 0}MB / ${uploadSize / 1024 / 1024 | 0}MB @ ${speed.toFixed(2)} Mbps`)
+                
+                onProgress?.(
+                    Math.min(blockProgress, 96),
+                    speed,
+                    `⬆️ Test ${testIndex + 1}/2 (Local): ${(uploadedBytes / 1024 / 1024).toFixed(0)}MB de ${(uploadSize / 1024 / 1024).toFixed(0)}MB | ${speed.toFixed(1)} Mbps`
+                )
+                lastReportTime = now
+            }
+        })
+
+        xhr.addEventListener('loadstart', () => {
+            console.log(`[Upload ${testIndex + 1}/2 Local] Iniciado`)
+        })
+
+        xhr.addEventListener('load', () => {
+            const endTime = performance.now()
+            const durationSeconds = (endTime - startTime) / 1000
+
+            console.log(`[Upload ${testIndex + 1}/2 Local] Load event - Status: ${xhr.status}`)
+
+            if (xhr.status !== 200) {
+                console.error(`[Upload ${testIndex + 1}/2 Local] HTTP ${xhr.status}`)
+                reject(new Error(`HTTP ${xhr.status}`))
+                return
+            }
+
+            try {
+                const response = JSON.parse(xhr.responseText)
+                const speedMbps = response.speedMbps
+
+                if (speedMbps <= 0 || speedMbps > 100000) {
+                    reject(new Error(`Velocidad fuera de rango: ${speedMbps}`))
+                    return
+                }
+
+                console.log(`✓ Upload ${testIndex + 1} (Local): ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s)`)
+                resolve(speedMbps)
+            } catch (e) {
+                reject(new Error('Invalid response format'))
+            }
+        })
+
+        xhr.addEventListener('error', () => {
+            console.error(`[Upload ${testIndex + 1}/2 Local] XHR error`)
+            reject(new Error('Error de red'))
+        })
+
+        xhr.addEventListener('abort', () => {
+            console.error(`[Upload ${testIndex + 1}/2 Local] Aborted`)
+            reject(new Error('Upload cancelado'))
+        })
+
+        xhr.addEventListener('timeout', () => {
+            console.error(`[Upload ${testIndex + 1}/2 Local] Timeout`)
+            reject(new Error('Timeout'))
+        })
+
+        xhr.timeout = 300000 // 5 minutos
+
+        try {
+            xhr.open('POST', '/api/upload-test', true)
+            console.log(`[Upload ${testIndex + 1}/2 Local] Enviando...`)
+            xhr.send(blob)
+        } catch (e) {
+            console.error(`[Upload ${testIndex + 1}/2 Local] Error:`, e)
+            reject(e instanceof Error ? e : new Error(String(e)))
+        }
+    })
 }
 
 /**
@@ -369,7 +541,7 @@ export async function simulateSpeedTestImproved(
         })
 
         // FASE 3: Subida REAL (no estimada)
-        onProgress?.(71, 'Midiendo subida (3 tests)...', { phase: 'upload' })
+        onProgress?.(71, 'Midiendo subida (2 tests)...', { phase: 'upload' })
         const uploadResult = await measureUploadReal((progress, speed, statusMsg) => {
             onProgress?.(progress, statusMsg, { phase: 'upload', currentSpeed: speed })
         })

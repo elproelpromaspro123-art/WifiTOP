@@ -385,12 +385,12 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
 
     // ========== NORMAL CARD VIEW ==========
      return (
-         <div className="w-full">
+         <div className="w-full relative z-10">
              <motion.div
                  initial={{ opacity: 0, y: 20 }}
                  animate={{ opacity: 1, y: 0 }}
                  transition={{ duration: 0.6 }}
-                 className="glow-border rounded-lg md:rounded-xl p-6 md:p-8 backdrop-blur-sm bg-gradient-to-br from-white/5 to-white/0"
+                 className="glow-border rounded-lg md:rounded-xl p-6 md:p-8 bg-gradient-to-br from-white/5 to-white/0 relative z-10"
              >
                  <div className="text-center">
                  {!result ? (
@@ -421,15 +421,15 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                          handleStartTest()
                                      }
                                  }}
-                                 className="w-full px-4 py-3 md:py-4 rounded-lg mb-6 bg-white/5 border-2 border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:bg-white/10 transition-colors text-base cursor-text"
+                                 className="w-full px-4 py-3 md:py-4 rounded-lg mb-6 bg-white/5 border-2 border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:bg-white/10 transition-colors text-base cursor-text pointer-events-auto relative z-10"
                                  autoFocus
                              />
                          )}
 
-                         <div className="space-y-3 mb-6">
+                         <div className="space-y-3 mb-6 relative z-20">
                              <button
                                  onClick={handleStartTest}
-                                 className="w-full py-3 md:py-4 rounded-lg font-bold text-base md:text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all duration-300 text-white cursor-pointer active:scale-95 shadow-lg hover:shadow-xl shadow-blue-500/40"
+                                 className="w-full py-3 md:py-4 rounded-lg font-bold text-base md:text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all duration-300 text-white cursor-pointer active:scale-95 shadow-lg hover:shadow-xl shadow-blue-500/40 pointer-events-auto relative z-10"
                              >
                                  🚀 {isAnonymous ? 'Comenzar (Anónima)' : 'Comenzar Prueba'}
                              </button>
@@ -440,7 +440,7 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                      setUserName('')
                                      setError(null)
                                  }}
-                                 className={`w-full py-3 rounded-lg font-semibold text-sm md:text-base transition-all duration-300 cursor-pointer ${isAnonymous
+                                 className={`w-full py-3 rounded-lg font-semibold text-sm md:text-base transition-all duration-300 cursor-pointer pointer-events-auto relative z-10 ${isAnonymous
                                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg'
                                      : 'bg-white/10 hover:bg-white/20 text-gray-300 border border-white/20'
                                      }`}

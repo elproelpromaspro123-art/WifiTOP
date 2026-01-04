@@ -113,38 +113,38 @@ async function measurePingAccurate(
 }
 
 /**
- * Descarga un único archivo grande para mayor precisión
- * Soluciona problema de WiFi rápido con múltiples test
- * Usa archivo de 5GB para velocidades altas, 500MB para velocidades bajas
- */
-async function measureDownloadEnhanced(
-    onProgress?: (progress: number, speed: number, statusMsg: string) => void
-): Promise<{
-    speed: number
-    samples: number[]
-    minSpeed: number
-    maxSpeed: number
-}> {
-    const samples: number[] = []
+  * Descarga un único archivo adaptado al ping para mayor precisión
+  * Tamaños: 1GB (ping<20ms), 500MB (ping<50ms), 200MB (ping>50ms)
+  * Balance entre precisión y evitar timeouts
+  */
+ async function measureDownloadEnhanced(
+     onProgress?: (progress: number, speed: number, statusMsg: string) => void
+ ): Promise<{
+     speed: number
+     samples: number[]
+     minSpeed: number
+     maxSpeed: number
+ }> {
+     const samples: number[] = []
 
-    // Detectar velocidad inicial con ping para elegir tamaño de archivo
-    const pingResult = await measurePingAccurate()
+     // Detectar velocidad inicial con ping para elegir tamaño de archivo
+     const pingResult = await measurePingAccurate()
 
-    // Estrategia: usar UN único archivo grande en lugar de múltiples pequeños
-    // - Ping bajo (< 20ms) = conexión rápida = usar 5GB
-    // - Ping bajo (< 20ms) = usar 20GB
-    // - Ping medio (20-50ms) = usar 5GB  
-    // - Ping alto (> 50ms) = usar 1GB
-    let testSize: number
-    if (pingResult.avgPing < 20) {
-        testSize = 20 * 1024 * 1024 * 1024  // 20GB para WiFi ultra-veloz
-    } else if (pingResult.avgPing < 50) {
-        testSize = 5 * 1024 * 1024 * 1024  // 5GB para WiFi veloz
-    } else {
-        testSize = 1 * 1024 * 1024 * 1024  // 1GB para WiFi normal
-    }
+     // Estrategia: usar UN único archivo adaptado al ping
+     // Tamaños balanceados para evitar timeouts pero asegurar medición válida
+     // - Ping bajo (< 20ms) = usar 1GB (conexión muy rápida)
+     // - Ping medio (20-50ms) = usar 500MB
+     // - Ping alto (> 50ms) = usar 200MB
+     let testSize: number
+     if (pingResult.avgPing < 20) {
+         testSize = 1024 * 1024 * 1024  // 1GB para WiFi ultra-rápido
+     } else if (pingResult.avgPing < 50) {
+         testSize = 500 * 1024 * 1024  // 500MB para WiFi rápido
+     } else {
+         testSize = 200 * 1024 * 1024  // 200MB para WiFi normal
+     }
 
-    console.log(`Usando archivo de ${(testSize / 1024 / 1024 / 1024).toFixed(1)}GB (ping: ${pingResult.avgPing.toFixed(1)}ms)`)
+    console.log(`Usando archivo de ${(testSize / 1024 / 1024).toFixed(0)}MB (ping: ${pingResult.avgPing.toFixed(1)}ms)`)
 
     try {
         const controller = new AbortController()
@@ -215,10 +215,10 @@ async function measureDownloadEnhanced(
                     const totalProgress = Math.min(blockProgress, 80)
 
                     onProgress?.(
-                        totalProgress,
-                        instantSpeed,
-                        `Descargando archivo grande... ${(downloadedBytes / 1024 / 1024 / 1024).toFixed(1)}GB de ${(testSize / 1024 / 1024 / 1024).toFixed(1)}GB | ${instantSpeed.toFixed(1)} Mbps`
-                    )
+                         totalProgress,
+                         instantSpeed,
+                         `Descargando archivo... ${(downloadedBytes / 1024 / 1024).toFixed(0)}MB de ${(testSize / 1024 / 1024).toFixed(0)}MB | ${instantSpeed.toFixed(1)} Mbps`
+                     )
                     lastReportTime = now
                     lastReportedBytes = downloadedBytes
                 }
@@ -239,7 +239,7 @@ async function measureDownloadEnhanced(
         }
 
         samples.push(speedMbps)
-        console.log(`✓ Descarga completada: ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s, ${(testSize / 1024 / 1024 / 1024).toFixed(1)}GB)`)
+         console.log(`✓ Descarga completada: ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s, ${(testSize / 1024 / 1024).toFixed(0)}MB)`)
 
     } catch (error) {
         console.error(`Download measurement error:`, error)
@@ -262,9 +262,9 @@ async function measureDownloadEnhanced(
 }
 
 /**
- * Mide subida con un único archivo grande para mayor precisión
- * Usa 1GB para medir subida de forma precisa
- */
+  * Mide subida con un único archivo para mayor precisión
+  * Usa 500MB balanceado entre precisión y evitar timeouts
+  */
 async function measureUploadEnhanced(
     onProgress?: (progress: number, speed: number, statusMsg: string) => void
 ): Promise<{
@@ -276,9 +276,9 @@ async function measureUploadEnhanced(
     const samples: number[] = []
 
     try {
-        const uploadSize = 1024 * 1024 * 1024  // 1GB
+        const uploadSize = 500 * 1024 * 1024  // 500MB - balance entre precisión y evitar timeouts
 
-        console.log(`Subiendo archivo de ${(uploadSize / 1024 / 1024 / 1024).toFixed(1)}GB...`)
+        console.log(`Subiendo archivo de ${(uploadSize / 1024 / 1024).toFixed(0)}MB...`)
 
         // Generar datos aleatorios criptográficamente para evitar compresión
         const data = new Uint8Array(uploadSize)
@@ -335,10 +335,10 @@ async function measureUploadEnhanced(
                         }
 
                         onProgress?.(
-                            85 + (uploadedBytes / uploadSize) * 3,
-                            instantSpeed,
-                            `Subiendo archivo... ${(uploadedBytes / 1024 / 1024 / 1024).toFixed(1)}GB de ${(uploadSize / 1024 / 1024 / 1024).toFixed(1)}GB | ${instantSpeed.toFixed(1)} Mbps`
-                        )
+                             85 + (uploadedBytes / uploadSize) * 3,
+                             instantSpeed,
+                             `Subiendo archivo... ${(uploadedBytes / 1024 / 1024).toFixed(0)}MB de ${(uploadSize / 1024 / 1024).toFixed(0)}MB | ${instantSpeed.toFixed(1)} Mbps`
+                         )
                     }
                 }
             })
@@ -360,12 +360,12 @@ async function measureUploadEnhanced(
                     }
 
                     samples.push(speedMbps)
-                    onProgress?.(
-                        88,
-                        speedMbps,
-                        `Subida completada: ${speedMbps.toFixed(1)} Mbps`
-                    )
-                    console.log(`✓ Subida completada: ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s, ${(uploadSize / 1024 / 1024 / 1024).toFixed(1)}GB)`)
+                     onProgress?.(
+                         88,
+                         speedMbps,
+                         `Subida completada: ${speedMbps.toFixed(1)} Mbps`
+                     )
+                     console.log(`✓ Subida completada: ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s, ${(uploadSize / 1024 / 1024).toFixed(0)}MB)`)
                     resolve({
                         speed: Math.max(speedMbps, 0.1),
                         samples: samples,
@@ -378,8 +378,9 @@ async function measureUploadEnhanced(
             })
 
             xhr.addEventListener('error', () => {
-                reject(new Error('Error en la subida'))
-            })
+                 console.error('XHR error - Upload failed')
+                 reject(new Error('Error de conexión al subir. Verifica tu conexión a internet.'))
+             })
 
             xhr.addEventListener('abort', () => {
                 reject(new Error('Subida cancelada'))

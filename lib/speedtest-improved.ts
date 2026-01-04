@@ -213,7 +213,9 @@ async function measureUploadReal(
     maxSpeed: number
 }> {
     const samples: number[] = []
-    const uploadSizes = [250 * 1024 * 1024, 350 * 1024 * 1024] // 250MB, 350MB
+    // Vercel has strict limits - use smaller sizes for upload tests
+    // When running locally on server.js, can be increased
+    const uploadSizes = [50 * 1024 * 1024, 100 * 1024 * 1024] // 50MB, 100MB for Vercel; local can be 250MB, 350MB
     let cloudflareWorking = true
 
     for (let testIndex = 0; testIndex < uploadSizes.length; testIndex++) {
@@ -408,8 +410,8 @@ async function uploadToLocalEndpoint(
         const xhr = new XMLHttpRequest()
         const startTime = performance.now()
         let lastReportTime = startTime
-        // Vercel serverless limit is ~10MB, use 8MB chunks to be safe
-        const CHUNK_SIZE = 8 * 1024 * 1024
+        // Vercel serverless limit is much stricter in practice, use 2MB chunks
+        const CHUNK_SIZE = 2 * 1024 * 1024
         const totalChunks = Math.ceil(uploadSize / CHUNK_SIZE)
         let currentChunk = 0
         let totalUploaded = 0
@@ -428,10 +430,14 @@ async function uploadToLocalEndpoint(
 
             const start = currentChunk * CHUNK_SIZE
             const end = Math.min(start + CHUNK_SIZE, uploadSize)
-            const chunk = new Uint8Array(end - start)
+            const chunkSize = end - start
+            
+            // Slice actual blob data
+            const chunkBlob = blob.slice(start, end)
             
             // Create a request for this chunk
             const chunkXhr = new XMLHttpRequest()
+            let chunkStartTime = performance.now()
             
             chunkXhr.upload.addEventListener('progress', (e) => {
                 if (!e.lengthComputable) return
@@ -456,40 +462,43 @@ async function uploadToLocalEndpoint(
             })
 
             chunkXhr.addEventListener('load', () => {
+                const chunkDuration = (performance.now() - chunkStartTime) / 1000
+                console.log(`[Upload ${testIndex + 1}/2 Local] Chunk ${currentChunk + 1}/${totalChunks} done - Status: ${chunkXhr.status} (${(chunkSize / 1024 / 1024).toFixed(1)}MB in ${chunkDuration.toFixed(1)}s)`)
+                
                 if (chunkXhr.status !== 200) {
                     console.error(`[Upload ${testIndex + 1}/2 Local] Chunk ${currentChunk + 1}/${totalChunks} failed with HTTP ${chunkXhr.status}`)
                     reject(new Error(`HTTP ${chunkXhr.status}`))
                     return
                 }
 
-                totalUploaded += (end - start)
+                totalUploaded += chunkSize
                 currentChunk++
-                console.log(`[Upload ${testIndex + 1}/2 Local] Chunk ${currentChunk}/${totalChunks} done`)
                 
-                // Send next chunk
-                sendChunk()
+                // Send next chunk after short delay
+                setTimeout(() => sendChunk(), 50)
             })
 
-            chunkXhr.addEventListener('error', () => {
-                console.error(`[Upload ${testIndex + 1}/2 Local] Chunk error`)
-                reject(new Error('Error de red'))
+            chunkXhr.addEventListener('error', (e) => {
+                console.error(`[Upload ${testIndex + 1}/2 Local] Chunk ${currentChunk + 1} error:`, e)
+                reject(new Error('Error de red en chunk'))
+            })
+
+            chunkXhr.addEventListener('abort', () => {
+                console.error(`[Upload ${testIndex + 1}/2 Local] Chunk ${currentChunk + 1} aborted`)
+                reject(new Error('Upload cancelado'))
             })
 
             chunkXhr.timeout = 60000 // 60s per chunk
             
             try {
-                const headers: Record<string, string> = {
-                    'Content-Type': 'application/octet-stream',
-                }
-                
                 chunkXhr.open('POST', '/api/upload-test', true)
-                Object.entries(headers).forEach(([key, value]) => {
-                    chunkXhr.setRequestHeader(key, value)
-                })
+                chunkXhr.setRequestHeader('Content-Type', 'application/octet-stream')
                 
-                console.log(`[Upload ${testIndex + 1}/2 Local] Sending chunk ${currentChunk + 1}/${totalChunks}`)
-                chunkXhr.send(chunk)
+                console.log(`[Upload ${testIndex + 1}/2 Local] Sending chunk ${currentChunk + 1}/${totalChunks} (${(chunkSize / 1024 / 1024).toFixed(1)}MB)`)
+                chunkStartTime = performance.now()
+                chunkXhr.send(chunkBlob)
             } catch (e) {
+                console.error(`[Upload ${testIndex + 1}/2 Local] Error sending chunk:`, e)
                 reject(e instanceof Error ? e : new Error(String(e)))
             }
         }

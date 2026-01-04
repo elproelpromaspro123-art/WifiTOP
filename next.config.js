@@ -8,8 +8,9 @@ const nextConfig = {
   // Aumentar tamaño máximo de request body en API routes
   api: {
     bodyParser: {
-      sizeLimit: '500mb'
-    }
+      sizeLimit: '50mb'
+    },
+    responseLimit: '50mb'
   },
   headers: async () => {
     return [

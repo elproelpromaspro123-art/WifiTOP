@@ -35,11 +35,7 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
       title: '12+ Badges Desbloqueables',
       description: 'Desbloquea badges exclusivos según tus logros: Speedster Extremo, Gaming Beast, Stability King y más.'
     },
-    {
-      icon: '📊',
-      title: 'Panel Administrativo Avanzado',
-      description: 'Estadísticas detalladas, análisis de anomalías y monitoreo de usuarios en tiempo real.'
-    },
+
     {
       icon: '⚡',
       title: 'Protección Rate Limiting',

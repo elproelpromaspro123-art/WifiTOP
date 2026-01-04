@@ -5,6 +5,32 @@ const url = require('url')
 const PORT = process.env.PORT || 3001
 
 /**
+ * Rate limiter simple basado en IP
+ */
+const requestCounts = new Map()
+const MAX_REQUESTS_PER_MINUTE = 5
+const WINDOW_SIZE = 60 * 1000 // 1 minuto
+
+function checkRateLimit(ip) {
+  const now = Date.now()
+  
+  if (!requestCounts.has(ip)) {
+    requestCounts.set(ip, [])
+  }
+  
+  const timestamps = requestCounts.get(ip)
+  const recentRequests = timestamps.filter(t => now - t < WINDOW_SIZE)
+  
+  if (recentRequests.length >= MAX_REQUESTS_PER_MINUTE) {
+    return false
+  }
+  
+  recentRequests.push(now)
+  requestCounts.set(ip, recentRequests)
+  return true
+}
+
+/**
  * Ejecuta speedtest-cli con reintentos
  */
 function runSpeedtest(retries = 3) {
@@ -83,9 +109,14 @@ function runSpeedtest(retries = 3) {
 const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url, true)
 
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*')
+  // CORS - Restringido solo a NEXT_PUBLIC_SITE_URL
+  const allowedOrigin = process.env.NEXT_PUBLIC_SITE_URL || 'https://wifitop.vercel.app'
+  const origin = req.headers.origin
+  if (origin === allowedOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', origin)
+  }
   res.setHeader('Content-Type', 'application/json')
+  res.setHeader('X-Content-Type-Options', 'nosniff')
 
   if (req.method === 'OPTIONS') {
     res.writeHead(200)
@@ -95,6 +126,18 @@ const server = http.createServer((req, res) => {
 
   // GET /speedtest - ejecutar prueba
   if (parsedUrl.pathname === '/speedtest' && req.method === 'GET') {
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress || 'unknown'
+    
+    if (!checkRateLimit(clientIp)) {
+      console.warn(`Rate limit excedido para IP: ${clientIp}`)
+      res.writeHead(429, { 'Retry-After': '60' })
+      res.end(JSON.stringify({
+        success: false,
+        error: 'Demasiadas solicitudes. Máximo 5 pruebas por minuto.'
+      }))
+      return
+    }
+
     console.log('═══════════════════════════════════')
     console.log('Iniciando prueba de velocidad real...')
     console.log('═══════════════════════════════════')

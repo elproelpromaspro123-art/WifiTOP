@@ -13,8 +13,16 @@ import { useStats } from '@/hooks/useStats'
 import { useRanking } from '@/hooks/useRanking'
 import { motion } from 'framer-motion'
 
+interface TestResult {
+    downloadSpeed: number
+    uploadSpeed: number
+    ping: number
+    jitter: number
+    stability?: number
+}
+
 export default function Home() {
-    const [results, setResults] = useState<any>(null)
+    const [results, setResults] = useState<TestResult | null>(null)
     const [statsError, setStatsError] = useState<string | null>(null)
     const [showWhatsNew, setShowWhatsNew] = useState(false)
     const [highlightResults, setHighlightResults] = useState(false)
@@ -30,28 +38,37 @@ export default function Home() {
         }
     }, [])
 
-    const handleTestComplete = (result: any) => {
+    const handleTestComplete = (result: TestResult) => {
         setResults(result)
         setHighlightResults(true)
+    }
 
-        // Auto-scroll a resultados después de un pequeño delay
-        setTimeout(() => {
+    // Effect para auto-scroll y animaciones después de test
+    useEffect(() => {
+        if (!results || !highlightResults) return
+
+        const scrollTimeout = setTimeout(() => {
             const resultsElement = document.getElementById('user-results')
             if (resultsElement) {
                 resultsElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
             }
         }, 300)
 
-        // Remover highlight después de 3 segundos
-        setTimeout(() => {
+        const highlightTimeout = setTimeout(() => {
             setHighlightResults(false)
         }, 3000)
 
-        setTimeout(() => {
+        const refreshTimeout = setTimeout(() => {
             refetch()
             refetchRanking()
         }, 1000)
-    }
+
+        return () => {
+            clearTimeout(scrollTimeout)
+            clearTimeout(highlightTimeout)
+            clearTimeout(refreshTimeout)
+        }
+    }, [results, highlightResults, refetch, refetchRanking])
 
     if (error && error !== statsError) {
         setStatsError(error)

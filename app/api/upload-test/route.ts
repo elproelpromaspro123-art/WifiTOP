@@ -1,7 +1,7 @@
 /**
- * Endpoint de prueba de upload
+ * Endpoint de prueba de upload (chunked compatible)
  * Mide la velocidad real de subida desde el navegador al servidor
- * Usado como fallback si Cloudflare bloquea uploads
+ * Soporta chunks para trabajar con límites de Vercel
  */
 
 export async function POST(request: Request) {
@@ -22,13 +22,14 @@ export async function POST(request: Request) {
             )
         }
         
-        // Calcular velocidad
+        // Calcular velocidad basado en el tamaño del chunk
         const speedMbps = (buffer.byteLength * 8) / durationSeconds / 1024 / 1024
         
-        console.log(`[Upload Test] Recibido: ${(buffer.byteLength / 1024 / 1024).toFixed(0)}MB en ${durationSeconds.toFixed(2)}s = ${speedMbps.toFixed(2)} Mbps`)
+        const sizeInMB = (buffer.byteLength / 1024 / 1024).toFixed(2)
+        console.log(`[Upload Test] Recibido: ${sizeInMB}MB en ${durationSeconds.toFixed(2)}s = ${speedMbps.toFixed(2)} Mbps`)
         
-        // Validar que la velocidad sea razonable
-        if (speedMbps <= 0 || speedMbps > 100000) {
+        // Validar que la velocidad sea razonable (aumentar rango para chunks)
+        if (speedMbps < 0.1 || speedMbps > 100000) {
             return Response.json(
                 { error: `Speed out of range: ${speedMbps.toFixed(2)} Mbps` },
                 { status: 400 }
@@ -43,8 +44,10 @@ export async function POST(request: Request) {
         })
     } catch (error) {
         console.error('[Upload Test] Error:', error)
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        // Return 500 instead of letting unhandled errors propagate
         return Response.json(
-            { error: error instanceof Error ? error.message : 'Unknown error' },
+            { error: message },
             { status: 500 }
         )
     }

@@ -396,7 +396,7 @@ async function uploadToCloudflare(
 }
 
 /**
- * Subida a endpoint local (/api/upload-test)
+ * Subida a endpoint local (/api/upload-test) con soporte para chunking
  */
 async function uploadToLocalEndpoint(
     blob: Blob,
@@ -408,86 +408,94 @@ async function uploadToLocalEndpoint(
         const xhr = new XMLHttpRequest()
         const startTime = performance.now()
         let lastReportTime = startTime
+        // Vercel serverless limit is ~10MB, use 8MB chunks to be safe
+        const CHUNK_SIZE = 8 * 1024 * 1024
+        const totalChunks = Math.ceil(uploadSize / CHUNK_SIZE)
+        let currentChunk = 0
+        let totalUploaded = 0
 
-        xhr.upload.addEventListener('progress', (e) => {
-            if (!e.lengthComputable) return
-
-            const now = performance.now()
-            const elapsed = (now - startTime) / 1000
-
-            if (now - lastReportTime >= 500 && elapsed > 1) {
-                const uploadedBytes = e.loaded
-                const speed = (uploadedBytes * 8) / elapsed / 1024 / 1024
-                const blockProgress = 71 + (testIndex * 13) + (uploadedBytes / uploadSize) * 13
+        const sendChunk = () => {
+            if (currentChunk >= totalChunks) {
+                // All chunks sent, upload complete
+                const endTime = performance.now()
+                const durationSeconds = (endTime - startTime) / 1000
+                const speedMbps = (uploadSize * 8) / durationSeconds / 1024 / 1024
                 
-                console.log(`[Upload ${testIndex + 1}/2 Local Progress] ${uploadedBytes / 1024 / 1024 | 0}MB / ${uploadSize / 1024 / 1024 | 0}MB @ ${speed.toFixed(2)} Mbps`)
-                
-                onProgress?.(
-                    Math.min(blockProgress, 96),
-                    speed,
-                    `⬆️ Test ${testIndex + 1}/2 (Local): ${(uploadedBytes / 1024 / 1024).toFixed(0)}MB de ${(uploadSize / 1024 / 1024).toFixed(0)}MB | ${speed.toFixed(1)} Mbps`
-                )
-                lastReportTime = now
-            }
-        })
-
-        xhr.addEventListener('loadstart', () => {
-            console.log(`[Upload ${testIndex + 1}/2 Local] Iniciado`)
-        })
-
-        xhr.addEventListener('load', () => {
-            const endTime = performance.now()
-            const durationSeconds = (endTime - startTime) / 1000
-
-            console.log(`[Upload ${testIndex + 1}/2 Local] Load event - Status: ${xhr.status}`)
-
-            if (xhr.status !== 200) {
-                console.error(`[Upload ${testIndex + 1}/2 Local] HTTP ${xhr.status}`)
-                reject(new Error(`HTTP ${xhr.status}`))
+                console.log(`✓ Upload ${testIndex + 1} (Local): ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s)`)
+                resolve(speedMbps)
                 return
             }
 
-            try {
-                const response = JSON.parse(xhr.responseText)
-                const speedMbps = response.speedMbps
+            const start = currentChunk * CHUNK_SIZE
+            const end = Math.min(start + CHUNK_SIZE, uploadSize)
+            const chunk = new Uint8Array(end - start)
+            
+            // Create a request for this chunk
+            const chunkXhr = new XMLHttpRequest()
+            
+            chunkXhr.upload.addEventListener('progress', (e) => {
+                if (!e.lengthComputable) return
+                
+                const now = performance.now()
+                const elapsed = (now - startTime) / 1000
+                
+                if (now - lastReportTime >= 500 && elapsed > 1) {
+                    const uploadedSoFar = totalUploaded + e.loaded
+                    const speed = (uploadedSoFar * 8) / elapsed / 1024 / 1024
+                    const blockProgress = 71 + (testIndex * 13) + (uploadedSoFar / uploadSize) * 13
+                    
+                    console.log(`[Upload ${testIndex + 1}/2 Local Progress] ${(uploadedSoFar / 1024 / 1024) | 0}MB / ${(uploadSize / 1024 / 1024) | 0}MB @ ${speed.toFixed(2)} Mbps`)
+                    
+                    onProgress?.(
+                        Math.min(blockProgress, 96),
+                        speed,
+                        `⬆️ Test ${testIndex + 1}/2 (Local): ${(uploadedSoFar / 1024 / 1024).toFixed(0)}MB de ${(uploadSize / 1024 / 1024).toFixed(0)}MB | ${speed.toFixed(1)} Mbps`
+                    )
+                    lastReportTime = now
+                }
+            })
 
-                if (speedMbps <= 0 || speedMbps > 100000) {
-                    reject(new Error(`Velocidad fuera de rango: ${speedMbps}`))
+            chunkXhr.addEventListener('load', () => {
+                if (chunkXhr.status !== 200) {
+                    console.error(`[Upload ${testIndex + 1}/2 Local] Chunk ${currentChunk + 1}/${totalChunks} failed with HTTP ${chunkXhr.status}`)
+                    reject(new Error(`HTTP ${chunkXhr.status}`))
                     return
                 }
 
-                console.log(`✓ Upload ${testIndex + 1} (Local): ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s)`)
-                resolve(speedMbps)
+                totalUploaded += (end - start)
+                currentChunk++
+                console.log(`[Upload ${testIndex + 1}/2 Local] Chunk ${currentChunk}/${totalChunks} done`)
+                
+                // Send next chunk
+                sendChunk()
+            })
+
+            chunkXhr.addEventListener('error', () => {
+                console.error(`[Upload ${testIndex + 1}/2 Local] Chunk error`)
+                reject(new Error('Error de red'))
+            })
+
+            chunkXhr.timeout = 60000 // 60s per chunk
+            
+            try {
+                const headers: Record<string, string> = {
+                    'Content-Type': 'application/octet-stream',
+                }
+                
+                chunkXhr.open('POST', '/api/upload-test', true)
+                Object.entries(headers).forEach(([key, value]) => {
+                    chunkXhr.setRequestHeader(key, value)
+                })
+                
+                console.log(`[Upload ${testIndex + 1}/2 Local] Sending chunk ${currentChunk + 1}/${totalChunks}`)
+                chunkXhr.send(chunk)
             } catch (e) {
-                reject(new Error('Invalid response format'))
+                reject(e instanceof Error ? e : new Error(String(e)))
             }
-        })
-
-        xhr.addEventListener('error', () => {
-            console.error(`[Upload ${testIndex + 1}/2 Local] XHR error`)
-            reject(new Error('Error de red'))
-        })
-
-        xhr.addEventListener('abort', () => {
-            console.error(`[Upload ${testIndex + 1}/2 Local] Aborted`)
-            reject(new Error('Upload cancelado'))
-        })
-
-        xhr.addEventListener('timeout', () => {
-            console.error(`[Upload ${testIndex + 1}/2 Local] Timeout`)
-            reject(new Error('Timeout'))
-        })
-
-        xhr.timeout = 300000 // 5 minutos
-
-        try {
-            xhr.open('POST', '/api/upload-test', true)
-            console.log(`[Upload ${testIndex + 1}/2 Local] Enviando...`)
-            xhr.send(blob)
-        } catch (e) {
-            console.error(`[Upload ${testIndex + 1}/2 Local] Error:`, e)
-            reject(e instanceof Error ? e : new Error(String(e)))
         }
+
+        // Start uploading chunks
+        sendChunk()
     })
 }
 

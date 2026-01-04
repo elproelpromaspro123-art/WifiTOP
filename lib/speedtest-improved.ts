@@ -121,6 +121,7 @@ async function measureDownloadReal(
     const recentSpeeds: number[] = []
     const STABILITY_THRESHOLD = 0.97 // 97% del máximo = estable
     const requiredConsistentDrops = 4 // 4 mediciones bajando = caída real
+    let stabilizationDetected = false // Flag para parar inmediatamente
 
     try {
         const controller = new AbortController()
@@ -150,6 +151,13 @@ async function measureDownloadReal(
         console.log(`[Download] Descargando 10GB para medir velocidad máxima sostenida...`)
 
         while (true) {
+            // Si ya se detectó estabilidad, parar inmediatamente
+            if (stabilizationDetected) {
+                console.log(`[Download] ✓ PARADO: Velocidad máxima estable alcanzada`)
+                reader.cancel()
+                break
+            }
+
             const { done, value } = await reader.read()
             if (done) break
 
@@ -176,7 +184,7 @@ async function measureDownloadReal(
 
                 // Lógica inteligente: ¿está estabilizado?
                 let isStabilized = false
-                if (recentSpeeds.length >= 6) {
+                if (recentSpeeds.length >= 6 && downloadedBytes > 1 * 1024 * 1024 * 1024) {
                     const lastFive = recentSpeeds.slice(-5)
                     const avgRecent = lastFive.reduce((a, b) => a + b) / lastFive.length
                     const stabilityThreshold = lastMaxSpeed * STABILITY_THRESHOLD
@@ -205,11 +213,11 @@ async function measureDownloadReal(
                 )
                 lastReportTime = now
 
-                // Si está estabilizado y descargó >1GB, parar temprano
-                if (isStabilized && downloadedBytes > 1 * 1024 * 1024 * 1024) {
-                    console.log(`[Download] ✓ Velocidad estabilizada en ${lastMaxSpeed.toFixed(2)} Mbps`)
-                    reader.cancel()
-                    break
+                // Si está estabilizado, MARCAR PARA PARAR INMEDIATAMENTE
+                if (isStabilized) {
+                    console.log(`[Download] ✓ Estabilidad detectada en ${lastMaxSpeed.toFixed(2)} Mbps después de ${(downloadedBytes / 1024 / 1024 / 1024).toFixed(2)}GB`)
+                    stabilizationDetected = true
+                    // No hace break aquí, la siguiente iteración verá el flag y parará
                 }
             }
         }
@@ -436,6 +444,7 @@ async function uploadToLocalEndpointStable(
         let lastReportTime = startTime
         let lastMaxSpeed = 0
         let lastMaxSpeedTime = startTime
+        let stabilizationDetected = false // Flag para parar inmediatamente
         
         // Nuevas variables para detección inteligente
         const recentSpeeds: number[] = [] // Últimas 10 mediciones
@@ -482,22 +491,19 @@ async function uploadToLocalEndpointStable(
         }
 
         const sendChunk = () => {
-            // Detectar si alcanzó estabilidad con lógica inteligente
-            const now = performance.now()
-            if (totalUploaded > 0 && totalUploaded > 1 * 1024 * 1024 * 1024 && isStabilized()) {
-                console.log(`[Upload] ✓ Velocidad estabilizada en ${lastMaxSpeed.toFixed(2)} Mbps después de ${(totalUploaded / 1024 / 1024 / 1024).toFixed(2)}GB`)
-                
-                // Esperar a que terminen requests activos
-                if (activeRequests > 0) {
-                    setTimeout(() => sendChunk(), 100)
-                    return
-                }
-
+            // Si ya se detectó estabilidad, resolver inmediatamente
+            if (stabilizationDetected && activeRequests === 0) {
                 const endTime = performance.now()
                 const durationSeconds = (endTime - startTime) / 1000
                 const finalSpeed = (totalUploaded * 8) / durationSeconds / 1024 / 1024
                 console.log(`✓ Upload completada: ${finalSpeed.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s, ${(totalUploaded / 1024 / 1024 / 1024).toFixed(2)}GB)`)
                 resolve(finalSpeed)
+                return
+            }
+
+            // Esperar a que terminen requests activos antes de verificar estabilidad
+            if (stabilizationDetected && activeRequests > 0) {
+                setTimeout(() => sendChunk(), 100)
                 return
             }
 
@@ -556,8 +562,12 @@ async function uploadToLocalEndpointStable(
                     }
 
                     // Determinar estado de estabilidad
-                    const stabilized = isStabilized()
-                    const statusExtra = stabilized ? ' (✓ Estabilizado)' : ''
+                    let isStabilizedNow = false
+                    if (recentSpeeds.length >= 6 && totalUploaded > 1 * 1024 * 1024 * 1024) {
+                        isStabilizedNow = isStabilized()
+                    }
+                    
+                    const statusExtra = isStabilizedNow ? ' (✓ Estabilizado)' : ''
                     const blockProgress = 71 + (uploadedSoFar / uploadSize) * 25
 
                     console.log(`[Upload Progress] ${(uploadedSoFar / 1024 / 1024 / 1024).toFixed(2)}GB / 10GB @ ${speed.toFixed(2)} Mbps`)
@@ -568,6 +578,13 @@ async function uploadToLocalEndpointStable(
                         `⬆️ Subida: ${(uploadedSoFar / 1024 / 1024 / 1024).toFixed(2)}GB / 10GB | ${speed.toFixed(1)} Mbps${statusExtra}`
                     )
                     lastReportTime = now
+
+                    // Si está estabilizado, MARCAR PARA PARAR INMEDIATAMENTE (sin enviar más chunks)
+                    if (isStabilizedNow && !stabilizationDetected) {
+                        console.log(`[Upload] ✓ Estabilidad detectada en ${lastMaxSpeed.toFixed(2)} Mbps después de ${(totalUploaded / 1024 / 1024 / 1024).toFixed(2)}GB`)
+                        stabilizationDetected = true
+                        // Los chunks activos seguirán, pero no se enviarán nuevos
+                    }
                 }
             })
 

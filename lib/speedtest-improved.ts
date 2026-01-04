@@ -261,7 +261,7 @@ async function measureUploadReal(
     minSpeed: number
     maxSpeed: number
 }> {
-    const uploadSize = 500 * 1024 * 1024 // 500MB (para medición válida)
+    const uploadSize = 1024 * 1024 * 1024 // 1GB (para medición válida)
     const speeds: number[] = []
     
     try {

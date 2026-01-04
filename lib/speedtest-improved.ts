@@ -265,8 +265,8 @@ async function measurePingAccurate(
 }
 
 /**
-  * Mide subida con un archivo de 50MB usando httpbin.org
-  * Evita problemas CORS y memoria en navegadores
+  * Mide subida con un archivo de 50MB usando endpoint local
+  * Mayor precisión al medir velocidad real cliente-servidor
   */
 async function measureUploadEnhanced(
     onProgress?: (progress: number, speed: number, statusMsg: string) => void
@@ -302,14 +302,18 @@ async function measureUploadEnhanced(
              const controller = new AbortController()
              const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 min timeout
 
-             // Usar httpbin.org que permite CORS
-             const response = await fetch('https://httpbin.org/post', {
+             // Usar endpoint local para medir velocidad real de upload
+             const response = await fetch('/api/upload-test', {
                  method: 'POST',
                  body: blob,
                  signal: controller.signal,
              })
 
              clearTimeout(timeoutId)
+             
+             if (!response.ok) {
+                 throw new Error(`HTTP ${response.status}`)
+             }
 
              const endTime = performance.now()
              const durationSeconds = (endTime - startTime) / 1000

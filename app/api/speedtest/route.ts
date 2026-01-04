@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
-import { simulateSpeedTestFixed as simulateSpeedTest, getGeoLocation } from '@/lib/speedtest-fixed'
+import { getGeoLocation } from '@/lib/geo'
 import { maintainRanking } from '@/lib/ranking'
 import { validateUserName, validateSpeedTestResult, detectAnomalies } from '@/lib/validation'
 import { checkRateLimit } from '@/lib/rate-limit'

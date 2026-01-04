@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { simulateSpeedTestImproved } from '@/lib/speedtest-improved'
+import { simulateSpeedTestReal } from '@/lib/speedtest-real'
 import { getBadgeInfo } from '@/lib/badges'
 import { useBadges } from '@/hooks/useBadges'
 import { useTestHistory } from '@/hooks/useTestHistory'
@@ -91,7 +91,7 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
         setChartData({ download: [], upload: [], ping: [] })
 
         try {
-            const testResult = await simulateSpeedTestImproved((progress, status, details) => {
+            const testResult = await simulateSpeedTestReal((progress, status, details) => {
                 setProgress(progress)
                 setStatusMsg(status)
 

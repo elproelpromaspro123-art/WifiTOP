@@ -284,11 +284,7 @@ async function measurePingAccurate(
 
          // Estimación estadística: típicamente upload es 50-80% de descarga
          // Basado en datos de Speedtest.net para conexiones típicas
-         const uploadEstimate = downloadSpeed * 0.65 // 65% de descarga es media
-         
-         // Añadir pequeña variación para realismo
-         const variation = (Math.random() - 0.5) * 0.2 // ±10%
-         const uploadSpeed = uploadEstimate * (1 + variation)
+         const uploadSpeed = downloadSpeed * 0.65 // 65% de descarga es media
 
          // Validar resultado
          if (uploadSpeed <= 0 || uploadSpeed > 1000000) {

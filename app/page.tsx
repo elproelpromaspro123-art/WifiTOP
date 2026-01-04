@@ -174,30 +174,30 @@ export default function Home() {
                                     <ul className="space-y-2 text-gray-300">
                                         <li className="flex items-start gap-3">
                                             <span className="text-blue-400 font-bold">✓</span>
-                                            <span>Mediciones ultra precisas: descarga, subida, ping, jitter, estabilidad</span>
+                                            <span>{t('features.ultra_precision')}</span>
                                         </li>
                                         <li className="flex items-start gap-3">
                                             <span className="text-blue-400 font-bold">✓</span>
-                                            <span>Ranking global en tiempo real con 10,000 mejores resultados</span>
+                                            <span>{t('features.global_ranking')}</span>
                                         </li>
                                         <li className="flex items-start gap-3">
                                             <span className="text-blue-400 font-bold">✓</span>
-                                            <span>12+ badges desbloqueables según tus logros</span>
+                                            <span>{t('features.badges')}</span>
                                         </li>
                                         <li className="flex items-start gap-3">
                                             <span className="text-blue-400 font-bold">✓</span>
-                                            <span>Detección inteligente de fraude y anomalías</span>
+                                            <span>{t('features.fraud_detection')}</span>
                                         </li>
                                         <li className="flex items-start gap-3">
                                             <span className="text-blue-400 font-bold">✓</span>
-                                            <span>Modo anónimo para pruebas privadas</span>
+                                            <span>{t('features.anonymous_mode')}</span>
                                         </li>
                                         <li className="flex items-start gap-3">
                                             <span className="text-blue-400 font-bold">✓</span>
-                                            <span>Compartir resultados en redes sociales</span>
+                                            <span>{t('features.social_sharing')}</span>
                                         </li>
                                     </ul>
-                                </div>
+                                 </div>
 
                                 <div className="pt-6 border-t border-white/10">
                                     <h3 className="text-xl font-bold text-white mb-3">{t('about.why')}</h3>

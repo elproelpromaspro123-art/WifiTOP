@@ -38,11 +38,11 @@ interface TestPhase {
 
 function getPHASES(t: (key: string) => string): Record<string, TestPhase> {
     return {
-        idle: { name: 'idle', label: 'Listo', icon: '⚡', color: 'text-gray-400' },
-        ping: { name: 'ping', label: 'Midiendo Ping', icon: '📡', color: 'text-yellow-400' },
-        download: { name: 'download', label: 'Descargando', icon: '⬇️', color: 'text-blue-400' },
-        upload: { name: 'upload', label: 'Subiendo', icon: '⬆️', color: 'text-green-400' },
-        complete: { name: 'complete', label: 'Completado', icon: '✅', color: 'text-emerald-400' }
+        idle: { name: 'idle', label: t('phase.ready'), icon: '⚡', color: 'text-gray-400' },
+        ping: { name: 'ping', label: t('phase.measuring_ping'), icon: '📡', color: 'text-yellow-400' },
+        download: { name: 'download', label: t('phase.downloading'), icon: '⬇️', color: 'text-blue-400' },
+        upload: { name: 'upload', label: t('phase.uploading'), icon: '⬆️', color: 'text-green-400' },
+        complete: { name: 'complete', label: t('phase.completed'), icon: '✅', color: 'text-emerald-400' }
     }
 }
 
@@ -77,7 +77,7 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
 
         if (!isAnonymous) {
             if (!userName.trim()) {
-                setError('Por favor ingresa tu nombre o selecciona modo anónimo')
+                setError(t('action.please_enter_name'))
                 return
             }
         }
@@ -85,7 +85,7 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
         setTesting(true)
         setProgress(0)
         setCurrentPhase(PHASES.ping)
-        setStatusMsg('Iniciando prueba...')
+        setStatusMsg(t('phase.starting'))
         setTestDetails({ currentSpeed: 0, phase: 'ping' })
         setTestStartTime(Date.now())
         setChartData({ download: [], upload: [], ping: [] })
@@ -618,12 +618,12 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                         setUserName('')
                                         setProgress(0)
                                         setCurrentPhase(PHASES.idle)
-                                        setStatusMsg('Listo')
+                                        setStatusMsg(t('phase.ready'))
                                         setUnlockedBadges([])
                                     }}
                                     className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 border border-blue-400/30 shadow-lg hover:shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 transition-all text-white cursor-pointer pointer-events-auto relative z-10 backdrop-blur-sm"
                                 >
-                                    🔄 Realizar Otra Prueba
+                                    {t('action.another_test')}
                                 </motion.button>
                             </motion.div>
                         )}

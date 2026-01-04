@@ -65,17 +65,32 @@ export const translations: Record<Language, Record<string, string>> = {
         'stats.avg_speed': 'Average Speed',
 
         // Speed Test
-        'speedtest.enter_name': 'Enter your name',
-        'speedtest.start_test': 'Start Test',
-        'speedtest.testing': 'Testing...',
-        'speedtest.your_result': 'Your Current Result',
-        'speedtest.download': 'DOWNLOAD',
-        'speedtest.upload': 'UPLOAD',
-        'speedtest.ping': 'PING',
-        'speedtest.stability': 'Stability',
-        'speedtest.jitter': 'Jitter',
-        'speedtest.thanks': 'Thank you for participating',
-        'speedtest.congrats': 'Congratulations! You made it to the top 1000 at position',
+         'speedtest.enter_name': 'Enter your name',
+         'speedtest.start_test': 'Start Test',
+         'speedtest.testing': 'Testing...',
+         'speedtest.your_result': 'Your Current Result',
+         'speedtest.download': 'DOWNLOAD',
+         'speedtest.upload': 'UPLOAD',
+         'speedtest.ping': 'PING',
+         'speedtest.stability': 'Stability',
+         'speedtest.jitter': 'Jitter',
+         'speedtest.thanks': 'Thank you for participating',
+         'speedtest.congrats': 'Congratulations! You made it to the top 1000 at position',
+         
+         // Test Phases
+         'phase.ready': 'Ready',
+         'phase.measuring_ping': 'Measuring Ping',
+         'phase.downloading': 'Downloading',
+         'phase.uploading': 'Uploading',
+         'phase.completed': 'Completed',
+         'phase.starting': 'Starting test...',
+         'phase.error': 'Error',
+         
+         // Buttons & Actions
+         'action.start_test': '🚀 Start Test',
+         'action.another_test': '🔄 Another Test',
+         'action.anonymous_mode': '🕵️ Anonymous Mode',
+         'action.please_enter_name': 'Please enter your name or select anonymous mode',
 
         // Validation
         'validation.name_required': 'Name is required',
@@ -258,6 +273,21 @@ export const translations: Record<Language, Record<string, string>> = {
         'speedtest.jitter': 'Jitter',
         'speedtest.thanks': 'Gracias por participar',
         'speedtest.congrats': 'Felicidades! Entraste en el top 1000 en la posición',
+        
+        // Test Phases
+        'phase.ready': 'Listo',
+        'phase.measuring_ping': 'Midiendo Ping',
+        'phase.downloading': 'Descargando',
+        'phase.uploading': 'Subiendo',
+        'phase.completed': 'Completado',
+        'phase.starting': 'Iniciando prueba...',
+        'phase.error': 'Error',
+        
+        // Buttons & Actions
+        'action.start_test': '🚀 Comenzar Prueba',
+        'action.another_test': '🔄 Realizar Otra Prueba',
+        'action.anonymous_mode': '🕵️ Modo Anónimo',
+        'action.please_enter_name': 'Por favor ingresa tu nombre o selecciona modo anónimo',
 
         // Validation
         'validation.name_required': 'El nombre es requerido',
@@ -440,6 +470,21 @@ export const translations: Record<Language, Record<string, string>> = {
         'speedtest.jitter': '抖动',
         'speedtest.thanks': '感谢您的参与',
         'speedtest.congrats': '恭喜！您进入了前 1000 名，排名',
+        
+        // Test Phases
+        'phase.ready': '准备就绪',
+        'phase.measuring_ping': '正在测量延迟',
+        'phase.downloading': '正在下载',
+        'phase.uploading': '正在上传',
+        'phase.completed': '已完成',
+        'phase.starting': '开始测试...',
+        'phase.error': '错误',
+        
+        // Buttons & Actions
+        'action.start_test': '🚀 开始测试',
+        'action.another_test': '🔄 进行另一个测试',
+        'action.anonymous_mode': '🕵️ 匿名模式',
+        'action.please_enter_name': '请输入您的名字或选择匿名模式',
 
         // Validation
         'validation.name_required': '名字是必需的',
@@ -622,6 +667,21 @@ export const translations: Record<Language, Record<string, string>> = {
         'speedtest.jitter': 'जिटर',
         'speedtest.thanks': 'भाग लेने के लिए धन्यवाद',
         'speedtest.congrats': 'बधाई हो! आप शीर्ष 1000 में प्रवेश कर गए हैं',
+        
+        // Test Phases
+        'phase.ready': 'तैयार',
+        'phase.measuring_ping': 'पिंग माप रहे हैं',
+        'phase.downloading': 'डाउनलोड हो रहा है',
+        'phase.uploading': 'अपलोड हो रहा है',
+        'phase.completed': 'पूर्ण',
+        'phase.starting': 'परीक्षण शुरू कर रहे हैं...',
+        'phase.error': 'त्रुटि',
+        
+        // Buttons & Actions
+        'action.start_test': '🚀 परीक्षण शुरू करें',
+        'action.another_test': '🔄 दूसरा परीक्षण करें',
+        'action.anonymous_mode': '🕵️ अनाम मोड',
+        'action.please_enter_name': 'कृपया अपना नाम दर्ज करें या अनाम मोड चुनें',
 
         // Validation
         'validation.name_required': 'नाम आवश्यक है',
@@ -804,6 +864,21 @@ export const translations: Record<Language, Record<string, string>> = {
         'speedtest.jitter': 'Gigue',
         'speedtest.thanks': 'Merci d\'avoir participé',
         'speedtest.congrats': 'Félicitations! Vous êtes entré dans le top 1000 à la position',
+        
+        // Test Phases
+        'phase.ready': 'Prêt',
+        'phase.measuring_ping': 'Mesure du ping',
+        'phase.downloading': 'Téléchargement',
+        'phase.uploading': 'Téléversement',
+        'phase.completed': 'Terminé',
+        'phase.starting': 'Démarrage du test...',
+        'phase.error': 'Erreur',
+        
+        // Buttons & Actions
+        'action.start_test': '🚀 Démarrer le test',
+        'action.another_test': '🔄 Un autre test',
+        'action.anonymous_mode': '🕵️ Mode anonyme',
+        'action.please_enter_name': 'Veuillez entrer votre nom ou sélectionner le mode anonyme',
 
         // Validation
         'validation.name_required': 'Le nom est obligatoire',

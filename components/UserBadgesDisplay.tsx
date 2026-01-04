@@ -169,11 +169,11 @@ export default function UserBadgesDisplay() {
                   animate={{ opacity: 1, scale: 1 }}
                   whileHover={{ scale: 1.05 }}
                   className="bg-gradient-to-br from-white/10 to-white/5 rounded-lg p-3 text-center border border-white/20 opacity-60 hover:opacity-100 transition-all"
-                  title={badge.description}
+                  title={t(badge.description)}
                 >
                   <p className="text-3xl mb-2">{badge.icon}</p>
                   <p className="text-xs font-semibold text-gray-300 leading-tight mb-1">
-                    {badge.name}
+                    {t(badge.name)}
                   </p>
                   <p className={`text-xs font-bold ${
                     badge.rarity === 'epic' ? 'text-yellow-300' :
@@ -181,7 +181,7 @@ export default function UserBadgesDisplay() {
                     badge.rarity === 'uncommon' ? 'text-purple-300' :
                     'text-gray-400'
                   }`}>
-                    {badge.rarity.toUpperCase()}
+                    {t(`badges.${badge.rarity}`)}
                   </p>
                 </motion.div>
               ))}

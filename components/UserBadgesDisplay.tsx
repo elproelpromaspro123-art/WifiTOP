@@ -3,9 +3,11 @@
 import { motion } from 'framer-motion'
 import { useBadges } from '@/hooks/useBadges'
 import { getBadgeInfo, getAllBadges as getAllAvailableBadges } from '@/lib/badges'
+import { useLanguage } from '@/hooks/useLanguage'
 
 export default function UserBadgesDisplay() {
   const { getAllBadges, getBadgeStats, isLoading } = useBadges()
+  const { t } = useLanguage()
 
   const badges = getAllBadges()
   const stats = getBadgeStats()
@@ -25,7 +27,7 @@ export default function UserBadgesDisplay() {
             className="text-center"
           >
             <div className="loading-spinner w-12 h-12 mx-auto mb-3"></div>
-            <p className="text-gray-400 font-semibold">Cargando badges...</p>
+             <p className="text-gray-400 font-semibold">{t('badges.loading')}</p>
           </motion.div>
         </div>
       </motion.div>
@@ -41,14 +43,14 @@ export default function UserBadgesDisplay() {
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
         <div>
           <h3 className="text-3xl md:text-4xl font-black text-white mb-3 flex items-center gap-3">
-            🏅 Tus Badges Desbloqueados
+            🏅 {t('badges.unlocked')}
           </h3>
           <p className="text-sm md:text-base text-gray-400">
-            <span>Total: <span className="font-bold text-purple-300">{stats.total}/{allAvailableBadges.length}</span></span>
+            <span>{t('badges.total')}: <span className="font-bold text-purple-300">{stats.total}/{allAvailableBadges.length}</span></span>
             {stats.total > 0 && (
               <>
-                {' | '} <span>Épicos: <span className="font-bold text-yellow-300">{stats.byRarity.epic}</span></span>
-                {' | '} <span>Raros: <span className="font-bold text-cyan-300">{stats.byRarity.rare}</span></span>
+                {' | '} <span>{t('badges.epic')}: <span className="font-bold text-yellow-300">{stats.byRarity.epic}</span></span>
+                {' | '} <span>{t('badges.rare')}: <span className="font-bold text-cyan-300">{stats.byRarity.rare}</span></span>
               </>
             )}
           </p>
@@ -102,7 +104,7 @@ export default function UserBadgesDisplay() {
             >
               <div className="w-3 h-3 rounded-full bg-yellow-500 flex-shrink-0"></div>
               <div className="min-w-0">
-                <p className="text-xs text-gray-400">Épicos</p>
+                <p className="text-xs text-gray-400">{t('badges.epic')}</p>
                 <p className="text-lg font-bold text-yellow-300">{stats.byRarity.epic}</p>
               </div>
             </motion.div>
@@ -115,7 +117,7 @@ export default function UserBadgesDisplay() {
             >
               <div className="w-3 h-3 rounded-full bg-cyan-500 flex-shrink-0"></div>
               <div className="min-w-0">
-                <p className="text-xs text-gray-400">Raros</p>
+                <p className="text-xs text-gray-400">{t('badges.rare')}</p>
                 <p className="text-lg font-bold text-cyan-300">{stats.byRarity.rare}</p>
               </div>
             </motion.div>
@@ -128,7 +130,7 @@ export default function UserBadgesDisplay() {
             >
               <div className="w-3 h-3 rounded-full bg-purple-500 flex-shrink-0"></div>
               <div className="min-w-0">
-                <p className="text-xs text-gray-400">Poco Comunes</p>
+                <p className="text-xs text-gray-400">{t('badges.uncommon')}</p>
                 <p className="text-lg font-bold text-purple-300">{stats.byRarity.uncommon}</p>
               </div>
             </motion.div>
@@ -141,7 +143,7 @@ export default function UserBadgesDisplay() {
             >
               <div className="w-3 h-3 rounded-full bg-gray-500 flex-shrink-0"></div>
               <div className="min-w-0">
-                <p className="text-xs text-gray-400">Comunes</p>
+                <p className="text-xs text-gray-400">{t('badges.common')}</p>
                 <p className="text-lg font-bold text-gray-300">{stats.byRarity.common}</p>
               </div>
             </motion.div>
@@ -154,11 +156,11 @@ export default function UserBadgesDisplay() {
           className="text-center py-12"
         >
           <p className="text-5xl mb-4">🔓</p>
-          <p className="text-xl font-bold text-white mb-2">Aún sin Badges Desbloqueados</p>
-          <p className="text-gray-400 mb-6">Completa pruebas de velocidad para desbloquear tus primeros badges</p>
+          <p className="text-xl font-bold text-white mb-2">{t('badges.none')}</p>
+          <p className="text-gray-400 mb-6">{t('badges.none_desc')}</p>
           
           <div className="mt-8 pt-8 border-t border-white/20">
-            <p className="text-sm font-semibold text-gray-300 mb-4">Badges Disponibles ({allAvailableBadges.length}):</p>
+            <p className="text-sm font-semibold text-gray-300 mb-4">{t('badges.available')} ({allAvailableBadges.length}):</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
               {allAvailableBadges.map(badge => (
                 <motion.div

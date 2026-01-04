@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { useRanking } from '@/hooks/useRanking'
 import { getMedalEmoji, getSpeedColor, formatSpeed } from '@/lib/utils'
+import { useLanguage } from '@/hooks/useLanguage'
 
 interface RankingEntry {
   id: number
@@ -21,6 +22,7 @@ type FilterOption = 'all' | 'top100' | 'top1000' | 'fast' | 'lowping'
 
 export default function RankingTable() {
   const { ranking, loading, totalResults } = useRanking()
+  const { t } = useLanguage()
   const [sortBy, setSortBy] = useState<SortOption>('speed')
   const [filterBy, setFilterBy] = useState<FilterOption>('all')
 
@@ -79,14 +81,14 @@ export default function RankingTable() {
             <div className="flex items-center gap-2 md:gap-3 mb-4">
               <span className="text-4xl md:text-5xl">🏆</span>
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-black bg-gradient-to-r from-yellow-300 via-white to-yellow-200 bg-clip-text text-transparent">
-                Ranking Global
+                {t('ranking.title')}
               </h2>
             </div>
             <p className="text-gray-400 text-sm md:text-base flex items-center gap-2">
               <span className="text-xl md:text-2xl">👥</span>
               <span className="font-semibold">{totalResults.toLocaleString()}</span>
-              <span className="hidden sm:inline">usuarios compitiendo</span>
-              <span className="sm:hidden">usuarios</span>
+              <span className="hidden sm:inline">{t('ranking.users_competing')}</span>
+              <span className="sm:hidden">{t('ranking.users_short')}</span>
             </p>
           </div>
           <motion.div 
@@ -95,7 +97,7 @@ export default function RankingTable() {
             className="bg-gradient-to-br from-yellow-500/20 to-orange-500/10 rounded-xl p-6 border border-yellow-500/30 min-w-fit"
           >
             <p className="text-5xl font-black text-yellow-400 mb-2">📈</p>
-            <p className="text-gray-300 text-xs font-semibold">Actualizado en tiempo real</p>
+            <p className="text-gray-300 text-xs font-semibold">{t('ranking.live_update')}</p>
           </motion.div>
         </div>
       </div>
@@ -111,7 +113,7 @@ export default function RankingTable() {
                 : 'bg-white/10 text-gray-400 hover:bg-white/20'
             }`}
           >
-            Todos
+            {t('ranking.all')}
           </button>
           <button
             onClick={() => setFilterBy('top100')}
@@ -121,7 +123,7 @@ export default function RankingTable() {
                 : 'bg-white/10 text-gray-400 hover:bg-white/20'
             }`}
           >
-            🥇 Top 100
+            {t('ranking.top100')}
           </button>
           <button
             onClick={() => setFilterBy('fast')}
@@ -131,7 +133,7 @@ export default function RankingTable() {
                 : 'bg-white/10 text-gray-400 hover:bg-white/20'
             }`}
           >
-            ⚡ Rápidos
+            {t('ranking.fast')}
           </button>
           <button
             onClick={() => setFilterBy('lowping')}
@@ -141,7 +143,7 @@ export default function RankingTable() {
                 : 'bg-white/10 text-gray-400 hover:bg-white/20'
             }`}
           >
-            📡 Bajo Ping
+            {t('ranking.lowping')}
           </button>
         </div>
 
@@ -154,10 +156,10 @@ export default function RankingTable() {
              className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-white border-2 border-blue-500/50 cursor-pointer hover:from-blue-600/30 hover:to-purple-600/30 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all pointer-events-auto relative z-20 font-semibold shadow-lg shadow-blue-500/20"
              aria-label="Ordenar resultados por"
            >
-             <option value="speed" className="bg-slate-900 text-white">Ordenar: Velocidad ↓</option>
-             <option value="ping" className="bg-slate-900 text-white">Ordenar: Ping ↑</option>
-             <option value="upload" className="bg-slate-900 text-white">Ordenar: Subida ↓</option>
-             <option value="date" className="bg-slate-900 text-white">Ordenar: Reciente ↓</option>
+             <option value="speed" className="bg-slate-900 text-white">{t('ranking.sort_speed')}</option>
+               <option value="ping" className="bg-slate-900 text-white">{t('ranking.sort_ping')}</option>
+               <option value="upload" className="bg-slate-900 text-white">{t('ranking.sort_upload')}</option>
+               <option value="date" className="bg-slate-900 text-white">{t('ranking.sort_date')}</option>
            </select>
          </div>
       </div>
@@ -170,7 +172,7 @@ export default function RankingTable() {
             className="text-center"
           >
             <div className="loading-spinner w-16 h-16 mx-auto mb-4"></div>
-            <p className="text-gray-400 font-semibold">Cargando ranking...</p>
+            <p className="text-gray-400 font-semibold">{t('ranking.loading')}</p>
           </motion.div>
         </div>
       ) : filteredAndSorted.length === 0 ? (
@@ -180,20 +182,20 @@ export default function RankingTable() {
           className="text-center py-16 bg-gradient-to-br from-white/5 to-transparent rounded-xl border border-white/10"
         >
           <p className="text-4xl mb-3">🚀</p>
-          <p className="text-gray-400 text-lg font-semibold">No hay resultados aún</p>
-          <p className="text-gray-500 mt-2">¡Sé el primero en probar tu velocidad!</p>
+          <p className="text-gray-400 text-lg font-semibold">{t('ranking.no_results')}</p>
+          <p className="text-gray-500 mt-2">{t('ranking.be_first')}</p>
         </motion.div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b-2 border-gradient-to-r from-white/20 to-transparent">
-                <th className="text-left py-4 px-4 text-gray-400 font-bold text-xs uppercase tracking-wider">Posición</th>
-                <th className="text-left py-4 px-4 text-gray-400 font-bold text-xs uppercase tracking-wider">Usuario</th>
-                <th className="text-right py-4 px-4 text-gray-400 font-bold text-xs uppercase tracking-wider">Descarga</th>
-                <th className="text-right py-4 px-4 text-gray-400 font-bold text-xs uppercase tracking-wider">Subida</th>
-                <th className="text-right py-4 px-4 text-gray-400 font-bold text-xs uppercase tracking-wider">Ping</th>
-                <th className="text-left py-4 px-4 text-gray-400 font-bold text-xs uppercase tracking-wider">Ubicación</th>
+                <th className="text-left py-4 px-4 text-gray-400 font-bold text-xs uppercase tracking-wider">{t('ranking.position')}</th>
+                <th className="text-left py-4 px-4 text-gray-400 font-bold text-xs uppercase tracking-wider">{t('ranking.user')}</th>
+                <th className="text-right py-4 px-4 text-gray-400 font-bold text-xs uppercase tracking-wider">{t('ranking.download')}</th>
+                <th className="text-right py-4 px-4 text-gray-400 font-bold text-xs uppercase tracking-wider">{t('ranking.upload')}</th>
+                <th className="text-right py-4 px-4 text-gray-400 font-bold text-xs uppercase tracking-wider">{t('ranking.ping')}</th>
+                <th className="text-left py-4 px-4 text-gray-400 font-bold text-xs uppercase tracking-wider">{t('ranking.location')}</th>
               </tr>
             </thead>
             <tbody>
@@ -272,7 +274,7 @@ export default function RankingTable() {
         className="mt-8 p-5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl border border-blue-500/30"
       >
         <p className="text-sm text-gray-300 text-center font-medium">
-          <span className="text-blue-400 font-bold">💡 Tip:</span> El ranking se actualiza en tiempo real. Los mejores 10,000 resultados verificados se muestran aquí con detección automática de fraude.
+          <span className="text-blue-400 font-bold">💡 Tip:</span> {t('ranking.tip')}
         </p>
       </motion.div>
     </motion.div>

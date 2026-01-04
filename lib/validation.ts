@@ -1,5 +1,3 @@
-import { containsBadWords } from './badwords'
-
 export function validateUserName(name: string): { valid: boolean; error?: string } {
   if (!name || typeof name !== 'string') {
     return { valid: false, error: 'El nombre es requerido' }
@@ -17,10 +15,6 @@ export function validateUserName(name: string): { valid: boolean; error?: string
 
   if (!/^[a-zA-Z0-9\s\-_.áéíóúÁÉÍÓÚñÑ]+$/.test(trimmed)) {
     return { valid: false, error: 'El nombre contiene caracteres inválidos' }
-  }
-
-  if (containsBadWords(trimmed)) {
-    return { valid: false, error: 'El nombre contiene palabras no permitidas' }
   }
 
   return { valid: true }

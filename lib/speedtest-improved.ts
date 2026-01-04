@@ -113,8 +113,9 @@ async function measurePingAccurate(
 }
 
 /**
- * Descarga archivos de prueba con múltiples muestras para mayor precisión
- * Adaptativo: para conexiones rápidas usa downloads de 1GB
+ * Descarga un único archivo grande para mayor precisión
+ * Soluciona problema de WiFi rápido con múltiples test
+ * Usa archivo de 5GB para velocidades altas, 500MB para velocidades bajas
  */
 async function measureDownloadEnhanced(
     onProgress?: (progress: number, speed: number, statusMsg: string) => void
@@ -125,138 +126,123 @@ async function measureDownloadEnhanced(
     maxSpeed: number
 }> {
     const samples: number[] = []
-    let testSizes: number[]
 
-    // Detectar conexión rápida: si ping es muy bajo, usar archivos más grandes
+    // Detectar velocidad inicial con ping para elegir tamaño de archivo
     const pingResult = await measurePingAccurate()
-    const estimatedSpeed = 100 // Estimación inicial conservadora
-    // (Esta llamada no reporta progreso ya que es interna)
+    
+    // Estrategia: usar UN único archivo grande en lugar de múltiples pequeños
+    // - Ping bajo (< 20ms) = conexión rápida = usar 5GB
+    // - Ping medio (20-50ms) = usar 2GB  
+    // - Ping alto (> 50ms) = usar 500MB
+    let testSize: number
+    if (pingResult.avgPing < 20) {
+        testSize = 5 * 1024 * 1024 * 1024  // 5GB para WiFi muy veloz
+    } else if (pingResult.avgPing < 50) {
+        testSize = 2 * 1024 * 1024 * 1024  // 2GB para WiFi veloz
+    } else {
+        testSize = 500 * 1024 * 1024       // 500MB para WiFi lento
+    }
 
-    // Estrategia adaptativa: usar tamaños menores pero múltiples muestras
-    // - Optimizado para velocidad de prueba: ~30-40 segundos total
-    // - Mantiene precisión con múltiples muestras pequeñas
-    testSizes = [
-        10000000,      // 10MB - rápido
-        25000000,      // 25MB 
-        50000000,      // 50MB
-        100000000,     // 100MB
-    ]
+    console.log(`Usando archivo de ${(testSize / 1024 / 1024 / 1024).toFixed(1)}GB (ping: ${pingResult.avgPing.toFixed(1)}ms)`)
 
-    let totalProgress = 0
+    try {
+        const controller = new AbortController()
+        // Timeout muy generoso: 30 minutos para permitir descargas grandes incluso en conexiones lentas
+        const timeoutMs = 1800000
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
-    for (let testIndex = 0; testIndex < testSizes.length; testIndex++) {
-        const size = testSizes[testIndex]
-        const chunkSpeeds: number[] = []
-        const isBigFile = size >= 500000000 // Es archivo grande (500MB+)
+        const startTime = performance.now()
+        const response = await fetch(`https://speed.cloudflare.com/__down?bytes=${testSize}`, {
+            cache: 'no-store',
+            signal: controller.signal,
+        })
 
-        try {
-            const controller = new AbortController()
-            // Timeout dinámico: 10 minutos para 1GB a 1Mbps = muy generoso
-            const timeoutMs = isBigFile ? 600000 : 300000
-            const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
-
-            const startTime = performance.now()
-            const response = await fetch(`https://speed.cloudflare.com/__down?bytes=${size}`, {
-                cache: 'no-store',
-                signal: controller.signal,
-            })
-
-            if (!response.ok) {
-                clearTimeout(timeoutId)
-                console.warn(`Download test ${testIndex + 1} failed (HTTP ${response.status}), skipping`)
-                continue
-            }
-
-            const reader = response.body?.getReader()
-            if (!reader) {
-                clearTimeout(timeoutId)
-                continue
-            }
-
-            let downloadedBytes = 0
-            let lastReportTime = startTime
-            const startTimeBlock = startTime
-            let lastReportedBytes = 0
-
-            while (true) {
-                const { done, value } = await reader.read()
-                if (done) break
-
-                downloadedBytes += value.length
-                const now = performance.now()
-                const bytesSinceReport = downloadedBytes - lastReportedBytes
-
-                // Reportar cada 200ms o cada 10MB (menos para archivos grandes)
-                const reportThreshold = isBigFile ? 10000000 : 5000000
-                if (now - lastReportTime > 200 || bytesSinceReport > reportThreshold) {
-                    const elapsedSec = (now - startTimeBlock) / 1000
-                    if (elapsedSec > 0.2) {
-                        const instantSpeed = (downloadedBytes * 8) / elapsedSec / 1024 / 1024
-                        chunkSpeeds.push(instantSpeed)
-
-                        const blockProgress = (testIndex * (100 / testSizes.length)) +
-                            (downloadedBytes / size) * (100 / testSizes.length)
-                        totalProgress = Math.min(blockProgress, 80)
-
-                        onProgress?.(
-                            totalProgress,
-                            instantSpeed,
-                            `Descargando... Test ${testIndex + 1}/${testSizes.length} | ${instantSpeed.toFixed(1)} Mbps`
-                        )
-                        lastReportTime = now
-                        lastReportedBytes = downloadedBytes
-                    }
-                }
-            }
-
+        if (!response.ok) {
             clearTimeout(timeoutId)
-            const endTime = performance.now()
-            const durationSeconds = (endTime - startTime) / 1000
+            throw new Error(`HTTP ${response.status}`)
+        }
 
-            // Mínimo 1 segundo para validez en archivos grandes
-            const minDuration = isBigFile ? 1.0 : 0.5
-            if (durationSeconds > minDuration) {
-                const speedMbps = (size * 8) / durationSeconds / 1024 / 1024
-                if (speedMbps > 0 && speedMbps < 1000000) { // Límite hasta 1M Mbps para futuro-proof
-                    samples.push(speedMbps)
-                    console.log(`✓ Descarga ${testIndex + 1}: ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s, ${(size / 1024 / 1024).toFixed(0)}MB)`)
+        const reader = response.body?.getReader()
+        if (!reader) {
+            clearTimeout(timeoutId)
+            throw new Error('No reader disponible')
+        }
+
+        let downloadedBytes = 0
+        let lastReportTime = startTime
+        const startTimeBlock = startTime
+        let lastReportedBytes = 0
+        const speedSamples: number[] = []
+
+        while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+
+            downloadedBytes += value.length
+            const now = performance.now()
+            const bytesSinceReport = downloadedBytes - lastReportedBytes
+
+            // Reportar cada 500ms o cada 50MB (para archivo grande)
+            const reportThreshold = 50 * 1024 * 1024
+            if (now - lastReportTime > 500 || bytesSinceReport > reportThreshold) {
+                const elapsedSec = (now - startTimeBlock) / 1000
+                if (elapsedSec > 1.0) { // Solo reportar después de 1 segundo
+                    const instantSpeed = (downloadedBytes * 8) / elapsedSec / 1024 / 1024
+                    speedSamples.push(instantSpeed)
+
+                    const blockProgress = 20 + (downloadedBytes / testSize) * 60
+                    const totalProgress = Math.min(blockProgress, 80)
+
+                    onProgress?.(
+                        totalProgress,
+                        instantSpeed,
+                        `Descargando archivo grande... ${(downloadedBytes / 1024 / 1024 / 1024).toFixed(1)}GB de ${(testSize / 1024 / 1024 / 1024).toFixed(1)}GB | ${instantSpeed.toFixed(1)} Mbps`
+                    )
+                    lastReportTime = now
+                    lastReportedBytes = downloadedBytes
                 }
             }
-        } catch (error) {
-            console.error(`Download measurement error (test ${testIndex + 1}):`, error)
-            // Continuar con siguiente si falla uno
-            continue
         }
+
+        clearTimeout(timeoutId)
+        const endTime = performance.now()
+        const durationSeconds = (endTime - startTime) / 1000
+
+        if (durationSeconds < 2.0) {
+            throw new Error('Descarga completada muy rápido, datos no válidos')
+        }
+
+        const speedMbps = (testSize * 8) / durationSeconds / 1024 / 1024
+        if (speedMbps <= 0 || speedMbps > 1000000) {
+            throw new Error('Velocidad fuera de rango válido')
+        }
+
+        samples.push(speedMbps)
+        console.log(`✓ Descarga completada: ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s, ${(testSize / 1024 / 1024 / 1024).toFixed(1)}GB)`)
+
+    } catch (error) {
+        console.error(`Download measurement error:`, error)
+        throw new Error(`Error en descarga: ${error instanceof Error ? error.message : 'desconocido'}`)
     }
 
     if (samples.length === 0) {
         throw new Error('No se pudo medir la velocidad de descarga')
     }
 
-    // Usar media armónica para descargas (más preciso que mediana para velocidades)
-    const sorted = [...samples].sort((a, b) => a - b)
-
-    // Descartar outliers extremos (>20% de variación del min)
-    const minSpeed = sorted[0]
-    const validSamples = sorted.filter(s => s <= minSpeed * 1.2)
-
-    // Si hay al menos 2 muestras válidas, usar media armónica
-    let avgSpeed = sorted[Math.floor(sorted.length / 2)]
-    if (validSamples.length >= 2) {
-        avgSpeed = validSamples.length / validSamples.reduce((sum, s) => sum + 1 / s, 0)
-    }
-
+    // Con un único archivo, la velocidad final es simplemente la medida
+    const speed = samples[0]
+    
     return {
-        speed: Math.max(avgSpeed, 0.1),
-        samples: sorted,
-        minSpeed: sorted[0],
-        maxSpeed: sorted[sorted.length - 1]
+        speed: Math.max(speed, 0.1),
+        samples: samples,
+        minSpeed: samples[0],
+        maxSpeed: samples[0]
     }
 }
 
 /**
- * Sube datos con múltiples muestras para mayor precisión
- * Adaptativo: para conexiones rápidas usa uploads de 500MB
+ * Mide subida con un único archivo grande para mayor precisión
+ * Usa 1GB para medir subida de forma precisa
  */
 async function measureUploadEnhanced(
     onProgress?: (progress: number, speed: number, statusMsg: string) => void
@@ -267,95 +253,79 @@ async function measureUploadEnhanced(
     maxSpeed: number
 }> {
     const samples: number[] = []
-    // Tamaños adaptativos: optimizados para velocidad (~20-30s por upload)
-    const uploadSizes = [10000000, 25000000, 50000000, 100000000]
-    let totalProgress = 0
 
-    for (let testIndex = 0; testIndex < uploadSizes.length; testIndex++) {
-        const uploadSize = uploadSizes[testIndex]
-        const isBigUpload = uploadSize >= 200000000
+    try {
+        const uploadSize = 1024 * 1024 * 1024  // 1GB
 
-        try {
-            const controller = new AbortController()
-            // Timeout dinámico: más tiempo para uploads grandes
-            const timeoutMs = isBigUpload ? 600000 : 300000
-            const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+        console.log(`Subiendo archivo de ${(uploadSize / 1024 / 1024 / 1024).toFixed(1)}GB...`)
 
-            // Generar datos aleatorios criptográficamente para evitar compresión
-            const data = new Uint8Array(uploadSize)
+        const controller = new AbortController()
+        const timeoutMs = 1800000  // 30 minutos
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
-            // Llenar con números pseudo-aleatorios (incompresibles)
-            const chunkSize = 1024 * 1024 // 1MB chunks para no saturar memoria
-            for (let offset = 0; offset < uploadSize; offset += chunkSize) {
-                const currentChunk = Math.min(chunkSize, uploadSize - offset)
-                const view = new DataView(data.buffer, offset, currentChunk)
-                for (let i = 0; i < currentChunk; i += 4) {
-                    view.setUint32(i, Math.random() * 0x100000000)
-                }
+        // Generar datos aleatorios criptográficamente para evitar compresión
+        const data = new Uint8Array(uploadSize)
+        const chunkSize = 1024 * 1024 // 1MB chunks
+        for (let offset = 0; offset < uploadSize; offset += chunkSize) {
+            const currentChunk = Math.min(chunkSize, uploadSize - offset)
+            const view = new DataView(data.buffer, offset, currentChunk)
+            for (let i = 0; i < currentChunk; i += 4) {
+                view.setUint32(i, Math.random() * 0x100000000)
             }
-
-            const body = new Blob([data])
-
-            const startTime = performance.now()
-            const response = await fetch('https://speed.cloudflare.com/__up', {
-                method: 'POST',
-                body: body,
-                cache: 'no-store',
-                signal: controller.signal,
-            })
-
-            if (!response.ok) {
-                clearTimeout(timeoutId)
-                console.warn(`Upload test ${testIndex + 1} failed (HTTP ${response.status}), skipping`)
-                continue
-            }
-
-            clearTimeout(timeoutId)
-            const endTime = performance.now()
-            const durationSeconds = (endTime - startTime) / 1000
-
-            // Mínimo 0.5 segundos para validez
-            if (durationSeconds > 0.5) {
-                const speedMbps = (uploadSize * 8) / durationSeconds / 1024 / 1024
-                if (speedMbps > 0 && speedMbps < 1000000) { // Límite futuro-proof
-                    samples.push(speedMbps)
-                    totalProgress = 80 + (testIndex / uploadSizes.length) * 15
-                    onProgress?.(
-                        totalProgress,
-                        speedMbps,
-                        `Subiendo... Test ${testIndex + 1}/${uploadSizes.length} | ${speedMbps.toFixed(1)} Mbps`
-                    )
-                    console.log(`✓ Subida ${testIndex + 1}: ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s, ${(uploadSize / 1024 / 1024).toFixed(0)}MB)`)
-                }
-            }
-        } catch (error) {
-            console.error(`Upload measurement error (test ${testIndex + 1}):`, error)
-            continue
         }
+
+        const body = new Blob([data])
+
+        const startTime = performance.now()
+        const response = await fetch('https://speed.cloudflare.com/__up', {
+            method: 'POST',
+            body: body,
+            cache: 'no-store',
+            signal: controller.signal,
+        })
+
+        if (!response.ok) {
+            clearTimeout(timeoutId)
+            throw new Error(`HTTP ${response.status}`)
+        }
+
+        clearTimeout(timeoutId)
+        const endTime = performance.now()
+        const durationSeconds = (endTime - startTime) / 1000
+
+        if (durationSeconds < 1.0) {
+            throw new Error('Subida completada muy rápido, datos no válidos')
+        }
+
+        const speedMbps = (uploadSize * 8) / durationSeconds / 1024 / 1024
+        if (speedMbps <= 0 || speedMbps > 1000000) {
+            throw new Error('Velocidad fuera de rango válido')
+        }
+
+        samples.push(speedMbps)
+        onProgress?.(
+            88,
+            speedMbps,
+            `Subida completada: ${speedMbps.toFixed(1)} Mbps`
+        )
+        console.log(`✓ Subida completada: ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s, ${(uploadSize / 1024 / 1024 / 1024).toFixed(1)}GB)`)
+
+    } catch (error) {
+        console.error(`Upload measurement error:`, error)
+        throw new Error(`Error en subida: ${error instanceof Error ? error.message : 'desconocido'}`)
     }
 
     if (samples.length === 0) {
         throw new Error('No se pudo medir la velocidad de subida')
     }
 
-    // Usar media armónica para uploads (más preciso)
-    const sorted = [...samples].sort((a, b) => a - b)
-
-    // Descartar outliers extremos
-    const minSpeed = sorted[0]
-    const validSamples = sorted.filter(s => s <= minSpeed * 1.2)
-
-    // Si hay muestras válidas, usar media armónica
-    let avgSpeed = sorted[Math.floor(sorted.length / 2)]
-    if (validSamples.length >= 2) {
-        avgSpeed = validSamples.length / validSamples.reduce((sum, s) => sum + 1 / s, 0)
-    }
-
+    const speed = samples[0]
+    
     return {
-        speed: Math.max(avgSpeed, 0.05),
-        samples: sorted,
-        minSpeed: sorted[0],
-        maxSpeed: sorted[sorted.length - 1]
+        speed: Math.max(speed, 0.05),
+        samples: samples,
+        minSpeed: samples[0],
+        maxSpeed: samples[0]
     }
 }
 

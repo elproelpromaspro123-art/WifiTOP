@@ -11,9 +11,9 @@ export default function Header() {
   const { t } = useLanguage()
 
   const navLinks = [
-    { id: 'home', label: '🏠 Inicio', href: '/' },
-    { id: 'ranking', label: '🏆 Ranking', href: '#ranking' },
-    { id: 'about', label: 'ℹ️ Acerca de', href: '#about' },
+    { id: 'home', label: t('nav.home'), href: '/' },
+    { id: 'ranking', label: t('nav.ranking'), href: '#ranking' },
+    { id: 'about', label: t('nav.about'), href: '#about' },
   ]
 
   return (

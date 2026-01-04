@@ -114,8 +114,8 @@ async function measurePingAccurate(
 
 /**
   * Descarga un único archivo adaptado al ping para mayor precisión
-  * Tamaños: 1GB (ping<20ms), 500MB (ping<50ms), 200MB (ping>50ms)
-  * Balance entre precisión y evitar timeouts
+  * Tamaños: 5GB (ping<10ms), 2GB (ping<20ms), 1GB (ping<50ms), 500MB (ping>50ms)
+  * Asegura duraciones de 0.3+ segundos incluso en conexiones ultra-rápidas
   */
  async function measureDownloadEnhanced(
      onProgress?: (progress: number, speed: number, statusMsg: string) => void
@@ -131,17 +131,20 @@ async function measurePingAccurate(
      const pingResult = await measurePingAccurate()
 
      // Estrategia: usar UN único archivo adaptado al ping
-     // Tamaños balanceados para evitar timeouts pero asegurar medición válida
-     // - Ping bajo (< 20ms) = usar 1GB (conexión muy rápida)
-     // - Ping medio (20-50ms) = usar 500MB
-     // - Ping alto (> 50ms) = usar 200MB
+     // Aumentar tamaño para conexiones muy rápidas para asegurar medición de 3+ segundos
+     // - Ping < 10ms = 5GB (conexión extremadamente rápida, ej: 10+ Gbps)
+     // - Ping < 20ms = 2GB (conexión muy rápida)
+     // - Ping < 50ms = 1GB (conexión rápida)
+     // - Ping >= 50ms = 500MB
      let testSize: number
-     if (pingResult.avgPing < 20) {
-         testSize = 1024 * 1024 * 1024  // 1GB para WiFi ultra-rápido
+     if (pingResult.avgPing < 10) {
+         testSize = 5 * 1024 * 1024 * 1024  // 5GB para fibra ultra-rápida
+     } else if (pingResult.avgPing < 20) {
+         testSize = 2 * 1024 * 1024 * 1024  // 2GB para WiFi ultra-rápido
      } else if (pingResult.avgPing < 50) {
-         testSize = 500 * 1024 * 1024  // 500MB para WiFi rápido
+         testSize = 1024 * 1024 * 1024  // 1GB para WiFi rápido
      } else {
-         testSize = 200 * 1024 * 1024  // 200MB para WiFi normal
+         testSize = 500 * 1024 * 1024  // 500MB para WiFi normal
      }
 
     console.log(`Usando archivo de ${(testSize / 1024 / 1024).toFixed(0)}MB (ping: ${pingResult.avgPing.toFixed(1)}ms)`)
@@ -229,7 +232,7 @@ async function measurePingAccurate(
         const endTime = performance.now()
         const durationSeconds = (endTime - startTime) / 1000
 
-        if (durationSeconds < 0.5) {
+        if (durationSeconds < 0.3) {
             throw new Error('Descarga completada muy rápido, datos no válidos')
         }
 
@@ -263,7 +266,7 @@ async function measurePingAccurate(
 
 /**
   * Mide subida con un único archivo para mayor precisión
-  * Usa 500MB balanceado entre precisión y evitar timeouts
+  * Usa 1GB balanceado entre precisión y evitar timeouts
   */
 async function measureUploadEnhanced(
     onProgress?: (progress: number, speed: number, statusMsg: string) => void
@@ -276,7 +279,7 @@ async function measureUploadEnhanced(
     const samples: number[] = []
 
     try {
-        const uploadSize = 500 * 1024 * 1024  // 500MB - balance entre precisión y evitar timeouts
+        const uploadSize = 1024 * 1024 * 1024  // 1GB - balance entre precisión y evitar timeouts
 
         console.log(`Subiendo archivo de ${(uploadSize / 1024 / 1024).toFixed(0)}MB...`)
 
@@ -348,10 +351,10 @@ async function measureUploadEnhanced(
                     const endTime = performance.now()
                     const durationSeconds = (endTime - startTime) / 1000
 
-                    if (durationSeconds < 0.5) {
-                        reject(new Error('Subida completada muy rápido, datos no válidos'))
-                        return
-                    }
+                    if (durationSeconds < 0.3) {
+                         reject(new Error('Subida completada muy rápido, datos no válidos'))
+                         return
+                     }
 
                     const speedMbps = (uploadSize * 8) / durationSeconds / 1024 / 1024
                     if (speedMbps <= 0 || speedMbps > 1000000) {

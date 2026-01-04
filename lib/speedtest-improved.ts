@@ -14,7 +14,7 @@ export interface DetailedSpeedTestResult extends SpeedTestResult {
 }
 
 /**
- * Mide el ping ICMP-like usando requests muy pequeños con múltiples servidores
+ * Mide ping REAL con múltiples intentos a servidores de Cloudflare
  */
 async function measurePingAccurate(
     onProgress?: (progress: number, ping: number, statusMsg: string) => void
@@ -31,7 +31,7 @@ async function measurePingAccurate(
         'https://speed.cloudflare.com/__down?bytes=100',
     ]
 
-    const measurements = 30 // Más mediciones para mejor precisión estadística
+    const measurements = 20
 
     for (let i = 0; i < measurements; i++) {
         try {
@@ -49,27 +49,24 @@ async function measurePingAccurate(
                     mode: 'no-cors'
                 })
 
-                // Consumir al menos algunos bytes para asegurar que la conexión es real
                 if (response.ok) {
-                    const chunk = await response.arrayBuffer()
+                    await response.arrayBuffer()
                 }
 
                 clearTimeout(timeoutId)
                 const endTime = performance.now()
                 const latency = endTime - startTime
 
-                // Filtrar requests que tardaron mucho (probablemente incluyen DNS)
-                // El ping real debe estar entre 1ms y 500ms
                 if (latency >= 1 && latency < 500) {
                     pings.push(latency)
-                    const progress = (pings.length / measurements) * 10 // 0-10% durante ping
-                    onProgress?.(progress, latency, `Midiendo ping... ${pings.length}/${measurements}`)
+                    const progress = (pings.length / measurements) * 10
+                    onProgress?.(progress, latency, `Ping: ${latency.toFixed(0)}ms`)
                 }
             } catch (e) {
                 clearTimeout(timeoutId)
             }
         } catch (error) {
-            // Continuar con siguiente intento
+            // Continuar
         }
     }
 
@@ -82,24 +79,15 @@ async function measurePingAccurate(
         }
     }
 
-    // Ordenar para análisis
     const sorted = [...pings].sort((a, b) => a - b)
-
-    // Usar los valores más bajos (son los más precisos sin overhead)
-    // El ping real es el mínimo consistente, no el promedio
     const minPing = sorted[0]
-
-    // Filtrar valores que están muy por encima del mínimo (probablemente tienen overhead)
-    // Permitir solo 20% de variación sobre el mínimo
     const maxThreshold = minPing * 1.2
     const validPings = sorted.filter(p => p <= maxThreshold)
 
-    // Si no tenemos suficientes valores válidos, usar los primeros 30%
     const finalPings = validPings.length >= 3
         ? validPings
         : sorted.slice(0, Math.max(3, Math.floor(sorted.length * 0.3)))
 
-    // Usar mediana de los valores más bajos para mayor precisión
     const avgPing = finalPings.length > 0
         ? finalPings[Math.floor(finalPings.length * 0.5)]
         : sorted[0]
@@ -113,207 +101,226 @@ async function measurePingAccurate(
 }
 
 /**
-  * Descarga un único archivo adaptado al ping para mayor precisión
-  * Tamaños: 5GB (ping<10ms), 2GB (ping<20ms), 1GB (ping<50ms), 500MB (ping>50ms)
-  * Asegura duraciones de 0.3+ segundos incluso en conexiones ultra-rápidas
-  */
- async function measureDownloadEnhanced(
-     onProgress?: (progress: number, speed: number, statusMsg: string) => void
- ): Promise<{
-     speed: number
-     samples: number[]
-     minSpeed: number
-     maxSpeed: number
- }> {
-     const samples: number[] = []
+ * Descarga REAL con múltiples archivos pequeños para medir variabilidad
+ * Archivos: 100MB, 150MB, 200MB (Cloudflare tolera bien estos tamaños)
+ */
+async function measureDownloadReal(
+    onProgress?: (progress: number, speed: number, statusMsg: string) => void
+): Promise<{
+    speed: number
+    samples: number[]
+    minSpeed: number
+    maxSpeed: number
+}> {
+    const samples: number[] = []
+    const testSizes = [100 * 1024 * 1024, 150 * 1024 * 1024, 200 * 1024 * 1024] // 100MB, 150MB, 200MB
 
-     // Detectar velocidad inicial con ping para elegir tamaño de archivo
-     const pingResult = await measurePingAccurate()
+    for (let testIndex = 0; testIndex < testSizes.length; testIndex++) {
+        const size = testSizes[testIndex]
+        try {
+            const controller = new AbortController()
+            const timeoutMs = 180000 // 3 minutos
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
-     // Estrategia: usar UN único archivo adaptado al ping
-     // Aumentar tamaño para conexiones muy rápidas para asegurar medición de 3+ segundos
-     // - Ping < 10ms = 5GB (conexión extremadamente rápida, ej: 10+ Gbps)
-     // - Ping < 20ms = 2GB (conexión muy rápida)
-     // - Ping < 50ms = 1GB (conexión rápida)
-     // - Ping >= 50ms = 500MB
-     let testSize: number
-     if (pingResult.avgPing < 10) {
-         testSize = 5 * 1024 * 1024 * 1024  // 5GB para fibra ultra-rápida
-     } else if (pingResult.avgPing < 20) {
-         testSize = 2 * 1024 * 1024 * 1024  // 2GB para WiFi ultra-rápido
-     } else if (pingResult.avgPing < 50) {
-         testSize = 1024 * 1024 * 1024  // 1GB para WiFi rápido
-     } else {
-         testSize = 500 * 1024 * 1024  // 500MB para WiFi normal
-     }
+            const startTime = performance.now()
+            const response = await fetch(`https://speed.cloudflare.com/__down?bytes=${size}`, {
+                cache: 'no-store',
+                signal: controller.signal,
+            })
 
-    console.log(`Usando archivo de ${(testSize / 1024 / 1024).toFixed(0)}MB (ping: ${pingResult.avgPing.toFixed(1)}ms)`)
+            if (!response.ok) {
+                clearTimeout(timeoutId)
+                console.warn(`Download test ${testIndex + 1} HTTP ${response.status}`)
+                continue
+            }
 
-     try {
-         const controller = new AbortController()
-         // Timeout muy generoso: 30 minutos para permitir descargas grandes incluso en conexiones lentas
-         const timeoutMs = 1800000
-         const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+            const reader = response.body?.getReader()
+            if (!reader) {
+                clearTimeout(timeoutId)
+                continue
+            }
 
-         const startTime = performance.now()
-         const response = await fetch(`https://speed.cloudflare.com/__down?bytes=${testSize}`, {
-             cache: 'no-store',
-             signal: controller.signal,
-         })
+            let downloadedBytes = 0
+            let lastReportTime = startTime
 
-         if (!response.ok) {
-             clearTimeout(timeoutId)
-             throw new Error(`HTTP ${response.status}`)
-         }
+            while (true) {
+                const { done, value } = await reader.read()
+                if (done) break
 
-         const reader = response.body?.getReader()
-         if (!reader) {
-             clearTimeout(timeoutId)
-             throw new Error('No reader disponible')
-         }
+                downloadedBytes += value.length
+                const now = performance.now()
+                const elapsedSec = (now - startTime) / 1000
 
-         let downloadedBytes = 0
-         let lastReportTime = startTime
-         const startTimeBlock = startTime
-         let lastReportedBytes = 0
-         const speedSamples: number[] = []
-         let maxSpeed = 0
-         let timeWithoutImprovement = 0
-         let lastSpeedCheckTime = startTime
+                // Reportar cada 500ms
+                if (now - lastReportTime > 500 && elapsedSec > 1) {
+                    const instantSpeed = (downloadedBytes * 8) / elapsedSec / 1024 / 1024
+                    
+                    const blockProgress = 10 + (testIndex * 20) + (downloadedBytes / size) * 20
+                    onProgress?.(
+                        Math.min(blockProgress, 70),
+                        instantSpeed,
+                        `⬇️ Test ${testIndex + 1}/3: ${(downloadedBytes / 1024 / 1024).toFixed(0)}MB de ${(size / 1024 / 1024).toFixed(0)}MB | ${instantSpeed.toFixed(1)} Mbps`
+                    )
+                    lastReportTime = now
+                }
+            }
 
-         while (true) {
-             const { done, value } = await reader.read()
-             if (done) break
+            clearTimeout(timeoutId)
+            const endTime = performance.now()
+            const durationSeconds = (endTime - startTime) / 1000
 
-             downloadedBytes += value.length
-             const now = performance.now()
-             const bytesSinceReport = downloadedBytes - lastReportedBytes
+            if (durationSeconds >= 1) {
+                const speedMbps = (size * 8) / durationSeconds / 1024 / 1024
+                if (speedMbps > 0 && speedMbps < 100000) {
+                    samples.push(speedMbps)
+                    console.log(`✓ Download ${testIndex + 1}: ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s)`)
+                }
+            }
+        } catch (error) {
+            console.error(`Download error:`, error)
+            continue
+        }
+    }
 
-             // Reportar cada 500ms o cada 50MB (para archivo grande)
-             const reportThreshold = 50 * 1024 * 1024
-             if (now - lastReportTime > 500 || bytesSinceReport > reportThreshold) {
-                 const elapsedSec = (now - startTimeBlock) / 1000
-                 if (elapsedSec > 1.0) { // Solo reportar después de 1 segundo
-                     const instantSpeed = (downloadedBytes * 8) / elapsedSec / 1024 / 1024
-                     speedSamples.push(instantSpeed)
+    if (samples.length === 0) {
+        throw new Error('No se pudo medir descarga')
+    }
 
-                     // Detectar estabilización: si no hay mejora en 8 segundos, detener
-                     const timeSinceLastCheck = (now - lastSpeedCheckTime) / 1000
-                     if (instantSpeed > maxSpeed * 1.02) { // Mejora > 2%
-                         maxSpeed = instantSpeed
-                         timeWithoutImprovement = 0
-                         lastSpeedCheckTime = now
-                     } else {
-                         timeWithoutImprovement = timeSinceLastCheck
-                     }
+    const sorted = [...samples].sort((a, b) => a - b)
+    const minSpeed = sorted[0]
+    const maxSpeed = sorted[sorted.length - 1]
+    const speed = sorted[Math.floor(sorted.length / 2)] // Mediana
 
-                     // Si lleva 8+ segundos sin mejora significativa, detener la descarga
-                     if (timeWithoutImprovement > 8 && elapsedSec > 5) {
-                         console.log(`✓ Velocidad estabilizada en ${maxSpeed.toFixed(2)} Mbps después de ${elapsedSec.toFixed(1)}s sin mejora. Deteniendo descarga temprana.`)
-                         reader.cancel()
-                         break
-                     }
-
-                     const blockProgress = 20 + (downloadedBytes / testSize) * 60
-                     const totalProgress = Math.min(blockProgress, 80)
-                     
-                     onProgress?.(
-                          totalProgress,
-                          instantSpeed,
-                          `Descargando archivo... ${(downloadedBytes / 1024 / 1024).toFixed(0)}MB de ${(testSize / 1024 / 1024).toFixed(0)}MB | ${instantSpeed.toFixed(1)} Mbps`
-                      )
-                     lastReportTime = now
-                     lastReportedBytes = downloadedBytes
-                 }
-             }
-         }
-
-         clearTimeout(timeoutId)
-         const endTime = performance.now()
-         const durationSeconds = (endTime - startTime) / 1000
-
-         if (durationSeconds < 0.3) {
-             throw new Error('Descarga completada muy rápido, datos no válidos')
-         }
-
-         const speedMbps = (testSize * 8) / durationSeconds / 1024 / 1024
-         if (speedMbps <= 0 || speedMbps > 1000000) {
-             throw new Error('Velocidad fuera de rango válido')
-         }
-
-         samples.push(speedMbps)
-         console.log(`✓ Descarga completada: ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s, ${(testSize / 1024 / 1024).toFixed(0)}MB)`)
-
-     } catch (error) {
-         console.error(`Download measurement error:`, error)
-         throw new Error(`Error en descarga: ${error instanceof Error ? error.message : 'desconocido'}`)
-     }
-
-     if (samples.length === 0) {
-         throw new Error('No se pudo medir la velocidad de descarga')
-     }
-
-     // Con un único archivo, la velocidad final es simplemente la medida
-     const speed = samples[0]
-
-     return {
-         speed: Math.max(speed, 0.1),
-         samples: samples,
-         minSpeed: samples[0],
-         maxSpeed: samples[0]
-     }
- }
-
- /**
-  * Estima velocidad de subida (típicamente 50-80% de descarga)
-  * Usa enfoque como Fast.com (Netflix) - evita problemas 413 HTTP
-  */
- async function measureUploadEnhanced(
-     downloadSpeed: number,
-     onProgress?: (progress: number, speed: number, statusMsg: string) => void
- ): Promise<{
-     speed: number
-     samples: number[]
-     minSpeed: number
-     maxSpeed: number
- }> {
-     const samples: number[] = []
-
-     try {
-         console.log(`Estimando velocidad de subida...`)
-
-         // Estimación estadística: típicamente upload es 50-80% de descarga
-         // Basado en datos de Speedtest.net para conexiones típicas
-         const uploadSpeed = downloadSpeed * 0.65 // 65% de descarga es media
-
-         // Validar resultado
-         if (uploadSpeed <= 0 || uploadSpeed > 1000000) {
-             throw new Error('Velocidad fuera de rango válido')
-         }
-
-         samples.push(uploadSpeed)
-         onProgress?.(
-             88,
-             uploadSpeed,
-             `Subida estimada: ${uploadSpeed.toFixed(1)} Mbps`
-         )
-         console.log(`✓ Subida estimada: ${uploadSpeed.toFixed(2)} Mbps (basada en descarga)`)
-
-         return {
-             speed: Math.max(uploadSpeed, 0.1),
-             samples: samples,
-             minSpeed: uploadSpeed,
-             maxSpeed: uploadSpeed
-         }
-
-     } catch (error) {
-         console.error(`Upload measurement error:`, error)
-         throw new Error(`Error en subida: ${error instanceof Error ? error.message : 'desconocido'}`)
-     }
- }
+    return {
+        speed,
+        samples,
+        minSpeed,
+        maxSpeed
+    }
+}
 
 /**
- * Realiza prueba de velocidad completa con mediciones precisas
+ * Subida REAL con múltiples archivos pequeños para medir variabilidad
+ * Usa XHR con progress tracking para precisión
+ */
+async function measureUploadReal(
+    onProgress?: (progress: number, speed: number, statusMsg: string) => void
+): Promise<{
+    speed: number
+    samples: number[]
+    minSpeed: number
+    maxSpeed: number
+}> {
+    const samples: number[] = []
+    const uploadSizes = [50 * 1024 * 1024, 75 * 1024 * 1024, 100 * 1024 * 1024] // 50MB, 75MB, 100MB
+
+    for (let testIndex = 0; testIndex < uploadSizes.length; testIndex++) {
+        const uploadSize = uploadSizes[testIndex]
+        
+        try {
+            // Generar datos aleatorios (prevenir compresión)
+            const data = new Uint8Array(uploadSize)
+            for (let i = 0; i < data.length; i++) {
+                data[i] = Math.floor(Math.random() * 256)
+            }
+
+            const speed = await new Promise<number>((resolve, reject) => {
+                const xhr = new XMLHttpRequest()
+                const startTime = performance.now()
+                let lastReportTime = startTime
+
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (!e.lengthComputable) return
+
+                    const now = performance.now()
+                    const elapsed = (now - startTime) / 1000
+
+                    if (now - lastReportTime >= 500 && elapsed > 0.5) {
+                        const uploadedBytes = e.loaded
+                        const speed = (uploadedBytes * 8) / elapsed / 1024 / 1024
+                        const blockProgress = 71 + (testIndex * 8) + (uploadedBytes / uploadSize) * 8
+                        
+                        onProgress?.(
+                            Math.min(blockProgress, 95),
+                            speed,
+                            `⬆️ Test ${testIndex + 1}/3: ${(uploadedBytes / 1024 / 1024).toFixed(0)}MB de ${(uploadSize / 1024 / 1024).toFixed(0)}MB | ${speed.toFixed(1)} Mbps`
+                        )
+                        lastReportTime = now
+                    }
+                })
+
+                xhr.addEventListener('load', () => {
+                    const endTime = performance.now()
+                    const durationSeconds = (endTime - startTime) / 1000
+
+                    if (xhr.status !== 200 && xhr.status !== 204) {
+                        reject(new Error(`HTTP ${xhr.status}`))
+                        return
+                    }
+
+                    if (durationSeconds < 0.5) {
+                        reject(new Error('Upload muy rápido'))
+                        return
+                    }
+
+                    const speedMbps = (uploadSize * 8) / durationSeconds / 1024 / 1024
+                    if (speedMbps <= 0 || speedMbps > 100000) {
+                        reject(new Error('Velocidad fuera de rango'))
+                        return
+                    }
+
+                    console.log(`✓ Upload ${testIndex + 1}: ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s)`)
+                    resolve(speedMbps)
+                })
+
+                xhr.addEventListener('error', () => {
+                    reject(new Error('Error de red en upload'))
+                })
+
+                xhr.addEventListener('abort', () => {
+                    reject(new Error('Upload cancelado'))
+                })
+
+                xhr.timeout = 180000 // 3 minutos
+
+                xhr.addEventListener('timeout', () => {
+                    reject(new Error('Timeout en upload'))
+                })
+
+                const blob = new Blob([data], { type: 'application/octet-stream' })
+                xhr.open('POST', 'https://speed.cloudflare.com/__up', true)
+                xhr.setRequestHeader('Content-Type', 'application/octet-stream')
+                
+                console.log(`Enviando upload ${testIndex + 1}...`)
+                xhr.send(blob)
+            })
+
+            samples.push(speed)
+        } catch (error) {
+            console.error(`Upload error:`, error)
+            continue
+        }
+    }
+
+    if (samples.length === 0) {
+        throw new Error('No se pudo medir subida')
+    }
+
+    const sorted = [...samples].sort((a, b) => a - b)
+    const minSpeed = sorted[0]
+    const maxSpeed = sorted[sorted.length - 1]
+    const speed = sorted[Math.floor(sorted.length / 2)] // Mediana
+
+    return {
+        speed,
+        samples,
+        minSpeed,
+        maxSpeed
+    }
+}
+
+/**
+ * Realiza prueba de velocidad REAL con mediciones actuales
  */
 export async function simulateSpeedTestImproved(
     onProgress?: (progress: number, status: string, details?: {
@@ -322,66 +329,52 @@ export async function simulateSpeedTestImproved(
     }) => void
 ): Promise<DetailedSpeedTestResult> {
     try {
-        console.log('Iniciando prueba mejorada de velocidad...')
-        onProgress?.(0, 'Iniciando prueba de velocidad...', { phase: 'ping' })
+        console.log('Iniciando prueba REAL de velocidad...')
+        onProgress?.(0, 'Iniciando prueba...', { phase: 'ping' })
 
-        // Pre-calentar conexión con timeout corto
+        // Pre-calentar conexión
         try {
             const controller = new AbortController()
             const timeoutId = setTimeout(() => controller.abort(), 5000)
-
             await fetch('https://speed.cloudflare.com/__down?bytes=1', {
                 cache: 'no-store',
                 mode: 'no-cors',
                 signal: controller.signal
             })
-
             clearTimeout(timeoutId)
         } catch (e) {
-            // Ignorar errores de pre-calentamiento
+            // Ignorar
         }
 
         // FASE 1: Ping
-        onProgress?.(5, 'Midiendo latencia (Ping)...', { phase: 'ping' })
-        console.log('Midiendo ping...')
+        onProgress?.(2, 'Midiendo latencia...', { phase: 'ping' })
         const pingResult = await measurePingAccurate((progress, ping, statusMsg) => {
-            onProgress?.(progress, statusMsg, {
-                phase: 'ping',
-                currentSpeed: ping
-            })
+            onProgress?.(progress, statusMsg, { phase: 'ping', currentSpeed: ping })
         })
-        console.log(`Ping: ${pingResult.avgPing.toFixed(1)}ms (min: ${pingResult.minPing.toFixed(1)}, max: ${pingResult.maxPing.toFixed(1)})`)
-        onProgress?.(15, `Ping completado: ${pingResult.avgPing.toFixed(1)}ms`, {
-            phase: 'ping',
+        console.log(`Ping: ${pingResult.avgPing.toFixed(1)}ms`)
+        onProgress?.(10, `Ping: ${pingResult.avgPing.toFixed(1)}ms`, {
+            phase: 'download',
             currentSpeed: pingResult.avgPing
         })
 
-        // FASE 2: Descarga
-        onProgress?.(20, 'Midiendo velocidad de descarga...', { phase: 'download' })
-        console.log('Midiendo descarga...')
-        const downloadResult = await measureDownloadEnhanced((progress, speed, statusMsg) => {
-            onProgress?.(progress, statusMsg, {
-                phase: 'download',
-                currentSpeed: speed
-            })
+        // FASE 2: Descarga REAL
+        onProgress?.(12, 'Midiendo descarga (3 tests)...', { phase: 'download' })
+        const downloadResult = await measureDownloadReal((progress, speed, statusMsg) => {
+            onProgress?.(progress, statusMsg, { phase: 'download', currentSpeed: speed })
         })
         console.log(`Descarga: ${downloadResult.speed.toFixed(2)} Mbps (rango: ${downloadResult.minSpeed.toFixed(2)} - ${downloadResult.maxSpeed.toFixed(2)})`)
-        onProgress?.(86, `Descarga completada: ${downloadResult.speed.toFixed(1)} Mbps`, {
+        onProgress?.(70, `Descarga: ${downloadResult.speed.toFixed(1)} Mbps`, {
             phase: 'upload',
             currentSpeed: downloadResult.speed
         })
 
-        // FASE 3: Subida (estimada)
-        onProgress?.(88, 'Estimando velocidad de subida...', { phase: 'upload' })
-        console.log('Estimando subida...')
-        const uploadResult = await measureUploadEnhanced(downloadResult.speed, (progress, speed, statusMsg) => {
-            onProgress?.(progress, statusMsg, {
-                phase: 'upload',
-                currentSpeed: speed
-            })
+        // FASE 3: Subida REAL (no estimada)
+        onProgress?.(71, 'Midiendo subida (3 tests)...', { phase: 'upload' })
+        const uploadResult = await measureUploadReal((progress, speed, statusMsg) => {
+            onProgress?.(progress, statusMsg, { phase: 'upload', currentSpeed: speed })
         })
         console.log(`Subida: ${uploadResult.speed.toFixed(2)} Mbps (rango: ${uploadResult.minSpeed.toFixed(2)} - ${uploadResult.maxSpeed.toFixed(2)})`)
-        onProgress?.(95, `Subida estimada: ${uploadResult.speed.toFixed(1)} Mbps`, {
+        onProgress?.(96, `Subida: ${uploadResult.speed.toFixed(1)} Mbps`, {
             phase: 'upload',
             currentSpeed: uploadResult.speed
         })
@@ -389,7 +382,7 @@ export async function simulateSpeedTestImproved(
         // FASE 4: Cálculos finales
         onProgress?.(97, 'Procesando resultados...', { phase: 'upload' })
 
-        // Calcular jitter (variación de latencia) usando mediana para robustez
+        // Jitter basado en ping REAL
         const jitterValues: number[] = []
         for (let i = 1; i < pingResult.pings.length; i++) {
             jitterValues.push(Math.abs(pingResult.pings[i] - pingResult.pings[i - 1]))
@@ -398,18 +391,16 @@ export async function simulateSpeedTestImproved(
         let avgJitter = 0
         if (jitterValues.length > 0) {
             const sortedJitter = [...jitterValues].sort((a, b) => a - b)
-            // Usar mediana de jitter para mayor precisión
             avgJitter = sortedJitter.length % 2 === 0
                 ? (sortedJitter[sortedJitter.length / 2 - 1] + sortedJitter[sortedJitter.length / 2]) / 2
                 : sortedJitter[Math.floor(sortedJitter.length / 2)]
         }
 
-        // Estabilidad mejorada: basada en coeficiente de variación
+        // Estabilidad REAL basada en variabilidad medida
         const dlVariability = ((downloadResult.maxSpeed - downloadResult.minSpeed) / downloadResult.speed) * 100
         const ulVariability = ((uploadResult.maxSpeed - uploadResult.minSpeed) / uploadResult.speed) * 100
         const avgVariability = (dlVariability + ulVariability) / 2
 
-        // Penalizar más por variabilidad alta
         const baseStability = 100 - (avgVariability * 0.3)
         const jitterPenalty = Math.min(10, avgJitter * 0.5)
         const stability = Math.max(0, Math.min(100, baseStability - jitterPenalty))
@@ -446,11 +437,10 @@ export async function simulateSpeedTestImproved(
 }
 
 /**
- * Obtiene información de geolocalización usando ipapi.co (gratis, sin API key)
+ * Obtiene geolocalización
  */
 export async function getGeoLocation(ip: string) {
     try {
-        // Usar ipapi.co que es gratis y no requiere API key
         const response = await fetch(`https://ipapi.co/${ip}/json/`, {
             next: { revalidate: 86400 },
         })
@@ -461,7 +451,6 @@ export async function getGeoLocation(ip: string) {
 
         const data = await response.json()
 
-        // ipapi.co devuelve error_message si la IP es inválida
         if (data.error) {
             return null
         }
@@ -471,7 +460,7 @@ export async function getGeoLocation(ip: string) {
             isp: data.org || 'Desconocido',
         }
     } catch (error) {
-        console.error('Error getting geolocation:', error)
+        console.error('Error geolocalización:', error)
         return null
     }
 }

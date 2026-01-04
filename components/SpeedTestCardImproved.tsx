@@ -120,15 +120,32 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
 
             setProgress(98)
 
+            // IMPORTANTE: Usar valores de las gráficas (samples reales) y no estimaciones
+            // testResult.downloadSamples y testResult.uploadSamples contienen todas las mediciones
+            const finalDownloadSpeed = testResult.downloadSamples && testResult.downloadSamples.length > 0
+                ? testResult.downloadSamples[Math.floor(testResult.downloadSamples.length / 2)]
+                : testResult.downloadSpeed
+
+            const finalUploadSpeed = testResult.uploadSamples && testResult.uploadSamples.length > 0
+                ? testResult.uploadSamples[Math.floor(testResult.uploadSamples.length / 2)]
+                : testResult.uploadSpeed
+
             if (isAnonymous) {
                 setProgress(100)
                 setCurrentPhase(PHASES.complete)
                 setStatusMsg('Prueba completada')
                 setResult({
-                    downloadSpeed: testResult.downloadSpeed,
-                    uploadSpeed: testResult.uploadSpeed,
+                    downloadSpeed: finalDownloadSpeed,
+                    uploadSpeed: finalUploadSpeed,
                     ping: testResult.ping,
-                    jitter: testResult.jitter || 0
+                    jitter: testResult.jitter || 0,
+                    stability: testResult.stability || 0,
+                    minDownload: testResult.minDownload,
+                    maxDownload: testResult.maxDownload,
+                    minUpload: testResult.minUpload,
+                    maxUpload: testResult.maxUpload,
+                    minPing: testResult.minPing,
+                    maxPing: testResult.maxPing
                 })
 
                 setTimeout(() => {
@@ -143,10 +160,17 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
 
             setStatusMsg('Guardando resultado...')
 
+            // Usar valores finales reales para guardar
+            const finalResult = {
+                ...testResult,
+                downloadSpeed: finalDownloadSpeed,
+                uploadSpeed: finalUploadSpeed
+            }
+
             const response = await fetch('/api/speedtest', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userName, testResult }),
+                body: JSON.stringify({ userName, testResult: finalResult }),
             })
 
             if (!response.ok) {
@@ -167,11 +191,27 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
             setProgress(100)
             setCurrentPhase(PHASES.complete)
             setStatusMsg('Prueba completada')
-            setResult(data.result)
+            
+            // Asegurar que el resultado mostrado sea exactamente lo medido
+            const displayResult = {
+                downloadSpeed: finalDownloadSpeed,
+                uploadSpeed: finalUploadSpeed,
+                ping: data.result.ping,
+                jitter: data.result.jitter || 0,
+                stability: data.result.stability || 0,
+                minDownload: data.result.minDownload,
+                maxDownload: data.result.maxDownload,
+                minUpload: data.result.minUpload,
+                maxUpload: data.result.maxUpload,
+                minPing: data.result.minPing,
+                maxPing: data.result.maxPing
+            }
+            
+            setResult(displayResult)
 
             addTest({
-                downloadSpeed: data.result.downloadSpeed,
-                uploadSpeed: data.result.uploadSpeed,
+                downloadSpeed: finalDownloadSpeed,
+                uploadSpeed: finalUploadSpeed,
                 ping: data.result.ping,
                 jitter: data.result.jitter || 0,
                 stability: data.result.stability || 0,
@@ -179,8 +219,8 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
             })
 
             const newBadges = unlockNewBadges(
-                data.result.downloadSpeed,
-                data.result.uploadSpeed,
+                finalDownloadSpeed,
+                finalUploadSpeed,
                 data.result.ping,
                 data.result.jitter || 0,
                 data.result.stability || 0,
@@ -189,7 +229,7 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
             setUnlockedBadges(newBadges)
 
             if (onTestComplete) {
-                onTestComplete(data.result)
+                onTestComplete(displayResult)
             }
 
             setTimeout(() => {

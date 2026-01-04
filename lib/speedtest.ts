@@ -133,134 +133,107 @@ async function measureDownload(
 }
 
 /**
- * Sube datos con múltiples conexiones paralelas (como Speedtest.net)
+ * Sube datos usando streaming simple (sin chunks explícitos)
  */
 async function measureUpload(
-    onProgress?: (progress: number, speed: number) => void,
-    detectedDownloadSpeed: number = 80
+    onProgress?: (progress: number, speed: number) => void
 ): Promise<number> {
-    const measurements: number[] = []
-    const totalTestDuration = 10000 // 10 segundos total de prueba
-    const parallelConnections = 4 // 4 conexiones simultáneas
-    const chunkSize = Math.max(1000000, Math.min(50000000, (detectedDownloadSpeed * 1024 * 1024) / 8 / parallelConnections / 2)) // Ajustar chunk basado en velocidad
-
-    console.log(`[Upload] Optimizado para ${detectedDownloadSpeed.toFixed(1)} Mbps: ${(chunkSize / 1024 / 1024).toFixed(1)}MB chunks, ${parallelConnections} conexiones`)
-
     try {
+        const totalSize = 500 * 1024 * 1024 // 500MB para prueba rápida
+        const reportInterval = 200 // ms
+        
+        console.log(`[Upload] Iniciando con streaming directo (${(totalSize / 1024 / 1024).toFixed(0)}MB)...`)
+
         const startTime = performance.now()
-        let totalUploaded = 0
+        let uploadedBytes = 0
         let lastReportTime = startTime
-        const measurements_raw: number[] = []
+        const speeds: number[] = []
 
-        // Crear función para subir un chunk
-        const uploadChunk = async (chunkIndex: number): Promise<{ success: boolean; size: number; time: number }> => {
-            try {
-                const data = new Uint8Array(chunkSize)
-                // Llenar con datos aleatorios (no comprimibles)
-                for (let i = 0; i < data.length; i++) {
-                    data[i] = Math.floor(Math.random() * 256)
-                }
+        // Crear un ReadableStream que genera datos sin almacenarlos en memoria
+        const readableStream = new ReadableStream({
+            start(controller) {
+                const chunkSize = 64 * 1024 // 64KB chunks internos
+                const totalChunks = Math.ceil(totalSize / chunkSize)
+                let sentChunks = 0
 
-                const controller = new AbortController()
-                const timeoutId = setTimeout(() => controller.abort(), 30000)
-
-                const chunkStartTime = performance.now()
-                const response = await fetch('https://speed.cloudflare.com/__up', {
-                    method: 'POST',
-                    body: new Blob([data]),
-                    cache: 'no-store',
-                    signal: controller.signal,
-                })
-                clearTimeout(timeoutId)
-
-                const chunkTime = (performance.now() - chunkStartTime) / 1000
-
-                if (response.ok && chunkTime > 0) {
-                    const speedMbps = (chunkSize * 8) / chunkTime / 1024 / 1024
-                    measurements_raw.push(speedMbps)
-                    return { success: true, size: chunkSize, time: chunkTime }
-                }
-                return { success: false, size: 0, time: 0 }
-            } catch (error) {
-                console.error(`Chunk ${chunkIndex} failed:`, error)
-                return { success: false, size: 0, time: 0 }
-            }
-        }
-
-        // Ejecutar chunks en paralelo hasta completar el tiempo total
-        let chunkIndex = 0
-        const activeUploads = new Set<Promise<{ success: boolean; size: number; time: number }>>()
-
-        while (performance.now() - startTime < totalTestDuration) {
-            // Mantener 4 conexiones paralelas activas
-            while (activeUploads.size < parallelConnections && performance.now() - startTime < totalTestDuration) {
-                const uploadPromise = uploadChunk(chunkIndex++)
-                activeUploads.add(uploadPromise)
-
-                uploadPromise.then((result) => {
-                    activeUploads.delete(uploadPromise)
-                    if (result.success) {
-                        totalUploaded += result.size
+                const sendChunk = () => {
+                    if (sentChunks >= totalChunks) {
+                        controller.close()
+                        return
                     }
-                })
-            }
 
-            // Esperar a que al menos una suba termine antes de continuar
-            if (activeUploads.size > 0) {
-                await Promise.race(Array.from(activeUploads))
-            }
+                    const isLastChunk = sentChunks === totalChunks - 1
+                    const sizeToSend = isLastChunk ? totalSize % chunkSize || chunkSize : chunkSize
+                    const chunk = new Uint8Array(sizeToSend)
+                    
+                    // Llenar con datos aleatorios (no comprimibles)
+                    for (let i = 0; i < chunk.length; i++) {
+                        chunk[i] = Math.floor(Math.random() * 256)
+                    }
 
-            // Reportar progreso cada 200ms
-            const now = performance.now()
-            if (now - lastReportTime > 200) {
-                const elapsedSec = (now - startTime) / 1000
-                const instantSpeed = (totalUploaded * 8) / elapsedSec / 1024 / 1024
+                    uploadedBytes += chunk.length
+                    sentChunks++
 
-                const uploadProgress = 90 + Math.min(6, (totalUploaded / (totalTestDuration * detectedDownloadSpeed * 1024 * 1024 / 8)) * 6)
-                onProgress?.(uploadProgress, instantSpeed)
+                    // Reportar progreso cada 200ms
+                    const now = performance.now()
+                    if (now - lastReportTime > reportInterval) {
+                        const elapsedSec = (now - startTime) / 1000
+                        const currentSpeed = (uploadedBytes * 8) / elapsedSec / 1024 / 1024
+                        speeds.push(currentSpeed)
+                        
+                        const progress = 90 + (uploadedBytes / totalSize) * 6
+                        onProgress?.(progress, currentSpeed)
 
-                const uploadedGB = (totalUploaded / 1024 / 1024 / 1024).toFixed(2)
-                console.log(`[Upload Progress] ${uploadedGB}GB / 10GB @ ${instantSpeed.toFixed(2)} Mbps`)
+                        const uploadedMB = (uploadedBytes / 1024 / 1024).toFixed(2)
+                        console.log(`[Upload Progress] ${uploadedMB}MB / 500MB @ ${currentSpeed.toFixed(2)} Mbps`)
 
-                lastReportTime = now
-            }
-        }
+                        lastReportTime = now
+                    }
 
-        // Esperar a que todos los uploads activos terminen
-        if (activeUploads.size > 0) {
-            await Promise.all(Array.from(activeUploads))
+                    controller.enqueue(chunk)
+                    // Dar tiempo al navegador para procesar sin bloquear
+                    setTimeout(sendChunk, 0)
+                }
+
+                sendChunk()
+            },
+        })
+
+        // Enviar stream directo sin almacenar nada en memoria
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 minutos timeout
+
+        const response = await fetch('https://speed.cloudflare.com/__up', {
+            method: 'POST',
+            body: readableStream as any,
+            cache: 'no-store',
+            signal: controller.signal,
+        })
+
+        clearTimeout(timeoutId)
+
+        if (!response.ok) {
+            throw new Error(`Upload failed with status ${response.status}`)
         }
 
         const totalTime = (performance.now() - startTime) / 1000
+        const finalSpeed = (uploadedBytes * 8) / totalTime / 1024 / 1024
 
-        // Calcular velocidad basada en datos reales
-        if (measurements_raw.length > 0) {
-            // Usar la mediana de las mediciones individuales
-            const sorted = [...measurements_raw].sort((a, b) => a - b)
-            const medianSpeed = sorted[Math.floor(sorted.length / 2)]
+        console.log(`[Upload] Completado: ${finalSpeed.toFixed(2)} Mbps (${totalTime.toFixed(1)}s, ${(uploadedBytes / 1024 / 1024).toFixed(0)}MB)`)
 
-            // Validar que sea razonable (no outlier)
-            if (medianSpeed > 0 && medianSpeed < 10000) {
-                measurements.push(medianSpeed)
-                console.log(`[Upload] Completado. Speed final: ${medianSpeed.toFixed(2)} Mbps`)
-                console.log(`Upload Final: Samples=${medianSpeed}, Min=${Math.min(...measurements_raw).toFixed(2)}, Max=${Math.max(...measurements_raw).toFixed(2)}, Median=${medianSpeed.toFixed(2)}`)
-            }
+        // Usar mediana de velocidades reportadas para mejor precisión
+        if (speeds.length > 0) {
+            const sorted = [...speeds].sort((a, b) => a - b)
+            const median = sorted[Math.floor(sorted.length / 2)]
+            console.log(`Upload Final: Samples=${speeds.length}, Min=${Math.min(...speeds).toFixed(2)}, Max=${Math.max(...speeds).toFixed(2)}, Median=${median.toFixed(2)}`)
+            return median
         }
 
-        // Fallback: calcular velocidad global si no hay mediciones individuales
-        if (measurements.length === 0 && totalUploaded > 0 && totalTime > 1) {
-            const globalSpeed = (totalUploaded * 8) / totalTime / 1024 / 1024
-            if (globalSpeed > 0 && globalSpeed < 10000) {
-                measurements.push(globalSpeed)
-            }
-        }
+        return finalSpeed
     } catch (error) {
         console.error('Upload measurement error:', error)
+        return 0
     }
-
-    // Retornar resultado
-    if (measurements.length === 0) return 0
-    return measurements[0] // Retornar la mediana de la mediana
 }
 
 /**
@@ -293,13 +266,12 @@ export async function simulateSpeedTest(
         console.log(`Descarga medida: ${downloadSpeed.toFixed(2)} Mbps`)
         onProgress?.(90, 'Descarga completada. Midiendo subida...')
 
-        // Medir subida - REAL (con velocidad de descarga detectada para optimizar)
+        // Medir subida - REAL
         console.log('Midiendo subida...')
         const uploadSpeed = await measureUpload(
             (progress, speed) => {
                 onProgress?.(progress, `Subiendo... ${Math.round(progress)}% | ${speed.toFixed(1)} Mbps`)
-            },
-            downloadSpeed
+            }
         )
         if (uploadSpeed === 0) {
             throw new Error('No se pudo medir la velocidad de subida. Verifica tu conexión.')

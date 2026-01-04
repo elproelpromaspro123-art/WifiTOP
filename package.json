@@ -7,9 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "migrate": "node scripts/migrate.js",
-    "clear-data": "node scripts/clear-data.js"
+    "lint": "next lint"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",

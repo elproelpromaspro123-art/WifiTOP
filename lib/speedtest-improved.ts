@@ -265,8 +265,8 @@ async function measurePingAccurate(
 }
 
 /**
-  * Mide subida con un archivo de 10MB usando endpoint local
-  * Respeta límites de Next.js mientras mide velocidad real
+  * Mide subida con un archivo de 50MB usando endpoint local
+  * Mayor precisión en velocidad cliente-servidor
   */
 async function measureUploadEnhanced(
     onProgress?: (progress: number, speed: number, statusMsg: string) => void
@@ -279,10 +279,10 @@ async function measureUploadEnhanced(
     const samples: number[] = []
 
     try {
-        // Usar 10MB - límite seguro para Next.js sin configuración adicional
-         const uploadSize = 10 * 1024 * 1024
+        // Usar 50MB - Next.js configurado para soportar uploads grandes
+         const uploadSize = 50 * 1024 * 1024
 
-         console.log(`Midiendo velocidad de subida (10MB)...`)
+         console.log(`Midiendo velocidad de subida (50MB)...`)
 
          // Generar datos aleatorios para evitar compresión
          const data = new Uint8Array(uploadSize)

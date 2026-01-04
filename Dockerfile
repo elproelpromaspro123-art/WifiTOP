@@ -20,9 +20,8 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Instalar speedtest-cli
-RUN apk add --no-cache python3 py3-pip && \
-    pip3 install speedtest-cli
+# Instalar speedtest-cli desde Alpine repos
+RUN apk add --no-cache speedtest-cli
 
 # Copiar package.json
 COPY package*.json ./

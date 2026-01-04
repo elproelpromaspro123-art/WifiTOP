@@ -80,29 +80,6 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                 setError('Por favor ingresa tu nombre o selecciona modo anónimo')
                 return
             }
-
-            if (userName.trim().length < 2) {
-                setError(t('validation.name_too_short'))
-                return
-            }
-
-            if (userName.trim().length > 30) {
-                setError(t('validation.name_too_long'))
-                return
-            }
-
-            // Validar caracteres inválidos
-            if (!/^[a-zA-Z0-9\s\-_.áéíóúÁÉÍÓÚñÑ]+$/.test(userName.trim())) {
-                setError(t('validation.name_invalid_chars'))
-                return
-            }
-
-            // Validar palabras prohibidas
-            const { containsBadWords } = require('@/lib/badwords')
-            if (containsBadWords(userName.trim())) {
-                setError(t('validation.name_bad_words'))
-                return
-            }
         }
 
         setTesting(true)

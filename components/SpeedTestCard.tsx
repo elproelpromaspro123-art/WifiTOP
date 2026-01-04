@@ -58,16 +58,15 @@ export default function SpeedTestCard({ onTestComplete }: SpeedTestCardProps) {
     }
 
     const handleStartTest = async () => {
-        setError(null)
+         setError(null)
 
-        // Validar nombre
-        const nameError = validateUserName(userName)
-        if (nameError) {
-            setError(nameError)
-            return
-        }
+         // Validar solo que el nombre no esté vacío
+         if (!userName.trim()) {
+             setError('Por favor ingresa tu nombre')
+             return
+         }
 
-        setTesting(true)
+         setTesting(true)
         setProgress(0)
         setStatus('Midiendo ping...')
         setMetrics({

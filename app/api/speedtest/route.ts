@@ -48,14 +48,13 @@ export async function POST(request: NextRequest) {
 
       const { userName } = body
 
-      // Validar nombre de usuario
-      const validation = validateUserName(userName)
-      if (!validation.valid) {
-          return NextResponse.json(
-              { error: validation.error },
-              { status: 400 }
-          )
-      }
+       // Validar solo que el nombre no esté vacío
+       if (!userName || !userName.trim()) {
+           return NextResponse.json(
+               { error: 'El nombre es requerido' },
+               { status: 400 }
+           )
+       }
 
       // Resultado viene del cliente (speedtest.js real)
       const testResult = body.testResult

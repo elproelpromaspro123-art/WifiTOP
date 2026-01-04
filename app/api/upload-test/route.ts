@@ -25,7 +25,7 @@ export async function POST(request: Request) {
         }
         
         const endTime = performance.now()
-        const durationSeconds = Math.max((endTime - startTime) / 1000, 0.001) // Mínimo 1ms
+        const durationSeconds = (endTime - startTime) / 1000
         
         // Validar que se recibió algo
         if (buffer.byteLength === 0) {
@@ -44,6 +44,16 @@ export async function POST(request: Request) {
             return Response.json(
                 { error: 'Chunk too large. Maximum is 1GB' },
                 { status: 413 }
+            )
+        }
+        
+        // Si la medición es menos de 100ms, la velocidad es demasiado rápida (probablemente local)
+        if (durationSeconds < 0.1) {
+            clearTimeout(timeoutId)
+            console.warn(`[Upload Test] Upload demasiado rápido: ${durationSeconds.toFixed(3)}s`)
+            return Response.json(
+                { error: 'Upload too fast. Minimum duration is 100ms.' },
+                { status: 400 }
             )
         }
         

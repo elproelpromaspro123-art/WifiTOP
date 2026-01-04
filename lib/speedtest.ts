@@ -203,12 +203,13 @@ async function measureUpload(
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 minutos timeout
 
-        const response = await fetch('https://speed.cloudflare.com/__up', {
+        const response = await fetch('/api/upload-test', {
             method: 'POST',
             body: readableStream as any,
             cache: 'no-store',
             signal: controller.signal,
-        })
+            duplex: 'half',
+        } as any)
 
         clearTimeout(timeoutId)
 

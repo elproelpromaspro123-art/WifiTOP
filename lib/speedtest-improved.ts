@@ -261,112 +261,65 @@ async function measureUploadReal(
     minSpeed: number
     maxSpeed: number
 }> {
-    const uploadSize = 500 * 1024 * 1024 // 500MB
-    const reportInterval = 200
+    const uploadSize = 500 * 1024 * 1024 // 500MB (para medición válida)
     const speeds: number[] = []
-
+    
     try {
-        console.log(`[Upload] Iniciando streaming directo (${(uploadSize / 1024 / 1024).toFixed(0)}MB)...`)
+        console.log(`[Upload] Iniciando con Blob directo (${(uploadSize / 1024 / 1024).toFixed(0)}MB)...`)
 
+        // Generar datos una sola vez
+        const data = new Uint8Array(uploadSize)
+        for (let i = 0; i < data.length; i++) {
+            data[i] = Math.floor(Math.random() * 256)
+        }
+        const blob = new Blob([data])
+        console.log(`[Upload] Blob creado: ${blob.size} bytes`)
+
+        // Upload usando fetch
         const startTime = performance.now()
-        let uploadedBytes = 0
-        let lastReportTime = startTime
-
-        // ReadableStream que genera datos sin almacenarlos en memoria
-        const readableStream = new ReadableStream({
-            start(controller) {
-                const chunkSize = 64 * 1024 // 64KB chunks internos
-                const totalChunks = Math.ceil(uploadSize / chunkSize)
-                let sentChunks = 0
-
-                const sendChunk = () => {
-                    if (sentChunks >= totalChunks) {
-                        controller.close()
-                        return
-                    }
-
-                    const isLastChunk = sentChunks === totalChunks - 1
-                    const sizeToSend = isLastChunk ? uploadSize % chunkSize || chunkSize : chunkSize
-                    const chunk = new Uint8Array(sizeToSend)
-
-                    // Datos aleatorios no comprimibles
-                    for (let i = 0; i < chunk.length; i++) {
-                        chunk[i] = Math.floor(Math.random() * 256)
-                    }
-
-                    uploadedBytes += chunk.length
-                    sentChunks++
-
-                    // Reportar cada 200ms
-                    const now = performance.now()
-                    if (now - lastReportTime > reportInterval) {
-                        const elapsedSec = (now - startTime) / 1000
-                        const currentSpeed = (uploadedBytes * 8) / elapsedSec / 1024 / 1024
-                        speeds.push(currentSpeed)
-
-                        const progress = 71 + (uploadedBytes / uploadSize) * 25
-                        onProgress?.(
-                            Math.min(progress, 95),
-                            currentSpeed,
-                            `⬆️ Subiendo: ${(uploadedBytes / 1024 / 1024).toFixed(0)}MB de 500MB | ${currentSpeed.toFixed(1)} Mbps`
-                        )
-
-                        console.log(`[Upload Progress] ${(uploadedBytes / 1024 / 1024).toFixed(0)}MB / 500MB @ ${currentSpeed.toFixed(2)} Mbps`)
-
-                        lastReportTime = now
-                    }
-
-                    controller.enqueue(chunk)
-                    setTimeout(sendChunk, 0)
-                }
-
-                sendChunk()
-            },
-        })
-
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 120000)
-
-        const response = await fetch('https://speed.cloudflare.com/__up', {
+        const response = await fetch('/api/upload-test', {
             method: 'POST',
-            body: readableStream as any,
-            cache: 'no-store',
-            signal: controller.signal,
+            body: blob,
+            headers: {
+                'Content-Type': 'application/octet-stream',
+            }
         })
 
-        clearTimeout(timeoutId)
+        const endTime = performance.now()
+        const durationSeconds = (endTime - startTime) / 1000
 
         if (!response.ok) {
-            throw new Error(`Upload failed with status ${response.status}`)
+            throw new Error(`Upload failed: ${response.status} ${response.statusText}`)
         }
 
-        const totalTime = (performance.now() - startTime) / 1000
-        const finalSpeed = (uploadedBytes * 8) / totalTime / 1024 / 1024
+        const result = await response.json() as { speedMbps?: number }
+        const speedMbps = result.speedMbps || (uploadSize * 8) / durationSeconds / 1024 / 1024
 
-        console.log(`✓ Upload completada: ${finalSpeed.toFixed(2)} Mbps (${totalTime.toFixed(1)}s, ${(uploadedBytes / 1024 / 1024).toFixed(0)}MB)`)
-
-        // Usar mediana de velocidades para resultado
-        if (speeds.length > 0) {
-            const sorted = [...speeds].sort((a, b) => a - b)
-            const median = sorted[Math.floor(sorted.length / 2)]
-            const minSpeed = Math.min(...speeds)
-            const maxSpeed = Math.max(...speeds)
-
-            console.log(`Upload Final: Samples=${speeds.length}, Min=${minSpeed.toFixed(2)}, Max=${maxSpeed.toFixed(2)}, Median=${median.toFixed(2)}`)
-
-            return {
-                speed: median,
-                samples: speeds,
-                minSpeed,
-                maxSpeed
-            }
+        if (speedMbps < 0.1 || speedMbps > 10000) {
+            throw new Error(`Speed fuera de rango: ${speedMbps.toFixed(2)} Mbps`)
         }
+
+        console.log(`✓ Upload Completado: ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s)`)
+
+        onProgress?.(90, speedMbps, `⬆️ Upload completado: ${speedMbps.toFixed(1)} Mbps`)
+
+        speeds.push(speedMbps)
+
+        if (speeds.length === 0) {
+            throw new Error('No se completó el upload')
+        }
+
+        const median = speedMbps
+        const minSpeed = speedMbps
+        const maxSpeed = speedMbps
+
+        console.log(`Upload Final: Speed=${speedMbps.toFixed(2)} Mbps`)
 
         return {
-            speed: finalSpeed,
-            samples: [finalSpeed],
-            minSpeed: finalSpeed,
-            maxSpeed: finalSpeed
+            speed: median,
+            samples: speeds,
+            minSpeed,
+            maxSpeed
         }
     } catch (error) {
         console.error(`[Upload] Error:`, error)

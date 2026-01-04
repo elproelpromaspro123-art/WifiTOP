@@ -29,7 +29,6 @@ envGroups:
   - name: wifitop_db
     envVars:
       - key: DATABASE_URL
-        fromService:
+        fromDatabase:
           name: wifitop-db
-          type: postgres
           property: connectionString

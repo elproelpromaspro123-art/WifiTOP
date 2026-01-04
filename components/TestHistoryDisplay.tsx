@@ -17,7 +17,7 @@ export default function TestHistoryDisplay() {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="glow-border rounded-xl p-6 md:p-8 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 mb-12"
+      className="glow-border rounded-xl p-6 md:p-8 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 mb-12 relative z-10"
     >
       <div className="mb-8">
         <h3 className="text-3xl md:text-4xl font-black text-white mb-3 flex items-center gap-3">
@@ -125,7 +125,7 @@ export default function TestHistoryDisplay() {
       {/* Botón limpiar */}
       <button
         onClick={clearHistory}
-        className="w-full py-2 rounded-lg text-sm font-semibold bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 hover:border-red-500/50 transition-all"
+        className="w-full py-2 rounded-lg text-sm font-semibold bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 hover:border-red-500/50 transition-all cursor-pointer pointer-events-auto relative z-10"
       >
         🗑️ Limpiar histórico
       </button>

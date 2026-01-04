@@ -70,7 +70,7 @@ export default function RankingTable() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: 0.2 }}
-      className="glow-border rounded-2xl p-6 md:p-8 lg:p-10 mb-12 backdrop-blur-sm"
+      className="glow-border rounded-2xl p-6 md:p-8 lg:p-10 mb-12"
       id="ranking"
     >
       <div className="mb-8">
@@ -105,7 +105,7 @@ export default function RankingTable() {
         <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => setFilterBy('all')}
-            className={`px-3 md:px-4 py-2 rounded-lg font-semibold text-sm md:text-base transition-all ${
+            className={`px-3 md:px-4 py-2 rounded-lg font-semibold text-sm md:text-base transition-all cursor-pointer pointer-events-auto relative z-10 ${
               filterBy === 'all'
                 ? 'bg-blue-600 text-white'
                 : 'bg-white/10 text-gray-400 hover:bg-white/20'
@@ -115,7 +115,7 @@ export default function RankingTable() {
           </button>
           <button
             onClick={() => setFilterBy('top100')}
-            className={`px-3 md:px-4 py-2 rounded-lg font-semibold text-sm md:text-base transition-all ${
+            className={`px-3 md:px-4 py-2 rounded-lg font-semibold text-sm md:text-base transition-all cursor-pointer pointer-events-auto relative z-10 ${
               filterBy === 'top100'
                 ? 'bg-yellow-600 text-white'
                 : 'bg-white/10 text-gray-400 hover:bg-white/20'
@@ -125,7 +125,7 @@ export default function RankingTable() {
           </button>
           <button
             onClick={() => setFilterBy('fast')}
-            className={`px-3 md:px-4 py-2 rounded-lg font-semibold text-sm md:text-base transition-all ${
+            className={`px-3 md:px-4 py-2 rounded-lg font-semibold text-sm md:text-base transition-all cursor-pointer pointer-events-auto relative z-10 ${
               filterBy === 'fast'
                 ? 'bg-green-600 text-white'
                 : 'bg-white/10 text-gray-400 hover:bg-white/20'
@@ -135,7 +135,7 @@ export default function RankingTable() {
           </button>
           <button
             onClick={() => setFilterBy('lowping')}
-            className={`px-3 md:px-4 py-2 rounded-lg font-semibold text-sm md:text-base transition-all ${
+            className={`px-3 md:px-4 py-2 rounded-lg font-semibold text-sm md:text-base transition-all cursor-pointer pointer-events-auto relative z-10 ${
               filterBy === 'lowping'
                 ? 'bg-cyan-600 text-white'
                 : 'bg-white/10 text-gray-400 hover:bg-white/20'

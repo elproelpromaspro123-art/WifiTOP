@@ -14,7 +14,7 @@ export default function Header() {
   ]
 
   return (
-    <header className="sticky top-0 z-50 backdrop-blur-md bg-black/30 border-b border-white/10">
+    <header className="sticky top-0 z-50 bg-black/30 border-b border-white/10">
       <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-transparent to-purple-500/5 pointer-events-none"></div>
       <nav className="relative container mx-auto px-3 md:px-4 py-4 md:py-5">
         <div className="flex items-center justify-between gap-4">
@@ -44,7 +44,7 @@ export default function Header() {
                 onClick={() => setActiveLink(link.id)}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className={`px-3 lg:px-4 py-2 rounded-lg font-semibold text-sm lg:text-base transition-all duration-300 ${
+                className={`px-3 lg:px-4 py-2 rounded-lg font-semibold text-sm lg:text-base transition-all duration-300 cursor-pointer pointer-events-auto relative z-10 ${
                   activeLink === link.id
                     ? 'bg-gradient-to-r from-blue-500/30 to-purple-500/30 text-white shadow-lg shadow-blue-500/20'
                     : 'text-gray-300 hover:text-white hover:bg-white/5'

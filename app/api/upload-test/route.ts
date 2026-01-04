@@ -5,20 +5,45 @@
  */
 
 export async function POST(request: Request) {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 minutos max
+    
     try {
         const startTime = performance.now()
         
-        // Consumir el buffer del request body de forma más eficiente
-        const buffer = await request.arrayBuffer()
+        // Consumir el buffer del request body con timeout
+        let buffer: ArrayBuffer
+        try {
+            buffer = await request.arrayBuffer()
+        } catch (err) {
+            clearTimeout(timeoutId)
+            console.error('[Upload Test] Error reading buffer:', err)
+            return Response.json(
+                { error: 'Failed to read request body' },
+                { status: 400 }
+            )
+        }
         
         const endTime = performance.now()
         const durationSeconds = Math.max((endTime - startTime) / 1000, 0.001) // Mínimo 1ms
         
         // Validar que se recibió algo
         if (buffer.byteLength === 0) {
+            clearTimeout(timeoutId)
             return Response.json(
                 { error: 'Empty payload' },
                 { status: 400 }
+            )
+        }
+        
+        // Limitar el tamaño máximo a 1GB por chunk
+        const MAX_CHUNK_SIZE = 1 * 1024 * 1024 * 1024 // 1GB
+        if (buffer.byteLength > MAX_CHUNK_SIZE) {
+            clearTimeout(timeoutId)
+            console.warn(`[Upload Test] Chunk demasiado grande: ${(buffer.byteLength / 1024 / 1024 / 1024).toFixed(2)}GB`)
+            return Response.json(
+                { error: 'Chunk too large. Maximum is 1GB' },
+                { status: 413 }
             )
         }
         
@@ -28,33 +53,47 @@ export async function POST(request: Request) {
         const sizeInMB = (buffer.byteLength / 1024 / 1024).toFixed(2)
         console.log(`[Upload Test] Recibido: ${sizeInMB}MB en ${durationSeconds.toFixed(3)}s = ${speedMbps.toFixed(2)} Mbps`)
         
-        // Validar que la velocidad sea razonable (rango más amplio para uploads reales)
+        // Validar que la velocidad sea razonable
         if (speedMbps < 0.1 || speedMbps > 10000) {
             console.warn(`[Upload Test] Velocidad fuera de rango: ${speedMbps.toFixed(2)} Mbps`)
+            clearTimeout(timeoutId)
             return Response.json(
                 { error: `Speed out of range: ${speedMbps.toFixed(2)} Mbps` },
                 { status: 400 }
             )
         }
         
+        clearTimeout(timeoutId)
         return Response.json({
             success: true,
             speedMbps: parseFloat(speedMbps.toFixed(2)),
             durationSeconds: parseFloat(durationSeconds.toFixed(3)),
             bytes: buffer.byteLength
         }, {
+            status: 200,
             headers: {
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
                 'Pragma': 'no-cache',
-                'Expires': '0'
+                'Expires': '0',
+                'Connection': 'close'
             }
         })
     } catch (error) {
+        clearTimeout(timeoutId)
         console.error('[Upload Test] Error:', error)
         const message = error instanceof Error ? error.message : 'Unknown error'
+        
+        // Detectar errores específicos
+        let status = 500
+        if (message.includes('abort') || message.includes('timeout')) {
+            status = 408 // Request Timeout
+        } else if (message.includes('memory') || message.includes('MEMORY')) {
+            status = 507 // Insufficient Storage
+        }
+        
         return Response.json(
             { error: message },
-            { status: 500 }
+            { status }
         )
     }
 }

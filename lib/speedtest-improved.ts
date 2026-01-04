@@ -256,23 +256,23 @@ async function measureUploadReal(
     minSpeed: number
     maxSpeed: number
 }> {
-    const uploadSize = 10 * 1024 * 1024 * 1024 // 10GB
+    const uploadSize = 500 * 1024 * 1024 // 500MB (más seguro en memoria)
     const samples: number[] = []
-    const stabilityWindow = 3000 // 3 segundos sin mejora = estable
     let lastMaxSpeed = 0
-    let lastMaxSpeedTime = 0
 
     try {
-        console.log(`[Upload] Generando 10GB de datos para subida...`)
+        console.log(`[Upload] Generando 500MB de datos para subida...`)
         
-        // Generar datos aleatorios en chunks (prevenir compresión)
-        const chunkSize = 50 * 1024 * 1024 // 50MB chunks
+        // Generar datos en chunks más pequeños para evitar memory exhaustion
+        const chunkSize = 10 * 1024 * 1024 // 10MB chunks
         const chunks: BlobPart[] = []
         let generated = 0
         
         while (generated < uploadSize) {
             const size = Math.min(chunkSize, uploadSize - generated)
             const chunk = new Uint8Array(size)
+            
+            // Generar datos pseudo-aleatorios (sin comprimir)
             for (let i = 0; i < size; i++) {
                 chunk[i] = Math.floor(Math.random() * 256)
             }
@@ -280,19 +280,26 @@ async function measureUploadReal(
             generated += size
             
             // Reportar progreso de generación
-            const genProgress = (generated / uploadSize) * 10
+            const genProgress = (generated / uploadSize) * 5 // 5% para generación
             onProgress?.(
-                Math.min(genProgress, 10),
+                Math.min(genProgress, 5),
                 0,
-                `⬆️ Preparando datos: ${(generated / 1024 / 1024 / 1024).toFixed(2)}GB / 10GB`
+                `⬆️ Preparando datos: ${(generated / 1024 / 1024).toFixed(0)}MB / 500MB`
             )
+            
+            // Liberar memoria si se necesita
+            if (chunks.length > 5) {
+                const blobTemp = new Blob(chunks, { type: 'application/octet-stream' })
+                chunks.length = 0
+                chunks.push(blobTemp)
+            }
         }
 
         const blob = new Blob(chunks, { type: 'application/octet-stream' })
         console.log(`[Upload] Blob creado: ${blob.size} bytes`)
 
         // Subir con detección de estabilidad
-        const speed = await uploadToLocalEndpointStable(blob, uploadSize, onProgress, stabilityWindow)
+        const speed = await uploadToLocalEndpointStable(blob, uploadSize, onProgress)
         samples.push(speed)
         
         console.log(`[Upload] Completado. Speed final: ${speed.toFixed(2)} Mbps`)
@@ -428,8 +435,7 @@ async function uploadToCloudflare(
 async function uploadToLocalEndpointStable(
     blob: Blob,
     uploadSize: number,
-    onProgress?: (progress: number, speed: number, statusMsg: string) => void,
-    stabilityWindow: number = 3000
+    onProgress?: (progress: number, speed: number, statusMsg: string) => void
 ): Promise<number> {
     return new Promise<number>((resolve, reject) => {
         const startTime = performance.now()
@@ -767,96 +773,116 @@ export async function simulateSpeedTestImproved(
             })
             clearTimeout(timeoutId)
         } catch (e) {
-            // Ignorar
+            // Ignorar errores en pre-calentamiento
+            console.log('Pre-warming completed or skipped')
         }
 
+        let pingResult, downloadResult, uploadResult
+        
         // FASE 1: Ping
-        onProgress?.(2, 'Midiendo latencia...', { phase: 'ping' })
-        const pingResult = await measurePingAccurate((progress, ping, statusMsg) => {
-            onProgress?.(progress, statusMsg, { phase: 'ping', currentSpeed: ping })
-        })
-        console.log(`Ping: ${pingResult.avgPing.toFixed(1)}ms`)
-        onProgress?.(10, `Ping: ${pingResult.avgPing.toFixed(1)}ms`, {
-            phase: 'download',
-            currentSpeed: pingResult.avgPing
-        })
+        try {
+            onProgress?.(2, 'Midiendo latencia...', { phase: 'ping' })
+            pingResult = await measurePingAccurate((progress, ping, statusMsg) => {
+                onProgress?.(progress, statusMsg, { phase: 'ping', currentSpeed: ping })
+            })
+            console.log(`Ping: ${pingResult.avgPing.toFixed(1)}ms`)
+            onProgress?.(10, `Ping: ${pingResult.avgPing.toFixed(1)}ms`, {
+                phase: 'download',
+                currentSpeed: pingResult.avgPing
+            })
+        } catch (err) {
+            console.error('Error en medición de Ping:', err)
+            throw new Error(`Error midiendo ping: ${err instanceof Error ? err.message : 'error desconocido'}`)
+        }
 
         // FASE 2: Descarga REAL
-        onProgress?.(12, 'Midiendo descarga (10GB, detección de estabilidad)...', { phase: 'download' })
-        const downloadResult = await measureDownloadReal((progress, speed, statusMsg) => {
-            onProgress?.(progress, statusMsg, { phase: 'download', currentSpeed: speed })
-        })
-        console.log(`Descarga: ${downloadResult.speed.toFixed(2)} Mbps (rango: ${downloadResult.minSpeed.toFixed(2)} - ${downloadResult.maxSpeed.toFixed(2)})`)
-        onProgress?.(70, `Descarga: ${downloadResult.speed.toFixed(1)} Mbps`, {
-            phase: 'upload',
-            currentSpeed: downloadResult.speed
-        })
+        try {
+            onProgress?.(12, 'Midiendo descarga (detección de estabilidad)...', { phase: 'download' })
+            downloadResult = await measureDownloadReal((progress, speed, statusMsg) => {
+                onProgress?.(progress, statusMsg, { phase: 'download', currentSpeed: speed })
+            })
+            console.log(`Descarga: ${downloadResult.speed.toFixed(2)} Mbps (rango: ${downloadResult.minSpeed.toFixed(2)} - ${downloadResult.maxSpeed.toFixed(2)})`)
+            onProgress?.(70, `Descarga: ${downloadResult.speed.toFixed(1)} Mbps`, {
+                phase: 'upload',
+                currentSpeed: downloadResult.speed
+            })
+        } catch (err) {
+            console.error('Error en medición de Descarga:', err)
+            throw new Error(`Error midiendo descarga: ${err instanceof Error ? err.message : 'error desconocido'}`)
+        }
 
-        // FASE 3: Subida REAL (no estimada)
-        onProgress?.(71, 'Midiendo subida (10GB, detección de estabilidad)...', { phase: 'upload' })
-        const uploadResult = await measureUploadReal((progress, speed, statusMsg) => {
-            onProgress?.(progress, statusMsg, { phase: 'upload', currentSpeed: speed })
-        })
-        console.log(`Subida: ${uploadResult.speed.toFixed(2)} Mbps (rango: ${uploadResult.minSpeed.toFixed(2)} - ${uploadResult.maxSpeed.toFixed(2)})`)
-        onProgress?.(96, `Subida: ${uploadResult.speed.toFixed(1)} Mbps`, {
-            phase: 'upload',
-            currentSpeed: uploadResult.speed
-        })
+        // FASE 3: Subida REAL
+        try {
+            onProgress?.(71, 'Midiendo subida (500MB, detección de estabilidad)...', { phase: 'upload' })
+            uploadResult = await measureUploadReal((progress, speed, statusMsg) => {
+                onProgress?.(progress, statusMsg, { phase: 'upload', currentSpeed: speed })
+            })
+            console.log(`Subida: ${uploadResult.speed.toFixed(2)} Mbps (rango: ${uploadResult.minSpeed.toFixed(2)} - ${uploadResult.maxSpeed.toFixed(2)})`)
+            onProgress?.(96, `Subida: ${uploadResult.speed.toFixed(1)} Mbps`, {
+                phase: 'upload',
+                currentSpeed: uploadResult.speed
+            })
+        } catch (err) {
+            console.error('Error en medición de Subida:', err)
+            throw new Error(`Error midiendo subida: ${err instanceof Error ? err.message : 'error desconocido'}`)
+        }
 
         // FASE 4: Cálculos finales
         onProgress?.(97, 'Procesando resultados...', { phase: 'upload' })
 
-        // Jitter basado en ping REAL
-        const jitterValues: number[] = []
-        for (let i = 1; i < pingResult.pings.length; i++) {
-            jitterValues.push(Math.abs(pingResult.pings[i] - pingResult.pings[i - 1]))
+        try {
+            // Jitter basado en ping REAL
+            const jitterValues: number[] = []
+            for (let i = 1; i < pingResult.pings.length; i++) {
+                jitterValues.push(Math.abs(pingResult.pings[i] - pingResult.pings[i - 1]))
+            }
+
+            let avgJitter = 0
+            if (jitterValues.length > 0) {
+                const sortedJitter = [...jitterValues].sort((a, b) => a - b)
+                avgJitter = sortedJitter.length % 2 === 0
+                    ? (sortedJitter[sortedJitter.length / 2 - 1] + sortedJitter[sortedJitter.length / 2]) / 2
+                    : sortedJitter[Math.floor(sortedJitter.length / 2)]
+            }
+
+            // Estabilidad REAL basada en variabilidad medida
+            const dlVariability = ((downloadResult.maxSpeed - downloadResult.minSpeed) / downloadResult.speed) * 100
+            const ulVariability = ((uploadResult.maxSpeed - uploadResult.minSpeed) / uploadResult.speed) * 100
+            const avgVariability = (dlVariability + ulVariability) / 2
+
+            const baseStability = 100 - (avgVariability * 0.3)
+            const jitterPenalty = Math.min(10, avgJitter * 0.5)
+            const stability = Math.max(0, Math.min(100, baseStability - jitterPenalty))
+
+            const result: DetailedSpeedTestResult = {
+                downloadSpeed: parseFloat(downloadResult.speed.toFixed(2)),
+                uploadSpeed: parseFloat(uploadResult.speed.toFixed(2)),
+                ping: parseFloat(pingResult.avgPing.toFixed(1)),
+                jitter: parseFloat(avgJitter.toFixed(1)),
+                minDownload: parseFloat(downloadResult.minSpeed.toFixed(2)),
+                maxDownload: parseFloat(downloadResult.maxSpeed.toFixed(2)),
+                minUpload: parseFloat(uploadResult.minSpeed.toFixed(2)),
+                maxUpload: parseFloat(uploadResult.maxSpeed.toFixed(2)),
+                minPing: parseFloat(pingResult.minPing.toFixed(1)),
+                maxPing: parseFloat(pingResult.maxPing.toFixed(1)),
+                stability: parseFloat(stability.toFixed(1)),
+                jitterDetail: jitterValues,
+                downloadSamples: downloadResult.samples,
+                uploadSamples: uploadResult.samples,
+            }
+
+            console.log('Prueba completada:', result)
+            onProgress?.(100, 'Prueba completada', { phase: 'upload' })
+
+            return result
+        } catch (err) {
+            console.error('Error en cálculos finales:', err)
+            throw new Error(`Error procesando resultados: ${err instanceof Error ? err.message : 'error desconocido'}`)
         }
-
-        let avgJitter = 0
-        if (jitterValues.length > 0) {
-            const sortedJitter = [...jitterValues].sort((a, b) => a - b)
-            avgJitter = sortedJitter.length % 2 === 0
-                ? (sortedJitter[sortedJitter.length / 2 - 1] + sortedJitter[sortedJitter.length / 2]) / 2
-                : sortedJitter[Math.floor(sortedJitter.length / 2)]
-        }
-
-        // Estabilidad REAL basada en variabilidad medida
-        const dlVariability = ((downloadResult.maxSpeed - downloadResult.minSpeed) / downloadResult.speed) * 100
-        const ulVariability = ((uploadResult.maxSpeed - uploadResult.minSpeed) / uploadResult.speed) * 100
-        const avgVariability = (dlVariability + ulVariability) / 2
-
-        const baseStability = 100 - (avgVariability * 0.3)
-        const jitterPenalty = Math.min(10, avgJitter * 0.5)
-        const stability = Math.max(0, Math.min(100, baseStability - jitterPenalty))
-
-        const result: DetailedSpeedTestResult = {
-            downloadSpeed: parseFloat(downloadResult.speed.toFixed(2)),
-            uploadSpeed: parseFloat(uploadResult.speed.toFixed(2)),
-            ping: parseFloat(pingResult.avgPing.toFixed(1)),
-            jitter: parseFloat(avgJitter.toFixed(1)),
-            minDownload: parseFloat(downloadResult.minSpeed.toFixed(2)),
-            maxDownload: parseFloat(downloadResult.maxSpeed.toFixed(2)),
-            minUpload: parseFloat(uploadResult.minSpeed.toFixed(2)),
-            maxUpload: parseFloat(uploadResult.maxSpeed.toFixed(2)),
-            minPing: parseFloat(pingResult.minPing.toFixed(1)),
-            maxPing: parseFloat(pingResult.maxPing.toFixed(1)),
-            stability: parseFloat(stability.toFixed(1)),
-            jitterDetail: jitterValues,
-            downloadSamples: downloadResult.samples,
-            uploadSamples: uploadResult.samples,
-        }
-
-        console.log('Prueba completada:', result)
-        onProgress?.(100, 'Prueba completada', { phase: 'upload' })
-
-        return result
     } catch (error) {
         console.error('Speed test error:', error)
-        throw new Error(
-            error instanceof Error
-                ? error.message
-                : 'Error al realizar la prueba de velocidad. Asegúrate de tener conexión a internet.'
-        )
+        const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
+        throw new Error(errorMsg)
     }
 }
 

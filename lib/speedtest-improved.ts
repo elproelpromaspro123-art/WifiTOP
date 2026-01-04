@@ -253,7 +253,8 @@ async function measureDownloadReal(
  * Detecta estabilidad: cuando la velocidad no mejora en X tiempo, toma ese valor como máximo
  */
 async function measureUploadReal(
-    onProgress?: (progress: number, speed: number, statusMsg: string) => void
+    onProgress?: (progress: number, speed: number, statusMsg: string) => void,
+    downloadSpeed?: number // Velocidad de descarga para optimizar upload
 ): Promise<{
     speed: number
     samples: number[]
@@ -302,8 +303,8 @@ async function measureUploadReal(
         const blob = new Blob(chunks, { type: 'application/octet-stream' })
         console.log(`[Upload] Blob creado: ${blob.size} bytes`)
 
-        // Subir con detección de estabilidad
-        const speed = await uploadToLocalEndpointStable(blob, uploadSize, onProgress)
+        // Subir con detección de estabilidad (pasar velocidad de descarga)
+        const speed = await uploadToLocalEndpointStable(blob, uploadSize, onProgress, downloadSpeed)
         samples.push(speed)
         
         console.log(`[Upload] Completado. Speed final: ${speed.toFixed(2)} Mbps`)
@@ -439,7 +440,8 @@ async function uploadToCloudflare(
 async function uploadToLocalEndpointStable(
     blob: Blob,
     uploadSize: number,
-    onProgress?: (progress: number, speed: number, statusMsg: string) => void
+    onProgress?: (progress: number, speed: number, statusMsg: string) => void,
+    downloadSpeed?: number // Velocidad de descarga para optimizar
 ): Promise<number> {
     return new Promise<number>((resolve, reject) => {
         const startTime = performance.now()
@@ -453,12 +455,37 @@ async function uploadToLocalEndpointStable(
         const MEASUREMENT_INTERVAL = 500 // medir cada 500ms
         const REQUIRED_MEASUREMENTS = 3 // al menos 3 mediciones para decisión rápida
         
-        const CHUNK_SIZE = 5 * 1024 * 1024 // 5MB chunks
+        // Calcular chunk size y concurrencia dinámicamente basado en velocidad
+        const baseDownloadSpeed = downloadSpeed || 50 // Default 50 Mbps si no se proporciona
+        
+        // Fórmula escalable:
+        // - Bajo 20 Mbps: 10MB chunks, 2 conexiones
+        // - 20-100 Mbps: 30MB chunks, 4 conexiones
+        // - 100-300 Mbps: 50MB chunks, 6 conexiones
+        // - Arriba 300 Mbps: 80MB chunks, 8 conexiones
+        let CHUNK_SIZE: number
+        let maxConcurrent: number
+        
+        if (baseDownloadSpeed < 20) {
+            CHUNK_SIZE = 10 * 1024 * 1024
+            maxConcurrent = 2
+        } else if (baseDownloadSpeed < 100) {
+            CHUNK_SIZE = 30 * 1024 * 1024
+            maxConcurrent = 4
+        } else if (baseDownloadSpeed < 300) {
+            CHUNK_SIZE = 50 * 1024 * 1024
+            maxConcurrent = 6
+        } else {
+            CHUNK_SIZE = 80 * 1024 * 1024
+            maxConcurrent = 8
+        }
+        
+        console.log(`[Upload] Optimizado para ${baseDownloadSpeed.toFixed(1)} Mbps: ${CHUNK_SIZE / 1024 / 1024}MB chunks, ${maxConcurrent} conexiones`)
+        
         const totalChunks = Math.ceil(uploadSize / CHUNK_SIZE)
         let currentChunk = 0
         let totalUploaded = 0
         let activeRequests = 0
-        const maxConcurrent = 2
 
         const isStabilized = (): boolean => {
             // Necesita al menos 3 mediciones (1.5 segundos)
@@ -823,9 +850,12 @@ export async function simulateSpeedTestImproved(
         // FASE 3: Subida REAL
         try {
             onProgress?.(71, 'Midiendo subida (500MB, detección de estabilidad)...', { phase: 'upload' })
-            uploadResult = await measureUploadReal((progress, speed, statusMsg) => {
-                onProgress?.(progress, statusMsg, { phase: 'upload', currentSpeed: speed })
-            })
+            uploadResult = await measureUploadReal(
+                (progress, speed, statusMsg) => {
+                    onProgress?.(progress, statusMsg, { phase: 'upload', currentSpeed: speed })
+                },
+                downloadResult.speed // Pasar velocidad de descarga para optimizar upload
+            )
             console.log(`Subida: ${uploadResult.speed.toFixed(2)} Mbps (rango: ${uploadResult.minSpeed.toFixed(2)} - ${uploadResult.maxSpeed.toFixed(2)})`)
             onProgress?.(96, `Subida: ${uploadResult.speed.toFixed(1)} Mbps`, {
                 phase: 'upload',

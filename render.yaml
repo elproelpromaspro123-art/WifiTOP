@@ -23,8 +23,6 @@ services:
         value: WifiTOP
       - key: NEXT_PUBLIC_SITE_URL
         value: https://wifitop.onrender.com
-      - key: INIT_TOKEN
-        generateValue: true
       - fromGroup: wifitop_db
 
 envGroups:

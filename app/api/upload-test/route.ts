@@ -8,11 +8,11 @@ export async function POST(request: Request) {
     try {
         const startTime = performance.now()
         
-        // Consumir el buffer del request body
+        // Consumir el buffer del request body de forma más eficiente
         const buffer = await request.arrayBuffer()
         
         const endTime = performance.now()
-        const durationSeconds = (endTime - startTime) / 1000
+        const durationSeconds = Math.max((endTime - startTime) / 1000, 0.001) // Mínimo 1ms
         
         // Validar que se recibió algo
         if (buffer.byteLength === 0) {
@@ -26,10 +26,11 @@ export async function POST(request: Request) {
         const speedMbps = (buffer.byteLength * 8) / durationSeconds / 1024 / 1024
         
         const sizeInMB = (buffer.byteLength / 1024 / 1024).toFixed(2)
-        console.log(`[Upload Test] Recibido: ${sizeInMB}MB en ${durationSeconds.toFixed(2)}s = ${speedMbps.toFixed(2)} Mbps`)
+        console.log(`[Upload Test] Recibido: ${sizeInMB}MB en ${durationSeconds.toFixed(3)}s = ${speedMbps.toFixed(2)} Mbps`)
         
-        // Validar que la velocidad sea razonable (aumentar rango para chunks)
-        if (speedMbps < 0.1 || speedMbps > 100000) {
+        // Validar que la velocidad sea razonable (rango más amplio para uploads reales)
+        if (speedMbps < 0.1 || speedMbps > 10000) {
+            console.warn(`[Upload Test] Velocidad fuera de rango: ${speedMbps.toFixed(2)} Mbps`)
             return Response.json(
                 { error: `Speed out of range: ${speedMbps.toFixed(2)} Mbps` },
                 { status: 400 }
@@ -39,13 +40,18 @@ export async function POST(request: Request) {
         return Response.json({
             success: true,
             speedMbps: parseFloat(speedMbps.toFixed(2)),
-            durationSeconds: parseFloat(durationSeconds.toFixed(2)),
+            durationSeconds: parseFloat(durationSeconds.toFixed(3)),
             bytes: buffer.byteLength
+        }, {
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
         })
     } catch (error) {
         console.error('[Upload Test] Error:', error)
         const message = error instanceof Error ? error.message : 'Unknown error'
-        // Return 500 instead of letting unhandled errors propagate
         return Response.json(
             { error: message },
             { status: 500 }

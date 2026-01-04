@@ -5,12 +5,12 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
-  // Aumentar tamaño máximo de request body en API routes
+  // Aumentar tamaño máximo de request body en API routes para Railway
   api: {
     bodyParser: {
-      sizeLimit: '50mb'
+      sizeLimit: '500mb'
     },
-    responseLimit: '50mb'
+    responseLimit: '500mb'
   },
   headers: async () => {
     return [

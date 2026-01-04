@@ -200,9 +200,9 @@ async function measureDownloadReal(
 }
 
 /**
- * Subida REAL - 2 tests con archivos más grandes para precisión
- * 250MB y 350MB - Usa XHR con progress tracking
- * Fallback a endpoint local si Cloudflare falla
+ * Subida REAL - 2 tests con UN archivo grande para máxima precisión
+ * Prueba única y consolidada: 200MB local para Railway
+ * Usa streaming con XHR para evitar overhead de memoria
  */
 async function measureUploadReal(
     onProgress?: (progress: number, speed: number, statusMsg: string) => void
@@ -213,19 +213,18 @@ async function measureUploadReal(
     maxSpeed: number
 }> {
     const samples: number[] = []
-    // Vercel has strict limits - use smaller sizes for upload tests
-    // When running locally on server.js, can be increased
-    const uploadSizes = [50 * 1024 * 1024, 100 * 1024 * 1024] // 50MB, 100MB for Vercel; local can be 250MB, 350MB
-    let cloudflareWorking = true
+    // Un único archivo grande para prueba consolidada
+    // Railway puede manejar más que Vercel
+    const uploadSizes = [200 * 1024 * 1024] // 200MB en un único test para máximo rendimiento
 
     for (let testIndex = 0; testIndex < uploadSizes.length; testIndex++) {
         const uploadSize = uploadSizes[testIndex]
         
         try {
-            console.log(`[Upload ${testIndex + 1}/2] Generando ${(uploadSize / 1024 / 1024).toFixed(0)}MB de datos...`)
+            console.log(`[Upload ${testIndex + 1}/1] Generando ${(uploadSize / 1024 / 1024).toFixed(0)}MB de datos...`)
             
-            // Generar datos aleatorios en chunks (menos memoria)
-            const chunkSize = 10 * 1024 * 1024 // 10MB chunks
+            // Generar datos aleatorios en chunks grandes (menos overhead)
+            const chunkSize = 20 * 1024 * 1024 // 20MB chunks para menos iteraciones
             const chunks: BlobPart[] = []
             for (let offset = 0; offset < uploadSize; offset += chunkSize) {
                 const size = Math.min(chunkSize, uploadSize - offset)
@@ -237,43 +236,16 @@ async function measureUploadReal(
             }
 
             const blob = new Blob(chunks, { type: 'application/octet-stream' })
-            console.log(`[Upload ${testIndex + 1}/2] Blob creado: ${blob.size} bytes`)
+            console.log(`[Upload ${testIndex + 1}/1] Blob creado: ${blob.size} bytes`)
 
-            // Intentar con Cloudflare primero, luego fallback al endpoint local
-            const speed = cloudflareWorking
-                ? await uploadToCloudflare(blob, uploadSize, testIndex, onProgress)
-                : await uploadToLocalEndpoint(blob, uploadSize, testIndex, onProgress)
+            // Usar endpoint local directamente (sin Cloudflare)
+            const speed = await uploadToLocalEndpoint(blob, uploadSize, testIndex, onProgress)
 
             samples.push(speed)
-            console.log(`[Upload ${testIndex + 1}/2] Completado. Samples: ${samples.join(', ')}`)
+            console.log(`[Upload ${testIndex + 1}/1] Completado. Samples: ${samples.join(', ')}`)
         } catch (error) {
-            console.error(`[Upload ${testIndex + 1}/2] Fallo con Cloudflare:`, error)
-            
-            // Marcar Cloudflare como no funcionando y intentar endpoint local
-            cloudflareWorking = false
-            
-            try {
-                const uploadSize = uploadSizes[testIndex]
-                const chunkSize = 10 * 1024 * 1024
-                const chunks: BlobPart[] = []
-                for (let offset = 0; offset < uploadSize; offset += chunkSize) {
-                    const size = Math.min(chunkSize, uploadSize - offset)
-                    const chunk = new Uint8Array(size)
-                    for (let i = 0; i < size; i++) {
-                        chunk[i] = Math.floor(Math.random() * 256)
-                    }
-                    chunks.push(chunk)
-                }
-                const blob = new Blob(chunks, { type: 'application/octet-stream' })
-                
-                console.log(`[Upload ${testIndex + 1}/2] Intentando fallback al endpoint local...`)
-                const speed = await uploadToLocalEndpoint(blob, uploadSize, testIndex, onProgress)
-                samples.push(speed)
-                console.log(`[Upload ${testIndex + 1}/2] Completado con fallback. Samples: ${samples.join(', ')}`)
-            } catch (fallbackError) {
-                console.error(`[Upload ${testIndex + 1}/2] Fallback también falló:`, fallbackError)
-                continue
-            }
+            console.error(`[Upload ${testIndex + 1}/1] Error:`, error)
+            throw error
         }
     }
 
@@ -407,17 +379,25 @@ async function uploadToLocalEndpoint(
     onProgress?: (progress: number, speed: number, statusMsg: string) => void
 ): Promise<number> {
     return new Promise<number>((resolve, reject) => {
-        const xhr = new XMLHttpRequest()
         const startTime = performance.now()
         let lastReportTime = startTime
-        // Vercel serverless limit is much stricter in practice, use 2MB chunks
-        const CHUNK_SIZE = 2 * 1024 * 1024
+        // Railway tolera chunks más grandes - usar 5MB para menos overhead
+        const CHUNK_SIZE = 5 * 1024 * 1024
         const totalChunks = Math.ceil(uploadSize / CHUNK_SIZE)
         let currentChunk = 0
         let totalUploaded = 0
+        let activeRequests = 0
+        const maxConcurrent = 2 // Máximo 2 chunks simultáneos
 
         const sendChunk = () => {
+            // No enviar si ya llegamos al final
             if (currentChunk >= totalChunks) {
+                // Esperar a que terminen los últimos requests
+                if (activeRequests > 0) {
+                    setTimeout(() => sendChunk(), 100)
+                    return
+                }
+                
                 // All chunks sent, upload complete
                 const endTime = performance.now()
                 const durationSeconds = (endTime - startTime) / 1000
@@ -428,16 +408,25 @@ async function uploadToLocalEndpoint(
                 return
             }
 
+            // No enviar más de maxConcurrent requests
+            if (activeRequests >= maxConcurrent) {
+                setTimeout(() => sendChunk(), 10) // Intenta de nuevo en 10ms
+                return
+            }
+
             const start = currentChunk * CHUNK_SIZE
             const end = Math.min(start + CHUNK_SIZE, uploadSize)
             const chunkSize = end - start
+            const chunkNum = currentChunk
             
             // Slice actual blob data
             const chunkBlob = blob.slice(start, end)
             
             // Create a request for this chunk
             const chunkXhr = new XMLHttpRequest()
-            let chunkStartTime = performance.now()
+            const chunkStartTime = performance.now()
+            activeRequests++
+            currentChunk++
             
             chunkXhr.upload.addEventListener('progress', (e) => {
                 if (!e.lengthComputable) return
@@ -448,14 +437,14 @@ async function uploadToLocalEndpoint(
                 if (now - lastReportTime >= 500 && elapsed > 1) {
                     const uploadedSoFar = totalUploaded + e.loaded
                     const speed = (uploadedSoFar * 8) / elapsed / 1024 / 1024
-                    const blockProgress = 71 + (testIndex * 13) + (uploadedSoFar / uploadSize) * 13
+                    const blockProgress = 71 + (uploadedSoFar / uploadSize) * 25
                     
-                    console.log(`[Upload ${testIndex + 1}/2 Local Progress] ${(uploadedSoFar / 1024 / 1024) | 0}MB / ${(uploadSize / 1024 / 1024) | 0}MB @ ${speed.toFixed(2)} Mbps`)
+                    console.log(`[Upload ${testIndex + 1}/1 Local Progress] ${(uploadedSoFar / 1024 / 1024) | 0}MB / ${(uploadSize / 1024 / 1024) | 0}MB @ ${speed.toFixed(2)} Mbps`)
                     
                     onProgress?.(
                         Math.min(blockProgress, 96),
                         speed,
-                        `⬆️ Test ${testIndex + 1}/2 (Local): ${(uploadedSoFar / 1024 / 1024).toFixed(0)}MB de ${(uploadSize / 1024 / 1024).toFixed(0)}MB | ${speed.toFixed(1)} Mbps`
+                        `⬆️ Test ${testIndex + 1}/1 (Local): ${(uploadedSoFar / 1024 / 1024).toFixed(0)}MB de ${(uploadSize / 1024 / 1024).toFixed(0)}MB | ${speed.toFixed(1)} Mbps`
                     )
                     lastReportTime = now
                 }
@@ -463,47 +452,51 @@ async function uploadToLocalEndpoint(
 
             chunkXhr.addEventListener('load', () => {
                 const chunkDuration = (performance.now() - chunkStartTime) / 1000
-                console.log(`[Upload ${testIndex + 1}/2 Local] Chunk ${currentChunk + 1}/${totalChunks} done - Status: ${chunkXhr.status} (${(chunkSize / 1024 / 1024).toFixed(1)}MB in ${chunkDuration.toFixed(1)}s)`)
+                console.log(`[Upload ${testIndex + 1}/1 Local] Chunk ${chunkNum + 1}/${totalChunks} done - Status: ${chunkXhr.status} (${(chunkSize / 1024 / 1024).toFixed(1)}MB in ${chunkDuration.toFixed(2)}s)`)
+                
+                activeRequests--
                 
                 if (chunkXhr.status !== 200) {
-                    console.error(`[Upload ${testIndex + 1}/2 Local] Chunk ${currentChunk + 1}/${totalChunks} failed with HTTP ${chunkXhr.status}`)
+                    console.error(`[Upload ${testIndex + 1}/1 Local] Chunk ${chunkNum + 1}/${totalChunks} failed with HTTP ${chunkXhr.status}`)
                     reject(new Error(`HTTP ${chunkXhr.status}`))
                     return
                 }
 
                 totalUploaded += chunkSize
-                currentChunk++
                 
-                // Send next chunk after short delay
-                setTimeout(() => sendChunk(), 50)
+                // Continuar con siguiente chunk
+                sendChunk()
             })
 
             chunkXhr.addEventListener('error', (e) => {
-                console.error(`[Upload ${testIndex + 1}/2 Local] Chunk ${currentChunk + 1} error:`, e)
+                console.error(`[Upload ${testIndex + 1}/1 Local] Chunk ${chunkNum + 1} error:`, e)
+                activeRequests--
                 reject(new Error('Error de red en chunk'))
             })
 
             chunkXhr.addEventListener('abort', () => {
-                console.error(`[Upload ${testIndex + 1}/2 Local] Chunk ${currentChunk + 1} aborted`)
+                console.error(`[Upload ${testIndex + 1}/1 Local] Chunk ${chunkNum + 1} aborted`)
+                activeRequests--
                 reject(new Error('Upload cancelado'))
             })
 
-            chunkXhr.timeout = 60000 // 60s per chunk
+            chunkXhr.timeout = 120000 // 120s per chunk (más tolerante)
             
             try {
                 chunkXhr.open('POST', '/api/upload-test', true)
                 chunkXhr.setRequestHeader('Content-Type', 'application/octet-stream')
                 
-                console.log(`[Upload ${testIndex + 1}/2 Local] Sending chunk ${currentChunk + 1}/${totalChunks} (${(chunkSize / 1024 / 1024).toFixed(1)}MB)`)
-                chunkStartTime = performance.now()
+                console.log(`[Upload ${testIndex + 1}/1 Local] Sending chunk ${chunkNum + 1}/${totalChunks} (${(chunkSize / 1024 / 1024).toFixed(1)}MB)`)
                 chunkXhr.send(chunkBlob)
             } catch (e) {
-                console.error(`[Upload ${testIndex + 1}/2 Local] Error sending chunk:`, e)
+                activeRequests--
+                console.error(`[Upload ${testIndex + 1}/1 Local] Error sending chunk:`, e)
                 reject(e instanceof Error ? e : new Error(String(e)))
             }
         }
 
-        // Start uploading chunks
+        // Start uploading chunks - mandar primeros 2
+        sendChunk()
         sendChunk()
     })
 }
@@ -558,7 +551,7 @@ export async function simulateSpeedTestImproved(
         })
 
         // FASE 3: Subida REAL (no estimada)
-        onProgress?.(71, 'Midiendo subida (2 tests)...', { phase: 'upload' })
+        onProgress?.(71, 'Midiendo subida (1 test)...', { phase: 'upload' })
         const uploadResult = await measureUploadReal((progress, speed, statusMsg) => {
             onProgress?.(progress, statusMsg, { phase: 'upload', currentSpeed: speed })
         })

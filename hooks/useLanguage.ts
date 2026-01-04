@@ -3,6 +3,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Language, detectBrowserLanguage, t, translations } from '@/lib/i18n'
 
+// Almacenamiento global para forzar re-renders
+let globalLanguageValue: Language = 'en'
+const languageListeners = new Set<(lang: Language) => void>()
+
 export function useLanguage() {
   const [language, setLanguage] = useState<Language>('en')
   const [isLoaded, setIsLoaded] = useState(false)
@@ -14,13 +18,28 @@ export function useLanguage() {
 
     const finalLanguage = savedLang || detectedLang
     setLanguage(finalLanguage)
+    globalLanguageValue = finalLanguage
     setIsLoaded(true)
   }, [])
 
-  // Cambiar idioma y guardar en localStorage
+  // Escuchar cambios de idioma global
+  useEffect(() => {
+    const listener = (newLang: Language) => {
+      setLanguage(newLang)
+    }
+
+    languageListeners.add(listener)
+    return () => languageListeners.delete(listener)
+  }, [])
+
+  // Cambiar idioma y guardar en localStorage + notificar a todos los listeners
   const changeLanguage = useCallback((newLanguage: Language) => {
     setLanguage(newLanguage)
+    globalLanguageValue = newLanguage
     localStorage.setItem('wifitop_language', newLanguage)
+    
+    // Notificar a todos los componentes escuchando
+    languageListeners.forEach(listener => listener(newLanguage))
   }, [])
 
   // Obtener traducción

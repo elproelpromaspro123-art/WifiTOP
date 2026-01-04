@@ -11,6 +11,7 @@ import ValidationError from '@/components/ValidationError'
 import WhatsNewModal from '@/components/WhatsNewModal'
 import { useStats } from '@/hooks/useStats'
 import { useRanking } from '@/hooks/useRanking'
+import { useLanguage } from '@/hooks/useLanguage'
 import { motion } from 'framer-motion'
 
 interface TestResult {
@@ -28,6 +29,7 @@ export default function Home() {
     const [highlightResults, setHighlightResults] = useState(false)
     const { stats, loading, error, refetch } = useStats()
     const { refetch: refetchRanking } = useRanking()
+    const { t, isLoaded } = useLanguage()
 
     // Mostrar modal de novedades solo la primera vez
     useEffect(() => {
@@ -118,17 +120,17 @@ export default function Home() {
                         className="space-y-6 md:space-y-8"
                     >
                         {/* Main Title */}
-                        <div className="space-y-3 md:space-y-4">
-                            <h1 className="text-4xl sm:text-6xl md:text-8xl font-black tracking-tighter">
-                                <span className="bg-gradient-to-r from-blue-300 via-white to-purple-300 bg-clip-text text-transparent drop-shadow-2xl">
-                                    WifiTOP
-                                </span>
-                            </h1>
-                            <div className="space-y-2 md:space-y-3">
-                                <p className="text-lg sm:text-2xl md:text-3xl font-bold text-white">Presume tu velocidad de WiFi 🚀</p>
-                                <p className="text-sm sm:text-base md:text-xl text-gray-400 px-2">Ranking global con 10,000+ usuarios | Mediciones precisas | Badges exclusivos</p>
-                            </div>
-                        </div>
+                         <div className="space-y-3 md:space-y-4">
+                             <h1 className="text-4xl sm:text-6xl md:text-8xl font-black tracking-tighter">
+                                 <span className="bg-gradient-to-r from-blue-300 via-white to-purple-300 bg-clip-text text-transparent drop-shadow-2xl">
+                                     WifiTOP
+                                 </span>
+                             </h1>
+                             <div className="space-y-2 md:space-y-3">
+                                 <p className="text-lg sm:text-2xl md:text-3xl font-bold text-white">{t('hero.subtitle')}</p>
+                                 <p className="text-sm sm:text-base md:text-xl text-gray-400 px-2">{t('hero.description')}</p>
+                             </div>
+                         </div>
 
                         {/* CTA Divider */}
                         <motion.div
@@ -138,7 +140,7 @@ export default function Home() {
                         />
 
                         <p className="text-gray-400 text-sm md:text-base max-w-2xl mx-auto px-2">
-                            Speedtest ultra preciso con detección automática de fraude. Compite con usuarios de todo el mundo, desbloquea badges únicos y demuestra que tienes la mejor conexión.
+                            {t('hero.cta')}
                         </p>
                     </motion.div>
                 </section>
@@ -152,23 +154,23 @@ export default function Home() {
                         className="max-w-3xl mx-auto"
                     >
                         <div className="text-center mb-8 md:mb-12">
-                            <h2 className="text-3xl md:text-5xl font-black mb-4 bg-gradient-to-r from-blue-300 via-white to-purple-300 bg-clip-text text-transparent">
-                                Sobre WifiTOP
-                            </h2>
-                            <p className="text-gray-400 text-base md:text-lg">La plataforma definitiva de speedtest con ranking global</p>
-                        </div>
+                             <h2 className="text-3xl md:text-5xl font-black mb-4 bg-gradient-to-r from-blue-300 via-white to-purple-300 bg-clip-text text-transparent">
+                                 {t('about.title')}
+                             </h2>
+                             <p className="text-gray-400 text-base md:text-lg">{t('about.subtitle')}</p>
+                         </div>
 
-                        <div className="glow-border rounded-xl p-6 md:p-8 bg-gradient-to-br from-white/5 to-white/0">
-                            <div className="space-y-6">
-                                <div>
-                                    <h3 className="text-xl font-bold text-white mb-3">¿Qué es WifiTOP?</h3>
-                                    <p className="text-gray-300 leading-relaxed">
-                                        WifiTOP es la plataforma más avanzada de pruebas de velocidad de internet. Mide con precisión tu descarga, subida, ping y jitter usando servidores globales de Cloudflare. Compite en un ranking de 10,000+ usuarios y desbloquea badges exclusivos mientras mantienes la integridad con detección automática de fraude.
-                                    </p>
-                                </div>
+                         <div className="glow-border rounded-xl p-6 md:p-8 bg-gradient-to-br from-white/5 to-white/0">
+                             <div className="space-y-6">
+                                 <div>
+                                     <h3 className="text-xl font-bold text-white mb-3">{t('about.what_is')}</h3>
+                                     <p className="text-gray-300 leading-relaxed">
+                                         {t('about.what_is_desc')}
+                                     </p>
+                                 </div>
 
-                                <div>
-                                    <h3 className="text-xl font-bold text-white mb-3">Lo que Obtienes</h3>
+                                 <div>
+                                     <h3 className="text-xl font-bold text-white mb-3">{t('about.what_you_get')}</h3>
                                     <ul className="space-y-2 text-gray-300">
                                         <li className="flex items-start gap-3">
                                             <span className="text-blue-400 font-bold">✓</span>
@@ -198,9 +200,9 @@ export default function Home() {
                                 </div>
 
                                 <div className="pt-6 border-t border-white/10">
-                                    <h3 className="text-xl font-bold text-white mb-3">¿Por qué WifiTOP?</h3>
+                                    <h3 className="text-xl font-bold text-white mb-3">{t('about.why')}</h3>
                                     <p className="text-gray-300 leading-relaxed">
-                                        Somos la única plataforma con detección automática de fraude, ranking verificado y badges exclusivos. Con tecnología de Cloudflare y análisis en tiempo real, WifiTOP es tu aliado definitivo para medir, compartir y mejorar tu conexión de internet.
+                                        {t('about.why_desc')}
                                     </p>
                                 </div>
                             </div>
@@ -224,34 +226,34 @@ export default function Home() {
                         {/* Right Column - Stats */}
                         <motion.div variants={itemVariants} className="lg:col-span-2 space-y-6 md:space-y-8">
                             {/* Stats Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <StatsCard
-                                    title="Pruebas Completadas"
-                                    value={stats.total.toLocaleString()}
-                                    icon="📊"
-                                    loading={loading}
-                                    color="from-blue-500/20 to-blue-500/5"
-                                    textColor="text-blue-400"
-                                />
-                                <StatsCard
-                                    title="Velocidad Máxima"
-                                    value={`${stats.maxSpeed.toFixed(2)}`}
-                                    unit="Mbps"
-                                    icon="⚡"
-                                    loading={loading}
-                                    color="from-purple-500/20 to-purple-500/5"
-                                    textColor="text-purple-400"
-                                />
-                            </div>
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                 <StatsCard
+                                     title={t('stats.completed')}
+                                     value={stats.total.toLocaleString()}
+                                     icon="📊"
+                                     loading={loading}
+                                     color="from-blue-500/20 to-blue-500/5"
+                                     textColor="text-blue-400"
+                                 />
+                                 <StatsCard
+                                     title={t('stats.max_speed')}
+                                     value={`${stats.maxSpeed.toFixed(2)}`}
+                                     unit="Mbps"
+                                     icon="⚡"
+                                     loading={loading}
+                                     color="from-purple-500/20 to-purple-500/5"
+                                     textColor="text-purple-400"
+                                 />
+                             </div>
 
-                            {/* Average Speed Card */}
-                            <motion.div
-                                whileHover={{ scale: 1.02 }}
-                                className="glow-border rounded-xl p-8 bg-gradient-to-br from-green-500/15 to-emerald-500/5 hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300"
-                            >
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">📈 Velocidad Promedio</h3>
+                             {/* Average Speed Card */}
+                             <motion.div
+                                 whileHover={{ scale: 1.02 }}
+                                 className="glow-border rounded-xl p-8 bg-gradient-to-br from-green-500/15 to-emerald-500/5 hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300"
+                             >
+                                 <div className="flex items-center justify-between">
+                                     <div>
+                                         <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">📈 {t('stats.avg_speed')}</h3>
                                         <p className="text-5xl md:text-6xl font-black bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
                                             {stats.avgSpeed.toFixed(2)}
                                         </p>
@@ -292,49 +294,49 @@ export default function Home() {
                                         }`}
                                 >
                                     <div className="flex items-center gap-3 mb-6">
-                                        <motion.span
-                                            className="text-3xl"
-                                            animate={highlightResults ? { scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] } : {}}
-                                            transition={highlightResults ? { duration: 0.6, repeat: 3 } : {}}
-                                        >
-                                            ✅
-                                        </motion.span>
-                                        <h3 className="text-lg font-semibold text-gray-300">Tu Resultado Actual</h3>
-                                    </div>
+                                         <motion.span
+                                             className="text-3xl"
+                                             animate={highlightResults ? { scale: [1, 1.2, 1], rotate: [0, 10, -10, 0] } : {}}
+                                             transition={highlightResults ? { duration: 0.6, repeat: 3 } : {}}
+                                         >
+                                             ✅
+                                         </motion.span>
+                                         <h3 className="text-lg font-semibold text-gray-300">{t('speedtest.your_result')}</h3>
+                                     </div>
 
-                                    <div className="grid grid-cols-3 gap-3">
-                                        {[
-                                            { label: 'DESCARGA', icon: '⬇️', value: results.downloadSpeed, unit: 'Mbps', color: 'from-blue-500', textColor: 'text-blue-400', borderColor: 'border-blue-500/50' },
-                                            { label: 'SUBIDA', icon: '⬆️', value: results.uploadSpeed, unit: 'Mbps', color: 'from-green-500', textColor: 'text-green-400', borderColor: 'border-green-500/50' },
-                                            { label: 'PING', icon: '📡', value: results.ping, unit: 'ms', color: 'from-yellow-500', textColor: 'text-yellow-400', borderColor: 'border-yellow-500/50' },
-                                        ].map((metric, idx) => (
-                                            <motion.div
-                                                key={metric.label}
-                                                initial={{ scale: 0.8, opacity: 0 }}
-                                                animate={{ scale: 1, opacity: 1 }}
-                                                transition={{ delay: idx * 0.1 }}
-                                                className={`text-center bg-gradient-to-br ${metric.color}/10 to-transparent rounded-lg p-4 border-2 ${metric.borderColor} hover:shadow-lg transition-all duration-300`}
-                                            >
-                                                <p className="text-2xl mb-2">{metric.icon}</p>
-                                                <p className="text-gray-400 text-xs font-semibold mb-2">{metric.label}</p>
-                                                <p className={`text-3xl font-black ${metric.textColor}`}>
-                                                    {metric.value.toFixed(metric.label === 'PING' ? 0 : 1)}
-                                                </p>
-                                                <p className="text-gray-500 text-xs mt-1">{metric.unit}</p>
-                                            </motion.div>
-                                        ))}
-                                    </div>
+                                     <div className="grid grid-cols-3 gap-3">
+                                         {[
+                                             { label: t('speedtest.download'), icon: '⬇️', value: results.downloadSpeed, unit: 'Mbps', color: 'from-blue-500', textColor: 'text-blue-400', borderColor: 'border-blue-500/50' },
+                                             { label: t('speedtest.upload'), icon: '⬆️', value: results.uploadSpeed, unit: 'Mbps', color: 'from-green-500', textColor: 'text-green-400', borderColor: 'border-green-500/50' },
+                                             { label: t('speedtest.ping'), icon: '📡', value: results.ping, unit: 'ms', color: 'from-yellow-500', textColor: 'text-yellow-400', borderColor: 'border-yellow-500/50' },
+                                         ].map((metric, idx) => (
+                                             <motion.div
+                                                 key={idx}
+                                                 initial={{ scale: 0.8, opacity: 0 }}
+                                                 animate={{ scale: 1, opacity: 1 }}
+                                                 transition={{ delay: idx * 0.1 }}
+                                                 className={`text-center bg-gradient-to-br ${metric.color}/10 to-transparent rounded-lg p-4 border-2 ${metric.borderColor} hover:shadow-lg transition-all duration-300`}
+                                             >
+                                                 <p className="text-2xl mb-2">{metric.icon}</p>
+                                                 <p className="text-gray-400 text-xs font-semibold mb-2">{metric.label}</p>
+                                                 <p className={`text-3xl font-black ${metric.textColor}`}>
+                                                     {metric.value.toFixed(metric.label === t('speedtest.ping') ? 0 : 1)}
+                                                 </p>
+                                                 <p className="text-gray-500 text-xs mt-1">{metric.unit}</p>
+                                             </motion.div>
+                                         ))}
+                                     </div>
 
-                                    {/* Additional Info */}
-                                    <div className="mt-6 pt-6 border-t border-white/10 grid grid-cols-2 gap-4">
-                                        {results.stability && (
-                                            <div>
-                                                <p className="text-xs text-gray-400 font-semibold mb-2">Estabilidad</p>
+                                     {/* Additional Info */}
+                                     <div className="mt-6 pt-6 border-t border-white/10 grid grid-cols-2 gap-4">
+                                         {results.stability && (
+                                             <div>
+                                                 <p className="text-xs text-gray-400 font-semibold mb-2">{t('speedtest.stability')}</p>
                                                 <p className="text-2xl font-bold text-emerald-400">{results.stability.toFixed(0)}%</p>
                                             </div>
                                         )}
                                         <div>
-                                            <p className="text-xs text-gray-400 font-semibold mb-2">Jitter</p>
+                                            <p className="text-xs text-gray-400 font-semibold mb-2">{t('speedtest.jitter')}</p>
                                             <p className="text-2xl font-bold text-cyan-400">{results.jitter.toFixed(1)}ms</p>
                                         </div>
                                     </div>
@@ -421,26 +423,27 @@ function StatsCard({
 }
 
 function FeaturesSection() {
+    const { t } = useLanguage()
     const features = [
         {
             icon: '⚡',
-            title: 'Preciso con Cloudflare',
-            description: 'Mediciones ultra precisas con 1GB de datos y servidores globales'
+            title: t('features.f1'),
+            description: t('features.f1_desc')
         },
         {
             icon: '🏆',
-            title: 'Ranking 10,000+',
-            description: 'Compite contra los mejores. Top 10,000 usuarios en tiempo real'
+            title: t('features.f2'),
+            description: t('features.f2_desc')
         },
         {
             icon: '🛡️',
-            title: 'Anti-Fraude Automático',
-            description: 'Detección inteligente rechaza resultados sospechosos'
+            title: t('features.f3'),
+            description: t('features.f3_desc')
         },
         {
             icon: '🏅',
-            title: '12+ Badges Desbloqueables',
-            description: 'Speedster Extremo, Gaming Beast, Stability King y más'
+            title: t('features.f4'),
+            description: t('features.f4_desc')
         }
     ]
 
@@ -454,10 +457,10 @@ function FeaturesSection() {
             >
                 <div className="text-center px-4">
                     <h2 className="text-3xl md:text-5xl font-black mb-4 bg-gradient-to-r from-blue-300 via-white to-purple-300 bg-clip-text text-transparent">
-                        Por qué WifiTOP
+                        {t('features.title')}
                     </h2>
                     <p className="text-gray-400 text-sm md:text-base max-w-xl mx-auto px-4">
-                        La única plataforma con fraude detection, ranking verificado y badges únicos
+                        {t('about.why_desc')}
                     </p>
                 </div>
 

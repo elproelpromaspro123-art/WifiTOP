@@ -1,4 +1,14 @@
 services:
+  - type: postgres
+    name: wifitop-db
+    region: oregon
+    plan: free
+    databaseName: wifitop
+    username: wifitop_user
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: Allow all
+
   - type: web
     name: wifitop
     runtime: node
@@ -11,20 +21,17 @@ services:
         value: production
       - key: NEXT_PUBLIC_SITE_NAME
         value: WifiTOP
-      - fromGroup: wifitop
-  
-  - type: postgres
-    name: wifitop-db
-    region: oregon
-    plan: free
-    ipAllowList:
-      - source: 0.0.0.0/0
-        description: Allow all
-
-envGroups:
-  - name: wifitop
-    envVars:
-      - key: DATABASE_URL
-        scope: connect
       - key: NEXT_PUBLIC_SITE_URL
         value: https://wifitop.onrender.com
+      - key: INIT_TOKEN
+        generateValue: true
+      - fromGroup: wifitop_db
+
+envGroups:
+  - name: wifitop_db
+    envVars:
+      - key: DATABASE_URL
+        fromService:
+          name: wifitop-db
+          type: postgres
+          property: connectionString

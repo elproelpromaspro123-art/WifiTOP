@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import Link from 'next/link'
+import { useLanguage } from '@/hooks/useLanguage'
 
 interface FooterLink {
     label: string
@@ -16,27 +17,28 @@ interface FooterSection {
 }
 
 export default function Footer() {
-    const currentYear = new Date().getFullYear()
+     const currentYear = new Date().getFullYear()
+     const { t } = useLanguage()
 
-    const footerSections: FooterSection[] = [
-        {
-            title: 'WifiTOP ⚡',
-            items: [
-                'Presume tu velocidad de WiFi y compite en el ranking mundial',
-                'Prueba precisa, resultados confiables y competencia global'
-            ],
-            isText: true
-        },
-        {
-            title: 'Navegación',
-            items: [
-                { label: '🏠 Inicio', href: '/', icon: 'home' },
-                { label: '🏆 Ranking', href: '#ranking', icon: 'ranking' },
-                { label: 'ℹ️ Acerca de', href: '#about', icon: 'about' }
-            ],
-            isText: false
-        }
-    ]
+     const footerSections: FooterSection[] = [
+         {
+             title: 'WifiTOP ⚡',
+             items: [
+                 t('footer.tagline_1'),
+                 t('footer.tagline_2')
+             ],
+             isText: true
+         },
+         {
+             title: t('footer.navigation'),
+             items: [
+                 { label: `🏠 ${t('nav.home')}`, href: '/', icon: 'home' },
+                 { label: `🏆 ${t('nav.ranking')}`, href: '#ranking', icon: 'ranking' },
+                 { label: `ℹ️ ${t('nav.about')}`, href: '#about', icon: 'about' }
+             ],
+             isText: false
+         }
+     ]
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -124,11 +126,11 @@ export default function Footer() {
                     </div>
 
                     <motion.p
-                        whileHover={{ scale: 1.05 }}
-                        className="text-gray-400 text-xs md:text-sm bg-white/5 px-3 md:px-4 py-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer whitespace-nowrap"
-                    >
-                        Hecho con 💙 para ti
-                    </motion.p>
+                         whileHover={{ scale: 1.05 }}
+                         className="text-gray-400 text-xs md:text-sm bg-white/5 px-3 md:px-4 py-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer whitespace-nowrap"
+                     >
+                         {t('footer.made_with_love')}
+                     </motion.p>
                 </motion.div>
             </div>
         </footer>

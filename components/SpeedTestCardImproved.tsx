@@ -557,33 +557,33 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                     )}
                                 </div>
 
-                                {/* Badges desbloqueados */}
-                                {unlockedBadges.length > 0 && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-lg p-4 border border-purple-500/30"
-                                    >
-                                        <p className="text-sm font-bold text-purple-300 mb-3">🏅 Badges Desbloqueados:</p>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {unlockedBadges.map(badgeId => {
-                                                const badge = getBadgeInfo(badgeId)
-                                                return badge ? (
-                                                    <motion.div
-                                                        key={badgeId}
-                                                        initial={{ scale: 0 }}
-                                                        animate={{ scale: 1 }}
-                                                        transition={{ type: 'spring' }}
-                                                        className={`bg-gradient-to-br ${badge.color} rounded-lg p-2 text-center text-xs`}
-                                                    >
-                                                        <p className="text-lg mb-1">{badge.icon}</p>
-                                                        <p className="font-semibold text-white">{badge.name}</p>
-                                                    </motion.div>
-                                                ) : null
-                                            })}
-                                        </div>
-                                    </motion.div>
-                                )}
+                                {/* Unlocked badges */}
+                                 {unlockedBadges.length > 0 && (
+                                     <motion.div
+                                         initial={{ opacity: 0, y: 10 }}
+                                         animate={{ opacity: 1, y: 0 }}
+                                         className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-lg p-4 border border-purple-500/30"
+                                     >
+                                         <p className="text-sm font-bold text-purple-300 mb-3">🏅 {t('badges.unlocked')}:</p>
+                                         <div className="grid grid-cols-2 gap-2">
+                                             {unlockedBadges.map(badgeId => {
+                                                 const badge = getBadgeInfo(badgeId)
+                                                 return badge ? (
+                                                     <motion.div
+                                                         key={badgeId}
+                                                         initial={{ scale: 0 }}
+                                                         animate={{ scale: 1 }}
+                                                         transition={{ type: 'spring' }}
+                                                         className={`bg-gradient-to-br ${badge.color} rounded-lg p-2 text-center text-xs`}
+                                                     >
+                                                         <p className="text-lg mb-1">{badge.icon}</p>
+                                                         <p className="font-semibold text-white">{badge.name ? t(badge.name) : 'Unknown'}</p>
+                                                     </motion.div>
+                                                 ) : null
+                                             })}
+                                         </div>
+                                     </motion.div>
+                                 )}
 
                                 {/* Botones de compartir */}
                                 <ShareButtons

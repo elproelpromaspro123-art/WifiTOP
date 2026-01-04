@@ -82,8 +82,8 @@ export default function UserBadgesDisplay() {
                   {badge.info?.icon}
                 </p>
                 <p className="text-xs font-bold text-white leading-tight mb-2 line-clamp-2">
-                  {badge.info?.name}
-                </p>
+                   {badge.info?.name ? t(badge.info.name) : 'Unknown'}
+                 </p>
                 <p className="text-xs text-white/80 group-hover:text-white transition-colors">
                   {new Date(badge.unlockedAt).toLocaleDateString('es-ES', {
                     month: 'short',

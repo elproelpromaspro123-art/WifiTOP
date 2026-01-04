@@ -14,102 +14,102 @@ export interface UserBadges {
 }
 
 const BADGES: Record<string, Badge> = {
-  speedster_extreme: {
-    id: 'speedster_extreme',
-    name: 'Speedster Extremo',
-    description: 'Alcanzó velocidad de descarga > 500 Mbps',
-    icon: '🔥',
-    color: 'from-red-500 to-orange-500',
-    rarity: 'epic'
-  },
-  fiber_connection: {
-    id: 'fiber_connection',
-    name: 'Conexión de Fibra',
-    description: 'Ping < 5ms (conexión ultra-estable)',
-    icon: '⚡',
-    color: 'from-yellow-500 to-orange-500',
-    rarity: 'rare'
-  },
-  super_downloader: {
-    id: 'super_downloader',
-    name: 'Super Descargador',
-    description: 'Velocidad de descarga > 300 Mbps',
-    icon: '⬇️',
-    color: 'from-blue-500 to-cyan-500',
-    rarity: 'rare'
-  },
-  upload_master: {
-    id: 'upload_master',
-    name: 'Master de Subida',
-    description: 'Velocidad de subida > 100 Mbps',
-    icon: '⬆️',
-    color: 'from-green-500 to-emerald-500',
-    rarity: 'rare'
-  },
-  gaming_beast: {
-    id: 'gaming_beast',
-    name: 'Bestia Gamer',
-    description: 'Ping < 10ms y descarga > 50 Mbps',
-    icon: '🎮',
-    color: 'from-purple-500 to-pink-500',
-    rarity: 'uncommon'
-  },
-  stability_king: {
-    id: 'stability_king',
-    name: 'Rey de la Estabilidad',
-    description: 'Estabilidad de conexión > 95%',
-    icon: '👑',
-    color: 'from-yellow-500 to-yellow-300',
-    rarity: 'epic'
-  },
-  trustworthy: {
-    id: 'trustworthy',
-    name: 'Confiable',
-    description: 'Completó 10+ pruebas sin errores',
-    icon: '✅',
-    color: 'from-green-500 to-blue-500',
-    rarity: 'uncommon'
-  },
-  speed_demon: {
-    id: 'speed_demon',
-    name: 'Demonio de la Velocidad',
-    description: 'Descarga > 100 Mbps',
-    icon: '👿',
-    color: 'from-red-600 to-red-400',
-    rarity: 'uncommon'
-  },
-  balanced_connection: {
-    id: 'balanced_connection',
-    name: 'Conexión Balanceada',
-    description: 'Descarga y subida > 50 Mbps con ping < 30ms',
-    icon: '⚖️',
-    color: 'from-cyan-500 to-blue-500',
-    rarity: 'uncommon'
-  },
-  ranked_top_1000: {
-    id: 'ranked_top_1000',
-    name: 'Top 1000 Global',
-    description: 'Alcanzó posición en top 1000 ranking',
-    icon: '🏆',
-    color: 'from-yellow-400 to-yellow-600',
-    rarity: 'rare'
-  },
-  ranked_top_100: {
-    id: 'ranked_top_100',
-    name: 'Top 100 Global',
-    description: 'Alcanzó posición en top 100 ranking',
-    icon: '🥇',
-    color: 'from-yellow-300 to-yellow-500',
-    rarity: 'epic'
-  },
-  low_latency_master: {
-    id: 'low_latency_master',
-    name: 'Master de Baja Latencia',
-    description: 'Jitter < 2ms',
-    icon: '📡',
-    color: 'from-cyan-500 to-blue-600',
-    rarity: 'rare'
-  }
+   speedster_extreme: {
+     id: 'speedster_extreme',
+     name: 'badges.speedster_extreme',
+     description: 'Alcanzó velocidad de descarga > 500 Mbps',
+     icon: '🔥',
+     color: 'from-red-500 to-orange-500',
+     rarity: 'epic'
+   },
+   fiber_connection: {
+     id: 'fiber_connection',
+     name: 'badges.fiber_connection',
+     description: 'Ping < 5ms (conexión ultra-estable)',
+     icon: '⚡',
+     color: 'from-yellow-500 to-orange-500',
+     rarity: 'rare'
+   },
+   super_downloader: {
+     id: 'super_downloader',
+     name: 'badges.super_downloader',
+     description: 'Velocidad de descarga > 300 Mbps',
+     icon: '⬇️',
+     color: 'from-blue-500 to-cyan-500',
+     rarity: 'rare'
+   },
+   upload_master: {
+     id: 'upload_master',
+     name: 'badges.upload_master',
+     description: 'Velocidad de subida > 100 Mbps',
+     icon: '⬆️',
+     color: 'from-green-500 to-emerald-500',
+     rarity: 'rare'
+   },
+   gaming_beast: {
+     id: 'gaming_beast',
+     name: 'badges.gaming_beast',
+     description: 'Ping < 10ms y descarga > 50 Mbps',
+     icon: '🎮',
+     color: 'from-purple-500 to-pink-500',
+     rarity: 'uncommon'
+   },
+   stability_king: {
+     id: 'stability_king',
+     name: 'badges.stability_king',
+     description: 'Estabilidad de conexión > 95%',
+     icon: '👑',
+     color: 'from-yellow-500 to-yellow-300',
+     rarity: 'epic'
+   },
+   trustworthy: {
+     id: 'trustworthy',
+     name: 'badges.trustworthy',
+     description: 'Completó 10+ pruebas sin errores',
+     icon: '✅',
+     color: 'from-green-500 to-blue-500',
+     rarity: 'uncommon'
+   },
+   speed_demon: {
+     id: 'speed_demon',
+     name: 'badges.speed_demon',
+     description: 'Descarga > 100 Mbps',
+     icon: '👿',
+     color: 'from-red-600 to-red-400',
+     rarity: 'uncommon'
+   },
+   balanced_connection: {
+     id: 'balanced_connection',
+     name: 'badges.balanced_connection',
+     description: 'Descarga y subida > 50 Mbps con ping < 30ms',
+     icon: '⚖️',
+     color: 'from-cyan-500 to-blue-500',
+     rarity: 'uncommon'
+   },
+   ranked_top_1000: {
+     id: 'ranked_top_1000',
+     name: 'badges.ranked_top_1000',
+     description: 'Alcanzó posición en top 1000 ranking',
+     icon: '🏆',
+     color: 'from-yellow-400 to-yellow-600',
+     rarity: 'rare'
+   },
+   ranked_top_100: {
+     id: 'ranked_top_100',
+     name: 'badges.ranked_top_100',
+     description: 'Alcanzó posición en top 100 ranking',
+     icon: '🥇',
+     color: 'from-yellow-300 to-yellow-500',
+     rarity: 'epic'
+   },
+   low_latency_master: {
+     id: 'low_latency_master',
+     name: 'badges.low_latency_master',
+     description: 'Jitter < 2ms',
+     icon: '📡',
+     color: 'from-cyan-500 to-blue-600',
+     rarity: 'rare'
+   }
 }
 
 /**

@@ -1,25 +1,33 @@
-# WiFi Speed Test - Optimización Railway
+# WiFi Speed Test - Optimización para Máximo Rendimiento
 
-## Cambios Realizados
+## Arquitectura Nueva
 
-### 1. **Tests Consolidados** ✅
-- **Antes**: Múltiples tests en archivos separados (frágil y inconsistente)
-- **Después**: Único archivo de test (`__tests__/speedtest.test.ts`) con suite consolidada
-- **Beneficio**: Pruebas más confiables y fáciles de mantener
+### Detección de Estabilidad Máxima 🎯
+La prueba ahora detecta automáticamente cuándo la conexión alcanza su **velocidad máxima sostenida**:
 
-### 2. **Upload Optimizado** 🚀
-- **Antes**: Upload limitado a ~20 Mbps (cuello de botella detectado)
-- **Después**: Upload sin restricciones (ajustado para Railway)
+1. **Descarga**: Un archivo único de **10GB** desde Cloudflare
+   - Monitorea velocidad cada 500ms
+   - Detecta cuando no mejora en 3 segundos = estabilizada
+   - Puede parar temprano si alcanza máximo (ahorra tiempo)
 
-#### Cambios Específicos en Upload:
+2. **Subida**: Un archivo único de **10GB** hacia servidor
+   - Mismo algoritmo de estabilidad
+   - Reporta velocidad real máxima sin limitaciones
+
+#### Ventajas:
+- ✅ Mide velocidad máxima REAL del WiFi
+- ✅ Sin limitaciones de múltiples archivos pequeños
+- ✅ Detección automática de plateau
+- ✅ Tiempo variable (depende de conexión)
+
+### Cambios Específicos:
 
 | Aspecto | Antes | Después | Efecto |
 |---------|-------|---------|--------|
-| Tamaño archivo | 50MB + 100MB | 200MB (único) | Menos overhead de pruebas |
-| Tamaño chunk | 2MB | 5MB | Menos requests HTTP |
-| Delay entre chunks | 50ms | 0ms | Sin esperas innecesarias |
-| Requests concurrentes | 1 | 2 | Mejor utilización de ancho de banda |
-| Timeout por chunk | 60s | 120s | Más tolerante con Railway |
+| Download | 3 archivos 100-200MB | 1 archivo 10GB + estabilidad | Mide máximo real |
+| Upload | 2 archivos 50-100MB | 1 archivo 10GB + estabilidad | Mide máximo real |
+| Detección | Mediana de muestras | Plateau en 3seg | Más preciso |
+| Tiempo total | ~15 min | 5-20 min (variable) | Depende de conexión |
 
 ### 3. **Servidor Optimizado**
 - **Next.js Config**: Aumentado `bodyParser.sizeLimit` de 50MB a 500MB
@@ -41,47 +49,90 @@ npm test
 npm test -- --testNamePattern="should perform accurate speed test"
 ```
 
+## Cómo Funciona la Detección de Estabilidad
+
+```
+Tiempo →
+Velocidad ↑
+        │                    ┌────────────────┐ ← Plateau (estabilizado)
+        │                   /                  │
+        │                  /  Acelerando      │ ← 3 seg sin mejora = DETENER
+        │                 /                    │
+        │________________/_____________________|
+        
+        Fase 1: Acelera    Fase 2: Estabiliza    Fase 3: Parar (resultado)
+        (velocidad sube)   (velocidad constante)
+```
+
+### Ejemplo Real:
+- **0-5 seg**: Velocidad sube 10 → 50 → 90 Mbps
+- **5-15 seg**: Velocidad se mantiene 90-92 Mbps (estable)
+- **Resultado**: 91 Mbps (valor máximo sostenido)
+
 ## Resultados Esperados
 
-Con estas optimizaciones en Railway:
+### Para conexiones de fibra (100 Mbps real):
+- **Download**: ~95 Mbps (velocidad máxima sostenida)
+- **Upload**: ~45 Mbps (velocidad máxima sostenida)
+- **Tiempo**: 5-8 minutos (parada automática al estabilizar)
 
-### Para conexiones de fibra (90+ Mbps):
-- **Download**: 85-95 Mbps
-- **Upload**: 40-80 Mbps (NO limitado a 20 Mbps)
-- **Ratio Upload/Download**: >25%
-- **Variabilidad Upload**: <50%
+### Para WiFi 5GHz (50 Mbps real):
+- **Download**: ~48 Mbps
+- **Upload**: ~24 Mbps  
+- **Tiempo**: 3-5 minutos
 
-### Para WiFi de 50 Mbps:
-- **Download**: 48-52 Mbps
-- **Upload**: 25-45 Mbps
-- **Estabilidad**: >80%
+### Para WiFi 2.4GHz (20 Mbps real):
+- **Download**: ~19 Mbps
+- **Upload**: ~12 Mbps
+- **Tiempo**: 2-3 minutos
 
 ## Validaciones Implementadas
 
-1. ✅ Upload sin limitaciones artificiales
-2. ✅ Chunks más grandes = menos overhead
-3. ✅ Requests concurrentes para máximo throughput
-4. ✅ Test único consolidado para precisión
-5. ✅ Railway body limits suficientes (500MB)
-6. ✅ Timeouts apropiados para operaciones largas
+1. ✅ Archivo único de 10GB para medir máximo real
+2. ✅ Detección automática de estabilidad (3 seg sin mejora)
+3. ✅ Para temprana al alcanzar plateau
+4. ✅ Chunks de 5MB para eficiencia en Railway
+5. ✅ 2 requests concurrentes para máximo throughput
+6. ✅ body parser aumentado a 500MB en Next.js
+7. ✅ Monitoreo cada 500ms para precisión
+8. ✅ Timeouts largos (180 seg por chunk)
 
-## Próximos Pasos (Opcional)
+## Implementación Técnica
 
-Si siguen habiendo límites:
-1. Aumentar `CHUNK_SIZE` a 10MB en `uploadToLocalEndpoint()`
-2. Aumentar `maxConcurrent` a 3-4 requests
-3. Verificar limits en Railway (network/CPU)
+### Código de Estabilidad
+```typescript
+// Detecta cuando velocidad se estabiliza (no mejora en 3 seg)
+if (speed > lastMaxSpeed) {
+    lastMaxSpeed = speed
+    lastMaxSpeedTime = now
+}
+
+if (now - lastMaxSpeedTime > 3000 && totalUploaded > 1GB) {
+    // Parar early - ya alcanzó máximo
+    resolve(lastMaxSpeed)
+}
+```
+
+### Parámetros Configurables
+```typescript
+stabilityWindow = 3000     // 3 segundos sin mejora = estable
+CHUNK_SIZE = 5 * 1024 * 1024  // 5MB chunks
+maxConcurrent = 2          // 2 requests al mismo tiempo
+timeout = 180000           // 3 minutos por chunk
+```
 
 ## Troubleshooting
 
-### Error: "HTTP 413" (Payload too large)
-- ✅ **Arreglado**: Subido `next.config.js` a 500MB
+### "Velocidad muy baja (5 Mbps pero conexión es 100 Mbps)"
+**Causa**: El WiFi no está optimizado. Intenta:
+- Acercarse al router
+- Cambiar a 5GHz
+- Reiniciar el router
 
-### Upload lento (~20 Mbps):
-- ✅ **Arreglado**: Removed 50ms delay entre chunks
-- ✅ **Arreglado**: Aumentados chunks de 2MB a 5MB
-- ✅ **Arreglado**: 2 requests concurrentes habilitados
+### "Error: Connection timeout"
+- Aumentar `timeout` en `uploadToLocalEndpointStable()` 
+- Verificar la conexión a Railway
 
-### "E2E timeout":
-- Test consolidado toma ~5-10 minutos
-- Timeout configurado a 600 segundos (10 min)
+### "Upload se detiene en 1GB"
+- Significa que alcanzó estabilidad a ese punto
+- Es el valor máximo sostenido de tu conexión

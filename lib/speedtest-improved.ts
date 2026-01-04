@@ -101,8 +101,8 @@ async function measurePingAccurate(
 }
 
 /**
- * Descarga REAL con múltiples archivos pequeños para medir variabilidad
- * Archivos: 100MB, 150MB, 200MB (Cloudflare tolera bien estos tamaños)
+ * Descarga REAL - Un archivo único de 10GB para medir velocidad máxima sostenida
+ * Detecta estabilidad: cuando la velocidad no mejora en X tiempo, toma ese valor como máximo
  */
 async function measureDownloadReal(
     onProgress?: (progress: number, speed: number, statusMsg: string) => void
@@ -112,73 +112,91 @@ async function measureDownloadReal(
     minSpeed: number
     maxSpeed: number
 }> {
+    const downloadSize = 10 * 1024 * 1024 * 1024 // 10GB
     const samples: number[] = []
-    const testSizes = [100 * 1024 * 1024, 150 * 1024 * 1024, 200 * 1024 * 1024] // 100MB, 150MB, 200MB
+    const stabilityWindow = 3000 // 3 segundos sin mejora = estable
+    let lastMaxSpeed = 0
+    let lastMaxSpeedTime = 0
 
-    for (let testIndex = 0; testIndex < testSizes.length; testIndex++) {
-        const size = testSizes[testIndex]
-        try {
-            const controller = new AbortController()
-            const timeoutMs = 180000 // 3 minutos
-            const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+        const controller = new AbortController()
+        const timeoutMs = 600000 // 10 minutos
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
-            const startTime = performance.now()
-            const response = await fetch(`https://speed.cloudflare.com/__down?bytes=${size}`, {
-                cache: 'no-store',
-                signal: controller.signal,
-            })
+        const startTime = performance.now()
+        const response = await fetch(`https://speed.cloudflare.com/__down?bytes=${downloadSize}`, {
+            cache: 'no-store',
+            signal: controller.signal,
+        })
 
-            if (!response.ok) {
-                clearTimeout(timeoutId)
-                console.warn(`Download test ${testIndex + 1} HTTP ${response.status}`)
-                continue
-            }
-
-            const reader = response.body?.getReader()
-            if (!reader) {
-                clearTimeout(timeoutId)
-                continue
-            }
-
-            let downloadedBytes = 0
-            let lastReportTime = startTime
-
-            while (true) {
-                const { done, value } = await reader.read()
-                if (done) break
-
-                downloadedBytes += value.length
-                const now = performance.now()
-                const elapsedSec = (now - startTime) / 1000
-
-                // Reportar cada 500ms
-                if (now - lastReportTime > 500 && elapsedSec > 1) {
-                    const instantSpeed = (downloadedBytes * 8) / elapsedSec / 1024 / 1024
-                    
-                    const blockProgress = 10 + (testIndex * 20) + (downloadedBytes / size) * 20
-                    onProgress?.(
-                        Math.min(blockProgress, 70),
-                        instantSpeed,
-                        `⬇️ Test ${testIndex + 1}/3: ${(downloadedBytes / 1024 / 1024).toFixed(0)}MB de ${(size / 1024 / 1024).toFixed(0)}MB | ${instantSpeed.toFixed(1)} Mbps`
-                    )
-                    lastReportTime = now
-                }
-            }
-
+        if (!response.ok) {
             clearTimeout(timeoutId)
-            const endTime = performance.now()
-            const durationSeconds = (endTime - startTime) / 1000
+            throw new Error(`HTTP ${response.status}`)
+        }
 
-            if (durationSeconds >= 1) {
-                const speedMbps = (size * 8) / durationSeconds / 1024 / 1024
-                if (speedMbps > 0 && speedMbps < 100000) {
-                    samples.push(speedMbps)
-                    console.log(`✓ Download ${testIndex + 1}: ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s)`)
+        const reader = response.body?.getReader()
+        if (!reader) {
+            clearTimeout(timeoutId)
+            throw new Error('No reader available')
+        }
+
+        let downloadedBytes = 0
+        let lastReportTime = startTime
+
+        console.log(`[Download] Descargando 10GB para medir velocidad máxima sostenida...`)
+
+        while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+
+            downloadedBytes += value.length
+            const now = performance.now()
+            const elapsedSec = (now - startTime) / 1000
+
+            // Reportar cada 500ms
+            if (now - lastReportTime > 500 && elapsedSec > 2) {
+                const instantSpeed = (downloadedBytes * 8) / elapsedSec / 1024 / 1024
+                
+                // Detectar estabilidad
+                if (instantSpeed > lastMaxSpeed) {
+                    lastMaxSpeed = instantSpeed
+                    lastMaxSpeedTime = now
+                    samples.push(instantSpeed)
                 }
+
+                const elapsedSinceMax = now - lastMaxSpeedTime
+                const blockProgress = 10 + (downloadedBytes / downloadSize) * 60
+
+                // Si lleva 3 segundos sin mejorar velocidad, probablemente ya alcanzó máximo
+                const stabilized = elapsedSinceMax > stabilityWindow
+                const statusExtra = stabilized ? ' (✓ Estabilizado)' : ''
+
+                onProgress?.(
+                    Math.min(blockProgress, 70),
+                    lastMaxSpeed,
+                    `⬇️ Descarga: ${(downloadedBytes / 1024 / 1024 / 1024).toFixed(2)}GB de 10GB | ${lastMaxSpeed.toFixed(1)} Mbps${statusExtra}`
+                )
+                lastReportTime = now
             }
-        } catch (error) {
-            console.error(`Download error:`, error)
-            continue
+
+            // Si la velocidad se estabilizó, podemos parar temprano
+            if (now - lastMaxSpeedTime > stabilityWindow && downloadedBytes > 1 * 1024 * 1024 * 1024) {
+                console.log(`[Download] ✓ Velocidad estabilizada en ${lastMaxSpeed.toFixed(2)} Mbps`)
+                reader.cancel()
+                break
+            }
+        }
+
+        clearTimeout(timeoutId)
+        const endTime = performance.now()
+        const durationSeconds = (endTime - startTime) / 1000
+        const avgSpeed = (downloadedBytes * 8) / durationSeconds / 1024 / 1024
+
+        console.log(`✓ Download completada: ${avgSpeed.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s, ${(downloadedBytes / 1024 / 1024 / 1024).toFixed(2)}GB)`)
+    } catch (error) {
+        console.error(`Download error:`, error)
+        if (samples.length === 0) {
+            throw new Error('No se pudo medir descarga')
         }
     }
 
@@ -189,7 +207,7 @@ async function measureDownloadReal(
     const sorted = [...samples].sort((a, b) => a - b)
     const minSpeed = sorted[0]
     const maxSpeed = sorted[sorted.length - 1]
-    const speed = sorted[Math.floor(sorted.length / 2)] // Mediana
+    const speed = maxSpeed // Usar el máximo sostenido
 
     return {
         speed,
@@ -200,9 +218,8 @@ async function measureDownloadReal(
 }
 
 /**
- * Subida REAL - 2 tests con UN archivo grande para máxima precisión
- * Prueba única y consolidada: 200MB local para Railway
- * Usa streaming con XHR para evitar overhead de memoria
+ * Subida REAL - Un archivo único de 10GB para medir velocidad máxima sostenida
+ * Detecta estabilidad: cuando la velocidad no mejora en X tiempo, toma ese valor como máximo
  */
 async function measureUploadReal(
     onProgress?: (progress: number, speed: number, statusMsg: string) => void
@@ -212,41 +229,49 @@ async function measureUploadReal(
     minSpeed: number
     maxSpeed: number
 }> {
+    const uploadSize = 10 * 1024 * 1024 * 1024 // 10GB
     const samples: number[] = []
-    // Un único archivo grande para prueba consolidada
-    // Railway puede manejar más que Vercel
-    const uploadSizes = [200 * 1024 * 1024] // 200MB en un único test para máximo rendimiento
+    const stabilityWindow = 3000 // 3 segundos sin mejora = estable
+    let lastMaxSpeed = 0
+    let lastMaxSpeedTime = 0
 
-    for (let testIndex = 0; testIndex < uploadSizes.length; testIndex++) {
-        const uploadSize = uploadSizes[testIndex]
+    try {
+        console.log(`[Upload] Generando 10GB de datos para subida...`)
         
-        try {
-            console.log(`[Upload ${testIndex + 1}/1] Generando ${(uploadSize / 1024 / 1024).toFixed(0)}MB de datos...`)
-            
-            // Generar datos aleatorios en chunks grandes (menos overhead)
-            const chunkSize = 20 * 1024 * 1024 // 20MB chunks para menos iteraciones
-            const chunks: BlobPart[] = []
-            for (let offset = 0; offset < uploadSize; offset += chunkSize) {
-                const size = Math.min(chunkSize, uploadSize - offset)
-                const chunk = new Uint8Array(size)
-                for (let i = 0; i < size; i++) {
-                    chunk[i] = Math.floor(Math.random() * 256)
-                }
-                chunks.push(chunk)
+        // Generar datos aleatorios en chunks (prevenir compresión)
+        const chunkSize = 50 * 1024 * 1024 // 50MB chunks
+        const chunks: BlobPart[] = []
+        let generated = 0
+        
+        while (generated < uploadSize) {
+            const size = Math.min(chunkSize, uploadSize - generated)
+            const chunk = new Uint8Array(size)
+            for (let i = 0; i < size; i++) {
+                chunk[i] = Math.floor(Math.random() * 256)
             }
-
-            const blob = new Blob(chunks, { type: 'application/octet-stream' })
-            console.log(`[Upload ${testIndex + 1}/1] Blob creado: ${blob.size} bytes`)
-
-            // Usar endpoint local directamente (sin Cloudflare)
-            const speed = await uploadToLocalEndpoint(blob, uploadSize, testIndex, onProgress)
-
-            samples.push(speed)
-            console.log(`[Upload ${testIndex + 1}/1] Completado. Samples: ${samples.join(', ')}`)
-        } catch (error) {
-            console.error(`[Upload ${testIndex + 1}/1] Error:`, error)
-            throw error
+            chunks.push(chunk)
+            generated += size
+            
+            // Reportar progreso de generación
+            const genProgress = (generated / uploadSize) * 10
+            onProgress?.(
+                Math.min(genProgress, 10),
+                0,
+                `⬆️ Preparando datos: ${(generated / 1024 / 1024 / 1024).toFixed(2)}GB / 10GB`
+            )
         }
+
+        const blob = new Blob(chunks, { type: 'application/octet-stream' })
+        console.log(`[Upload] Blob creado: ${blob.size} bytes`)
+
+        // Subir con detección de estabilidad
+        const speed = await uploadToLocalEndpointStable(blob, uploadSize, onProgress, stabilityWindow)
+        samples.push(speed)
+        
+        console.log(`[Upload] Completado. Speed final: ${speed.toFixed(2)} Mbps`)
+    } catch (error) {
+        console.error(`[Upload] Error:`, error)
+        throw error
     }
 
     if (samples.length === 0) {
@@ -366,6 +391,159 @@ async function uploadToCloudflare(
             console.error(`[Upload ${testIndex + 1}/2 Cloudflare] Error al enviar:`, e)
             reject(e instanceof Error ? e : new Error(String(e)))
         }
+    })
+}
+
+/**
+ * Upload con detección de estabilidad - Sube archivo hasta que la velocidad se estabiliza
+ */
+async function uploadToLocalEndpointStable(
+    blob: Blob,
+    uploadSize: number,
+    onProgress?: (progress: number, speed: number, statusMsg: string) => void,
+    stabilityWindow: number = 3000
+): Promise<number> {
+    return new Promise<number>((resolve, reject) => {
+        const startTime = performance.now()
+        let lastReportTime = startTime
+        let lastMaxSpeed = 0
+        let lastMaxSpeedTime = startTime
+        const CHUNK_SIZE = 5 * 1024 * 1024 // 5MB chunks
+        const totalChunks = Math.ceil(uploadSize / CHUNK_SIZE)
+        let currentChunk = 0
+        let totalUploaded = 0
+        let activeRequests = 0
+        const maxConcurrent = 2
+
+        const sendChunk = () => {
+            // Detectar si alcanzó estabilidad
+            const now = performance.now()
+            if (totalUploaded > 0 && now - lastMaxSpeedTime > stabilityWindow && totalUploaded > 1 * 1024 * 1024 * 1024) {
+                console.log(`[Upload] ✓ Velocidad estabilizada en ${lastMaxSpeed.toFixed(2)} Mbps después de ${(totalUploaded / 1024 / 1024 / 1024).toFixed(2)}GB`)
+                
+                // Esperar a que terminen requests activos
+                if (activeRequests > 0) {
+                    setTimeout(() => sendChunk(), 100)
+                    return
+                }
+
+                const endTime = performance.now()
+                const durationSeconds = (endTime - startTime) / 1000
+                const finalSpeed = (totalUploaded * 8) / durationSeconds / 1024 / 1024
+                console.log(`✓ Upload completada: ${finalSpeed.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s, ${(totalUploaded / 1024 / 1024 / 1024).toFixed(2)}GB)`)
+                resolve(finalSpeed)
+                return
+            }
+
+            // No enviar si ya llegamos al final
+            if (currentChunk >= totalChunks) {
+                if (activeRequests > 0) {
+                    setTimeout(() => sendChunk(), 100)
+                    return
+                }
+
+                const endTime = performance.now()
+                const durationSeconds = (endTime - startTime) / 1000
+                const finalSpeed = (totalUploaded * 8) / durationSeconds / 1024 / 1024
+                console.log(`✓ Upload completada: ${finalSpeed.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s, ${(totalUploaded / 1024 / 1024 / 1024).toFixed(2)}GB)`)
+                resolve(finalSpeed)
+                return
+            }
+
+            // No enviar más de maxConcurrent requests
+            if (activeRequests >= maxConcurrent) {
+                setTimeout(() => sendChunk(), 10)
+                return
+            }
+
+            const start = currentChunk * CHUNK_SIZE
+            const end = Math.min(start + CHUNK_SIZE, uploadSize)
+            const chunkSize = end - start
+            const chunkNum = currentChunk
+            const chunkBlob = blob.slice(start, end)
+            const chunkXhr = new XMLHttpRequest()
+            const chunkStartTime = performance.now()
+            
+            activeRequests++
+            currentChunk++
+
+            chunkXhr.upload.addEventListener('progress', (e) => {
+                if (!e.lengthComputable) return
+
+                const now = performance.now()
+                const elapsed = (now - startTime) / 1000
+
+                if (now - lastReportTime >= 500 && elapsed > 2) {
+                    const uploadedSoFar = totalUploaded + e.loaded
+                    const speed = (uploadedSoFar * 8) / elapsed / 1024 / 1024
+
+                    // Track máxima velocidad
+                    if (speed > lastMaxSpeed) {
+                        lastMaxSpeed = speed
+                        lastMaxSpeedTime = now
+                    }
+
+                    const elapsedSinceMax = now - lastMaxSpeedTime
+                    const stabilized = elapsedSinceMax > stabilityWindow
+                    const statusExtra = stabilized ? ' (✓ Estabilizado)' : ''
+                    const blockProgress = 71 + (uploadedSoFar / uploadSize) * 25
+
+                    console.log(`[Upload Progress] ${(uploadedSoFar / 1024 / 1024 / 1024).toFixed(2)}GB / 10GB @ ${speed.toFixed(2)} Mbps`)
+
+                    onProgress?.(
+                        Math.min(blockProgress, 96),
+                        speed,
+                        `⬆️ Subida: ${(uploadedSoFar / 1024 / 1024 / 1024).toFixed(2)}GB / 10GB | ${speed.toFixed(1)} Mbps${statusExtra}`
+                    )
+                    lastReportTime = now
+                }
+            })
+
+            chunkXhr.addEventListener('load', () => {
+                const chunkDuration = (performance.now() - chunkStartTime) / 1000
+                console.log(`[Upload] Chunk ${chunkNum + 1}/${totalChunks} done - Status: ${chunkXhr.status} (${(chunkSize / 1024 / 1024).toFixed(1)}MB in ${chunkDuration.toFixed(2)}s)`)
+
+                activeRequests--
+
+                if (chunkXhr.status !== 200) {
+                    console.error(`[Upload] Chunk ${chunkNum + 1} failed with HTTP ${chunkXhr.status}`)
+                    reject(new Error(`HTTP ${chunkXhr.status}`))
+                    return
+                }
+
+                totalUploaded += chunkSize
+                sendChunk()
+            })
+
+            chunkXhr.addEventListener('error', (e) => {
+                console.error(`[Upload] Chunk ${chunkNum + 1} error:`, e)
+                activeRequests--
+                reject(new Error('Error de red en chunk'))
+            })
+
+            chunkXhr.addEventListener('abort', () => {
+                console.error(`[Upload] Chunk ${chunkNum + 1} aborted`)
+                activeRequests--
+                reject(new Error('Upload cancelado'))
+            })
+
+            chunkXhr.timeout = 180000 // 3 minutos por chunk
+
+            try {
+                chunkXhr.open('POST', '/api/upload-test', true)
+                chunkXhr.setRequestHeader('Content-Type', 'application/octet-stream')
+                console.log(`[Upload] Sending chunk ${chunkNum + 1}/${totalChunks} (${(chunkSize / 1024 / 1024).toFixed(1)}MB)`)
+                chunkXhr.send(chunkBlob)
+            } catch (e) {
+                activeRequests--
+                console.error(`[Upload] Error sending chunk:`, e)
+                reject(e instanceof Error ? e : new Error(String(e)))
+            }
+        }
+
+        // Iniciar envío
+        sendChunk()
+        sendChunk()
     })
 }
 
@@ -540,7 +718,7 @@ export async function simulateSpeedTestImproved(
         })
 
         // FASE 2: Descarga REAL
-        onProgress?.(12, 'Midiendo descarga (3 tests)...', { phase: 'download' })
+        onProgress?.(12, 'Midiendo descarga (10GB, detección de estabilidad)...', { phase: 'download' })
         const downloadResult = await measureDownloadReal((progress, speed, statusMsg) => {
             onProgress?.(progress, statusMsg, { phase: 'download', currentSpeed: speed })
         })
@@ -551,7 +729,7 @@ export async function simulateSpeedTestImproved(
         })
 
         // FASE 3: Subida REAL (no estimada)
-        onProgress?.(71, 'Midiendo subida (1 test)...', { phase: 'upload' })
+        onProgress?.(71, 'Midiendo subida (10GB, detección de estabilidad)...', { phase: 'upload' })
         const uploadResult = await measureUploadReal((progress, speed, statusMsg) => {
             onProgress?.(progress, statusMsg, { phase: 'upload', currentSpeed: speed })
         })

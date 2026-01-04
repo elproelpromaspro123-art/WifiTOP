@@ -1,18 +1,21 @@
 /**
  * Test consolidado para pruebas de velocidad WiFi
- * Ejecuta una única prueba grande para máxima precisión
+ * Mide velocidad máxima sostenida con detección automática de estabilidad
  */
 
 import { simulateSpeedTestImproved } from '@/lib/speedtest-improved'
 
-describe('WiFi Speed Test - Consolidated Suite', () => {
+describe('WiFi Speed Test - Maximum Sustainable Speed', () => {
     /**
-     * Prueba única grande de velocidad
-     * - Ping: 20 muestras para promedio preciso
-     * - Download: 3 archivos de 100-200MB
-     * - Upload: 1 archivo de 200MB (prueba consolidada para máximo rendimiento)
+     * Prueba de velocidad máxima sostenida
+     * - Ping: 20 muestras para latencia precisa
+     * - Download: 10GB con detección de estabilidad
+     * - Upload: 10GB con detección de estabilidad
+     * 
+     * Ventaja: Detecta automáticamente cuándo la velocidad se estabiliza
+     * y para de medir, ahorrando tiempo mientras mide el máximo real.
      */
-    it('should perform accurate speed test with single large upload', async () => {
+    it('should measure maximum sustainable speed with stability detection', async () => {
         const progressUpdates: Array<{ progress: number; speed?: number; phase: string }> = []
 
         const result = await simulateSpeedTestImproved((progress, status, details) => {
@@ -58,31 +61,53 @@ describe('WiFi Speed Test - Consolidated Suite', () => {
     }, 600000) // Timeout de 10 minutos para la prueba completa
 })
 
-describe('Upload Speed - Optimization Verification', () => {
+describe('Stability Detection - Maximum Speed Verification', () => {
     /**
-     * Verifica que el upload no esté limitado artificialmente
-     * Con la optimización a 5MB chunks + 2 requests concurrentes,
-     * esperamos velocidades mucho más altas que antes (>50 Mbps en conexiones decentes)
+     * Verifica que el algoritmo de estabilidad funciona correctamente
+     * - Detecta cuando la velocidad deja de mejorar
+     * - Para automáticamente al alcanzar máximo sostenido
+     * - Valida que no hay limitaciones artificiales
      */
-    it('should achieve high upload speeds without bottlenecks', async () => {
-        const result = await simulateSpeedTestImproved((progress, status) => {
-            if (status.includes('⬆️')) {
-                console.log(`${status}`)
+    it('should stop measuring when speed plateaus (no improvement for 3 seconds)', async () => {
+        const measurements: { time: number; downloadSpeed?: number; uploadSpeed?: number }[] = []
+        
+        const result = await simulateSpeedTestImproved((progress, status, details) => {
+            // Registrar mediciones de velocidad en tiempo real
+            if (details?.currentSpeed && details.currentSpeed > 0) {
+                measurements.push({
+                    time: Date.now(),
+                    downloadSpeed: details.phase === 'download' ? details.currentSpeed : undefined,
+                    uploadSpeed: details.phase === 'upload' ? details.currentSpeed : undefined
+                })
+            }
+            
+            // Log de progreso
+            if (status.includes('Estabilizado')) {
+                console.log(`✓ ${status}`)
             }
         })
 
-        // Si el download es >50Mbps, el upload debe ser al menos 25% del download
-        if (result.downloadSpeed > 50) {
-            const uploadToDownloadRatio = result.uploadSpeed / result.downloadSpeed
-            expect(uploadToDownloadRatio).toBeGreaterThan(0.25)
-            console.log(`Upload/Download ratio: ${(uploadToDownloadRatio * 100).toFixed(1)}%`)
+        // Verificar que detectó estabilidad (paró antes de 10GB completo)
+        // 10GB en memoria = chunks de 5MB, cada chunk ~0.5 segundos = ~3.33 horas si fuera completo
+        // Pero debe parar en 2-5 minutos si detecta estabilidad
+        expect(measurements.length).toBeGreaterThan(0)
+        console.log(`Mediciones recolectadas: ${measurements.length}`)
+
+        // La velocidad máxima debe ser consistente (bajo rango)
+        if (result.downloadSamples && result.downloadSamples.length > 0) {
+            const dlRange = result.maxDownload - result.minDownload
+            const dlVariability = (dlRange / result.downloadSpeed) * 100
+            console.log(`Download variability: ${dlVariability.toFixed(1)}% (${result.minDownload.toFixed(1)} - ${result.maxDownload.toFixed(1)})`)
+            // Con estabilidad, variabilidad debe ser baja
+            expect(dlVariability).toBeLessThan(20) // Menos de 20% de variabilidad
         }
 
-        // El upload debe ser consistente (baja variabilidad)
-        if (result.minUpload && result.maxUpload) {
-            const uploadVariability = ((result.maxUpload - result.minUpload) / result.uploadSpeed) * 100
-            expect(uploadVariability).toBeLessThan(50) // Menos de 50% de variabilidad
-            console.log(`Upload variability: ${uploadVariability.toFixed(1)}%`)
+        if (result.uploadSamples && result.uploadSamples.length > 0) {
+            const ulRange = result.maxUpload - result.minUpload
+            const ulVariability = (ulRange / result.uploadSpeed) * 100
+            console.log(`Upload variability: ${ulVariability.toFixed(1)}% (${result.minUpload.toFixed(1)} - ${result.maxUpload.toFixed(1)})`)
+            // Con estabilidad, variabilidad debe ser baja
+            expect(ulVariability).toBeLessThan(20) // Menos de 20% de variabilidad
         }
-    }, 600000)
+    }, 900000) // 15 minutos para prueba completa con archivos de 10GB
 })

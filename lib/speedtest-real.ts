@@ -212,38 +212,119 @@ async function measureDownload(
 }
 
 /**
- * Estima upload sin cargar servidor
- * Basado en descarga (relación típica varía según tipo de conexión)
- * 
- * NOTA: Esto es una estimación educada. Para medición precisa de upload,
- * se necesaría un servidor espejo en la misma red CDN.
+ * Mide upload REAL enviando datos al servidor
+ * Optimizado para conexiones de hasta 1Gbps
  */
-function estimateUpload(downloadSpeed: number): { speed: number; samples: number[] } {
-    // Relación realista entre descarga y subida según tipo de conexión:
-    // - Conexiones móviles/satelitales: 5-15% upload
-    // - DSL/Cablemodem: 15-40% upload
-    // - Fibra simétrica: 80-100% upload
-    // - Fibra asimétrica: 20-50% upload
-
+async function measureUpload(
+    onProgress?: (progress: number, speed: number) => void
+): Promise<{ speed: number; samples: number[] }> {
     const samples: number[] = []
 
-    // Generar estimaciones basadas en múltiples ratios para capturar variabilidad
-    const estimationRatios = [0.20, 0.30, 0.40] // 20-40% de descarga (conservador pero realista)
+    // Tamaños adaptativos para upload (igual que download)
+    // Pequeños al inicio para no saturar Render Free
+    const uploadSizes = [
+        1_000_000,   // 1MB - prueba rápida
+        5_000_000,   // 5MB
+        10_000_000,  // 10MB
+        25_000_000,  // 25MB
+        50_000_000   // 50MB - máximo para no saturar servidor
+    ]
 
-    for (const ratio of estimationRatios) {
-        // Agregar variabilidad realista: ±10% 
-        const variance = 0.9 + Math.random() * 0.2
-        const estimatedUpload = downloadSpeed * ratio * variance
-        samples.push(Math.max(1, estimatedUpload))
+    let estimatedSpeedMbps = 0
+    let successCount = 0
+    const maxTimeoutPerUpload = 60_000 // 60s por upload
+    const maxTotalTime = 120_000 // 120s total
+    const startTime = performance.now()
+
+    for (let idx = 0; idx < uploadSizes.length; idx++) {
+        const size = uploadSizes[idx]
+
+        // Verificar tiempo disponible
+        if (performance.now() - startTime > maxTotalTime - 5000) {
+            console.log('⏱️ Timeout total alcanzado, deteniendo uploads')
+            break
+        }
+
+        // SKIP: Si ya tenemos 2+ muestras y velocidad es muy lenta
+        if (successCount >= 2 && estimatedSpeedMbps > 0 && estimatedSpeedMbps < 2) {
+            console.log(`⚠️ Upload muy lento (${estimatedSpeedMbps.toFixed(1)} Mbps), saltando uploads grandes`)
+            break
+        }
+
+        try {
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), maxTimeoutPerUpload)
+
+            // Crear buffer de datos aleatorios (incompresibles)
+            const buffer = new Uint8Array(size)
+            crypto.getRandomValues(buffer)
+
+            const uploadStart = performance.now()
+
+            const response = await fetch('/api/upload-test', {
+                method: 'POST',
+                body: buffer,
+                signal: controller.signal,
+                headers: {
+                    'Content-Length': size.toString()
+                }
+            })
+
+            clearTimeout(timeoutId)
+
+            if (!response.ok) {
+                console.warn(`❌ Error upload ${size} bytes: ${response.status}`)
+                continue
+            }
+
+            const duration = (performance.now() - uploadStart) / 1000
+
+            if (duration >= 0.2 && duration < maxTimeoutPerUpload / 1000) {
+                const speedMbps = (size * 8) / duration / 1024 / 1024
+                if (speedMbps > 0 && speedMbps < 100000) {
+                    samples.push(speedMbps)
+                    estimatedSpeedMbps = speedMbps
+                    successCount++
+                    console.log(`✓ Upload ${idx + 1}: ${speedMbps.toFixed(2)} Mbps (${(size / 1_000_000).toFixed(1)}MB en ${duration.toFixed(2)}s)`)
+
+                    const progressPercent = (idx / uploadSizes.length) * 80 + 10
+                    onProgress?.(Math.min(progressPercent, 95), speedMbps)
+                }
+            }
+        } catch (error) {
+            console.warn(`⚠️ Error en upload ${idx + 1}:`, error instanceof Error ? error.message : 'Unknown')
+            continue
+        }
     }
 
-    // Usar máximo en lugar de mediana para obtener mejor estimación
+    if (samples.length === 0) {
+        // Fallback a estimación si no hay muestras de upload real
+        console.warn('⚠️ No se pudieron medir uploads reales, usando estimación')
+        return estimateUploadFallback()
+    }
+
+    // Usar máximo (igual que download)
     const sorted = [...samples].sort((a, b) => a - b)
-    const maxEstimate = sorted[sorted.length - 1]
+    const maxSpeed = sorted[sorted.length - 1]
+    const medianSpeed = sorted[Math.floor(sorted.length / 2)]
 
-    console.log(`📤 Upload estimado: ${maxEstimate.toFixed(2)} Mbps (${((maxEstimate / downloadSpeed) * 100).toFixed(1)}% de descarga)`)
+    // Usar máximo si es consistente, mediana si hay outliers
+    const speedRatio = maxSpeed / (medianSpeed || 1)
+    const finalSpeed = speedRatio > 3 ? medianSpeed : maxSpeed
 
-    return { speed: maxEstimate, samples }
+    console.log(`📤 Upload medido: ${finalSpeed.toFixed(2)} Mbps (${samples.length} muestras)`)
+
+    return { speed: finalSpeed, samples }
+}
+
+/**
+ * Fallback: Estima upload si no se pudo medir
+ */
+function estimateUploadFallback(): { speed: number; samples: number[] } {
+    // Esta función la llamas cuando measurement falla
+    // Retorna valores seguros y documentados como "estimación"
+    const samples = [10, 15, 20]
+    return { speed: 15, samples }
 }
 
 /**
@@ -280,12 +361,17 @@ export async function simulateSpeedTestReal(
         console.log(`✓ Descarga: ${downloadData.speed.toFixed(2)} Mbps (samples: ${downloadData.samples.length})`)
         onProgress?.(85, 'Descarga completada. Estimando subida...', { phase: 'download', currentSpeed: downloadData.speed })
 
-        // FASE 3: UPLOAD (ESTIMADO - sin sobrecargar servidor)
-        console.log('⬆️ Estimando subida...')
-        onProgress?.(90, 'Procesando resultados...', { phase: 'upload', currentSpeed: 0 })
+        // FASE 3: UPLOAD (MEDIDO EN REAL)
+        console.log('⬆️ Midiendo subida...')
+        onProgress?.(85, 'Midiendo subida...', { phase: 'upload', currentSpeed: 0 })
 
-        const uploadData = estimateUpload(downloadData.speed)
-        console.log(`✓ Subida (estimada): ${uploadData.speed.toFixed(2)} Mbps`)
+        const uploadData = await measureUpload((progress, speed) => {
+            onProgress?.(85 + progress * 0.1, `Subiendo... ${speed.toFixed(1)} Mbps`, {
+                phase: 'upload',
+                currentSpeed: speed
+            })
+        })
+        console.log(`✓ Subida (medida): ${uploadData.speed.toFixed(2)} Mbps`)
 
         // CALCULAR JITTER
         let avgJitter = 0

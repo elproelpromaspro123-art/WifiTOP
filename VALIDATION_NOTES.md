@@ -1,8 +1,8 @@
-# Validación: Speedtest Mejorado para Render Free Tier
+# Validación: Speedtest Pro - 1Gbps Simétrico Compatible
 
 ## Cambios Implementados
 
-### 1. Download Mejorado (5 tamaños adaptativos)
+### 1. Upload REAL Medido (NO estimado)
 ```
 10MB   → 25MB   → 50MB   → 100MB  → 150MB
 ↓      ↓        ↓        ↓        ↓

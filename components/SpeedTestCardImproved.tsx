@@ -228,18 +228,18 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
 
                 <div className="relative w-full h-full overflow-y-auto scrollbar-hide p-4 md:p-6 flex flex-col items-center pointer-events-auto">
                     {/* Header - Más compacto */}
-                    <div className="text-center mb-4 w-full">
+                    <div className="text-center mb-4 w-full pt-4 sm:pt-6">
                         <motion.p
-                            className={`text-4xl md:text-5xl font-black mb-2 ${currentPhase.color}`}
+                            className={`text-3xl sm:text-4xl md:text-5xl font-black mb-2 ${currentPhase.color}`}
                             animate={{ scale: [1, 1.05, 1] }}
                             transition={{ duration: 1, repeat: Infinity }}
                         >
                             {currentPhase.icon}
                         </motion.p>
-                        <h3 className={`text-2xl md:text-3xl font-black mb-1 ${currentPhase.color}`}>
+                        <h3 className={`text-xl sm:text-2xl md:text-3xl font-black mb-1 ${currentPhase.color}`}>
                             {currentPhase.label}
                         </h3>
-                        <p className="text-gray-300 text-sm">{statusMsg}</p>
+                        <p className="text-gray-300 text-xs sm:text-sm">{statusMsg}</p>
                     </div>
 
                     {/* Barra de progreso */}
@@ -258,7 +258,7 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                     </div>
 
                     {/* Métricas en tiempo real */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-3xl mb-6 pointer-events-auto">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 w-full max-w-3xl mb-4 sm:mb-6 pointer-events-auto">
                         {/* Ping */}
                         <motion.div
                             animate={{
@@ -333,14 +333,14 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                     </div>
 
                     {/* Gráficas en tiempo real */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-3xl mb-4 pointer-events-auto">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 w-full max-w-3xl mb-3 sm:mb-4 pointer-events-auto">
                         {chartData.ping.length > 0 && (
                             <SpeedChartLive
                                 data={chartData.ping}
                                 title="📡 Ping"
                                 unit="ms"
                                 color="#fbbf24"
-                                height={80}
+                                height={typeof window !== 'undefined' && window.innerWidth < 640 ? 60 : 80}
                             />
                         )}
                         {chartData.download.length > 0 && (
@@ -349,7 +349,7 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                 title="⬇️ Descarga"
                                 unit="Mbps"
                                 color="#3b82f6"
-                                height={80}
+                                height={typeof window !== 'undefined' && window.innerWidth < 640 ? 60 : 80}
                             />
                         )}
                         {chartData.upload.length > 0 && (
@@ -358,13 +358,13 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                 title="⬆️ Subida"
                                 unit="Mbps"
                                 color="#22c55e"
-                                height={80}
+                                height={typeof window !== 'undefined' && window.innerWidth < 640 ? 60 : 80}
                             />
                         )}
                     </div>
 
                     {/* Indicadores de fase */}
-                    <div className="flex justify-center items-center gap-2 mt-2 pointer-events-auto">
+                    <div className="flex justify-center items-center gap-1 sm:gap-2 mt-2 pointer-events-auto flex-wrap">
                         {Object.values(PHASES).slice(1, 5).map((phase) => (
                             <div key={phase.name} className="flex flex-col items-center">
                                 <motion.div

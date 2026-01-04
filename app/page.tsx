@@ -93,7 +93,7 @@ export default function Home() {
                 )}
 
                 {/* Hero Section */}
-                <section className="container mx-auto px-4 py-12 md:py-24 text-center">
+                <section className="container mx-auto px-4 py-8 md:py-24 text-center">
                     <motion.div
                         initial={{ opacity: 0, y: -30 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -102,14 +102,14 @@ export default function Home() {
                     >
                         {/* Main Title */}
                         <div className="space-y-3 md:space-y-4">
-                            <h1 className="text-5xl md:text-8xl font-black tracking-tighter">
+                            <h1 className="text-4xl sm:text-6xl md:text-8xl font-black tracking-tighter">
                                 <span className="bg-gradient-to-r from-blue-300 via-white to-purple-300 bg-clip-text text-transparent drop-shadow-2xl">
                                     WifiTOP
                                 </span>
                             </h1>
                             <div className="space-y-2 md:space-y-3">
-                                <p className="text-xl md:text-3xl font-bold text-white">Presume tu velocidad de WiFi 🚀</p>
-                                <p className="text-base md:text-xl text-gray-400 px-2">Ranking global con 10,000+ usuarios | Mediciones precisas | Badges exclusivos</p>
+                                <p className="text-lg sm:text-2xl md:text-3xl font-bold text-white">Presume tu velocidad de WiFi 🚀</p>
+                                <p className="text-sm sm:text-base md:text-xl text-gray-400 px-2">Ranking global con 10,000+ usuarios | Mediciones precisas | Badges exclusivos</p>
                             </div>
                         </div>
 
@@ -127,7 +127,7 @@ export default function Home() {
                 </section>
 
                 {/* About Section */}
-                <section id="about" className="container mx-auto px-4 py-12 md:py-24">
+                <section id="about" className="container mx-auto px-4 py-8 md:py-24">
                     <motion.div
                         initial={{ opacity: 0, y: 30 }}
                         whileInView={{ opacity: 1, y: 0 }}
@@ -192,7 +192,7 @@ export default function Home() {
                 </section>
 
                 {/* Main Content Grid */}
-                <div className="container mx-auto px-4 py-8 md:py-16">
+                <div className="container mx-auto px-4 py-6 md:py-16">
                     <motion.div
                         variants={containerVariants}
                         initial="hidden"
@@ -251,29 +251,29 @@ export default function Home() {
                             </motion.div>
 
                             {/* User Results */}
-                             {results && (
-                                 <motion.div
-                                     id="user-results"
-                                     initial={{ scale: 0.95, opacity: 0 }}
-                                     animate={highlightResults ? {
-                                         scale: 1,
-                                         opacity: 1,
-                                         boxShadow: [
-                                             '0 0 20px rgba(59, 130, 246, 0)',
-                                             '0 0 40px rgba(59, 130, 246, 0.6)',
-                                             '0 0 20px rgba(59, 130, 246, 0)'
-                                         ]
-                                     } : { scale: 1, opacity: 1 }}
-                                     transition={highlightResults ? {
-                                         duration: 0.6,
-                                         repeat: 3,
-                                         ease: 'easeInOut'
-                                     } : { duration: 0.5 }}
-                                     className={`glow-border rounded-xl p-8 backdrop-blur-sm transition-all duration-300 ${highlightResults
-                                             ? 'bg-gradient-to-br from-blue-500/30 via-purple-500/20 to-pink-500/10 shadow-2xl shadow-blue-500/40 border-blue-400/50'
-                                             : 'bg-gradient-to-br from-blue-500/15 via-purple-500/10 to-transparent hover:shadow-lg hover:shadow-blue-500/20'
-                                         }`}
-                                 >
+                            {results && (
+                                <motion.div
+                                    id="user-results"
+                                    initial={{ scale: 0.95, opacity: 0 }}
+                                    animate={highlightResults ? {
+                                        scale: 1,
+                                        opacity: 1,
+                                        boxShadow: [
+                                            '0 0 20px rgba(59, 130, 246, 0)',
+                                            '0 0 40px rgba(59, 130, 246, 0.6)',
+                                            '0 0 20px rgba(59, 130, 246, 0)'
+                                        ]
+                                    } : { scale: 1, opacity: 1 }}
+                                    transition={highlightResults ? {
+                                        duration: 0.6,
+                                        repeat: 3,
+                                        ease: 'easeInOut'
+                                    } : { duration: 0.5 }}
+                                    className={`glow-border rounded-xl p-8 backdrop-blur-sm transition-all duration-300 ${highlightResults
+                                        ? 'bg-gradient-to-br from-blue-500/30 via-purple-500/20 to-pink-500/10 shadow-2xl shadow-blue-500/40 border-blue-400/50'
+                                        : 'bg-gradient-to-br from-blue-500/15 via-purple-500/10 to-transparent hover:shadow-lg hover:shadow-blue-500/20'
+                                        }`}
+                                >
                                     <div className="flex items-center gap-3 mb-6">
                                         <motion.span
                                             className="text-3xl"

@@ -35,11 +35,15 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
       title: '12+ Badges Desbloqueables',
       description: 'Desbloquea badges exclusivos según tus logros: Speedster Extremo, Gaming Beast, Stability King y más.'
     },
-
+    {
+      icon: '🌐',
+      title: 'Soporte Multiidioma',
+      description: 'Interfaz disponible en 5 idiomas: Español, Inglés, Chino, Hindi y Francés. Se detecta automáticamente según tu navegador.'
+    },
     {
       icon: '⚡',
-      title: 'Protección Rate Limiting',
-      description: 'Límites de pruebas por IP para evitar abuso: 5 pruebas por minuto, 20 por hora.'
+      title: 'Protección Contra Abuso',
+      description: 'Limitaciones inteligentes para garantizar que el servicio sea justo para todos los usuarios. Prueba sin límites cuando eres honesto.'
     },
     {
       icon: '📱',
@@ -55,6 +59,16 @@ export default function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
       icon: '🔗',
       title: 'Compartir en Redes Sociales',
       description: 'Crea links para compartir tus resultados en Twitter y Facebook.'
+    },
+    {
+      icon: '✅',
+      title: 'Validación de Nombres Mejorada',
+      description: 'Protección contra nombres ofensivos y maliciosos. Máximo 30 caracteres para mantener un ambiente respetable.'
+    },
+    {
+      icon: '🔒',
+      title: 'Seguridad Reforzada',
+      description: 'Headers de seguridad modernos y protecciones contra ataques comunes. Tu experiencia es segura de principio a fin.'
     }
   ]
 

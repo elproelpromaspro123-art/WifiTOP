@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Configurar timeout y límite de body
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '100mb',
-    },
-  },
-  maxDuration: 300, // 5 minutos
-}
+// Configurar timeout para Next.js 14+
+export const maxDuration = 300 // 5 minutos
 
 export async function POST(request: NextRequest) {
   try {

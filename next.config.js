@@ -5,6 +5,9 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
+  serverRuntimeConfig: {
+    maxBodySize: '100mb'
+  },
   headers: async () => {
     return [
       {

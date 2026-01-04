@@ -5,8 +5,8 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
-  serverRuntimeConfig: {
-    maxBodySize: '100mb'
+  experimental: {
+    proxyClientMaxBodySize: '100mb'
   },
   headers: async () => {
     return [

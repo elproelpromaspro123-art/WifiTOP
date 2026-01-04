@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { simulateSpeedTest } from '@/lib/speedtest'
+import { simulateSpeedTestFixed as simulateSpeedTest } from '@/lib/speedtest-fixed'
 import ValidationError from './ValidationError'
 
 interface TestResult {

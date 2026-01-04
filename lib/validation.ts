@@ -37,8 +37,8 @@ export function validateSpeedTestResult(result: any): { valid: boolean; error?: 
     return { valid: false, error: 'Velocidad de subida inválida' }
   }
 
-  // Upload no debe ser >150% de download (sanity check)
-  if (uploadSpeed > downloadSpeed * 1.5) {
+  // Upload no debe ser >200% de download (sanity check - permite variabilidad real)
+  if (uploadSpeed > downloadSpeed * 2.0) {
     return { valid: false, error: 'Datos de subida incoherentes' }
   }
 
@@ -87,8 +87,8 @@ export function detectAnomalies(result: any, previousResults: any[] = []): {
     anomalyScore += 3
   }
 
-  // Flag 2: Upload mayor que 80% del download (raro pero sospechoso)
-  if (result.uploadSpeed > result.downloadSpeed * 0.8) {
+  // Flag 2: Upload MUCHO mayor que 120% del download (típicamente upload <= 80% de descarga)
+  if (result.uploadSpeed > result.downloadSpeed * 1.2) {
     flags.push('upload_too_high')
     anomalyScore += 2
   }

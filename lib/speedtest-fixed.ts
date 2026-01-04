@@ -258,8 +258,7 @@ async function measureDownloadFixed(
 }
 
 /**
- * Subida REAL con medición precisa - NO estimación
- * Mide subida en chunks y rastrea progreso real
+ * Subida REAL con medición precisa - XMLHttpRequest con progreso real
  */
 async function measureUploadFixed(
     onProgress?: (progress: number, speed: number, statusMsg: string) => void
@@ -269,134 +268,126 @@ async function measureUploadFixed(
     minSpeed: number
     maxSpeed: number
 }> {
-    const samples: number[] = []
-    let measurementWindow: number[] = []
+    const uploadSize = 100 * 1024 * 1024  // 100MB
 
-    try {
-        // Tamaño de subida - objetivo: 8+ segundos
-        const uploadSize = 150 * 1024 * 1024  // 150MB
+    console.log(`Subida: Usando ${(uploadSize / 1024 / 1024).toFixed(0)}MB`)
 
-        console.log(`Subida: Usando ${(uploadSize / 1024 / 1024).toFixed(0)}MB`)
-
-        // Generar datos aleatorios para evitar compresión
-        const data = new Uint8Array(uploadSize)
-        if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-            crypto.getRandomValues(data)
-        } else {
-            // Fallback para browsers sin crypto API
-            for (let i = 0; i < data.length; i++) {
-                data[i] = Math.floor(Math.random() * 256)
-            }
+    // Generar datos aleatorios
+    const data = new Uint8Array(uploadSize)
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        crypto.getRandomValues(data)
+    } else {
+        for (let i = 0; i < data.length; i++) {
+            data[i] = Math.floor(Math.random() * 256)
         }
+    }
 
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
         const startTime = performance.now()
         let lastReportTime = startTime
-        let stableSpeedCounter = 0
+        const measurements: number[] = []
 
-        // Usar XMLHttpRequest para medir progreso de upload
-        return new Promise((resolve, reject) => {
-            const xhr = new XMLHttpRequest()
+        // Rastrear progreso real de upload
+        xhr.upload.addEventListener('progress', (e) => {
+            if (!e.lengthComputable) return
 
-            // Track upload progress
-            xhr.upload.addEventListener('progress', (e) => {
-                if (e.lengthComputable) {
-                    const uploadedBytes = e.loaded
-                    const now = performance.now()
-                    const elapsedSec = (now - startTime) / 1000
+            const now = performance.now()
+            const elapsed = (now - startTime) / 1000
 
-                    if (now - lastReportTime > 1000 && elapsedSec > 1) {
-                        const instantSpeed = (uploadedBytes * 8) / elapsedSec / 1024 / 1024
-                        measurementWindow.push(instantSpeed)
+            // Reportar cada 500ms después de 1 segundo
+            if (now - lastReportTime >= 500 && elapsed > 1) {
+                const uploadedBytes = e.loaded
+                const speed = (uploadedBytes * 8) / elapsed / 1024 / 1024
+                measurements.push(speed)
 
-                        if (measurementWindow.length > 5) {
-                            measurementWindow.shift()
-                        }
+                const progress = 50 + (uploadedBytes / uploadSize) * 35
+                onProgress?.(
+                    Math.min(progress, 85),
+                    speed,
+                    `Subiendo ${(uploadedBytes / 1024 / 1024).toFixed(0)}MB de ${(uploadSize / 1024 / 1024).toFixed(0)}MB | ${speed.toFixed(1)} Mbps`
+                )
 
-                        // Detectar estabilización
-                        if (measurementWindow.length >= 3) {
-                            const avgWindow = measurementWindow.reduce((a, b) => a + b) / measurementWindow.length
-                            const variance = Math.max(...measurementWindow) - Math.min(...measurementWindow)
-                            const varPercent = (variance / avgWindow) * 100
-
-                            if (varPercent < 5) {
-                                stableSpeedCounter++
-                            } else {
-                                stableSpeedCounter = 0
-                            }
-                        }
-
-                        const ulProgress = 50 + (uploadedBytes / uploadSize) * 35
-                        onProgress?.(
-                            Math.min(ulProgress, 85),
-                            instantSpeed,
-                            `Subiendo ${(uploadedBytes / 1024 / 1024).toFixed(0)}MB de ${(uploadSize / 1024 / 1024).toFixed(0)}MB | ${instantSpeed.toFixed(1)} Mbps`
-                        )
-
-                        lastReportTime = now
-                    }
-                }
-            })
-
-            xhr.addEventListener('load', () => {
-                const endTime = performance.now()
-                const durationSeconds = (endTime - startTime) / 1000
-
-                if (xhr.status !== 200) {
-                    reject(new Error(`HTTP ${xhr.status}`))
-                    return
-                }
-
-                // Validación: mínimo 3 segundos
-                if (durationSeconds < 3) {
-                    reject(new Error('Subida muy rápida (< 3s)'))
-                    return
-                }
-
-                const speedMbps = (uploadSize * 8) / durationSeconds / 1024 / 1024
-                if (speedMbps <= 0 || speedMbps > 1000000) {
-                    reject(new Error('Velocidad fuera de rango'))
-                    return
-                }
-
-                // Usar último 25% de mediciones
-                const validSamples = measurementWindow.slice(Math.ceil(measurementWindow.length * 0.75))
-                if (validSamples.length === 0) {
-                    samples.push(speedMbps)
-                } else {
-                    const avgStable = validSamples.reduce((a, b) => a + b) / validSamples.length
-                    samples.push(avgStable)
-                }
-
-                console.log(`✓ Subida: ${speedMbps.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s)`)
-
-                resolve({
-                    speed: Math.max(samples[0], 0.1),
-                    samples: samples,
-                    minSpeed: samples[0],
-                    maxSpeed: samples[0]
-                })
-            })
-
-            xhr.addEventListener('error', () => {
-                reject(new Error('Network error'))
-            })
-
-            xhr.addEventListener('timeout', () => {
-                reject(new Error('Upload timeout'))
-            })
-
-            xhr.timeout = 300000  // 5 minutos
-
-            // Crear blob y enviar
-            const blob = new Blob([data], { type: 'application/octet-stream' })
-            xhr.open('POST', 'https://speed.cloudflare.com/__up', true)
-            xhr.send(blob)
+                lastReportTime = now
+                console.log(`Upload progress: ${speed.toFixed(2)} Mbps (${(uploadedBytes / 1024 / 1024).toFixed(0)}MB)`)
+            }
         })
 
-    } catch (error) {
-        console.error(`Error en subida:`, error)
-        throw new Error(`Error subida: ${error instanceof Error ? error.message : 'desconocido'}`)
-    }
+        xhr.addEventListener('loadstart', () => {
+            console.log('Upload iniciado...')
+        })
+
+        xhr.addEventListener('load', () => {
+            const endTime = performance.now()
+            const durationSeconds = (endTime - startTime) / 1000
+
+            console.log(`Upload completado en ${durationSeconds.toFixed(1)}s, status: ${xhr.status}`)
+
+            // Validar respuesta (Cloudflare devuelve 200 o 204)
+            if (xhr.status !== 200 && xhr.status !== 204) {
+                console.error(`Upload error: HTTP ${xhr.status}`)
+                reject(new Error(`HTTP ${xhr.status}`))
+                return
+            }
+
+            // Validar duración mínima
+            if (durationSeconds < 2) {
+                console.error('Upload muy rápido')
+                reject(new Error('Subida muy rápida (< 2s)'))
+                return
+            }
+
+            // Calcular velocidad final
+            const speedMbps = (uploadSize * 8) / durationSeconds / 1024 / 1024
+
+            if (speedMbps <= 0 || speedMbps > 100000) {
+                reject(new Error('Velocidad fuera de rango'))
+                return
+            }
+
+            // Usar promedio de últimas mediciones (cuando fue más estable)
+            let finalSpeed = speedMbps
+            if (measurements.length > 4) {
+                const lastMeasurements = measurements.slice(-4)
+                finalSpeed = lastMeasurements.reduce((a, b) => a + b) / lastMeasurements.length
+            }
+
+            console.log(`✓ Subida: ${finalSpeed.toFixed(2)} Mbps (${durationSeconds.toFixed(1)}s, ${measurements.length} muestras)`)
+
+            resolve({
+                speed: Math.max(finalSpeed, 0.1),
+                samples: [finalSpeed],
+                minSpeed: finalSpeed,
+                maxSpeed: finalSpeed
+            })
+        })
+
+        xhr.addEventListener('error', () => {
+            console.error('Upload network error')
+            reject(new Error('Error de red en upload'))
+        })
+
+        xhr.addEventListener('abort', () => {
+            console.error('Upload aborted')
+            reject(new Error('Upload cancelado'))
+        })
+
+        // Timeout más realista
+        xhr.timeout = 180000  // 3 minutos
+
+        xhr.addEventListener('timeout', () => {
+            console.error('Upload timeout')
+            reject(new Error('Timeout en upload'))
+        })
+
+        // Enviar
+        const blob = new Blob([data], { type: 'application/octet-stream' })
+        xhr.open('POST', 'https://speed.cloudflare.com/__up', true)
+        xhr.setRequestHeader('Content-Type', 'application/octet-stream')
+        
+        console.log(`Enviando ${(uploadSize / 1024 / 1024).toFixed(0)}MB...`)
+        xhr.send(blob)
+    })
 }
 
 /**

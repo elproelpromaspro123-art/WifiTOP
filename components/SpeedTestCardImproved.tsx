@@ -219,8 +219,14 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
     // ========== FULLSCREEN MODAL DURANTE TESTING ==========
     if (testing) {
         return (
-            <div className="fixed top-0 left-0 right-0 bottom-0 z-[9999] w-screen h-screen bg-gradient-to-b from-black via-slate-950 to-black overflow-auto pointer-events-auto" style={{ touchAction: 'auto', willChange: 'transform' }}>
-                <div className="w-full p-4 md:p-6 flex flex-col items-center pointer-events-auto">
+            <div className="fixed top-0 left-0 right-0 bottom-0 z-[9999] w-screen h-screen bg-gradient-to-b from-black via-slate-950 to-black overflow-hidden pointer-events-auto" style={{ touchAction: 'auto', willChange: 'transform' }}>
+                {/* Fondo animado */}
+                <div className="absolute inset-0 pointer-events-none">
+                    <div className="absolute top-1/4 left-1/3 w-80 h-80 bg-blue-500/5 rounded-full blur-3xl animate-pulse"></div>
+                    <div className="absolute bottom-1/3 right-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse"></div>
+                </div>
+
+                <div className="relative w-full h-full overflow-y-auto scrollbar-hide p-4 md:p-6 flex flex-col items-center pointer-events-auto">
                     {/* Header - Más compacto */}
                     <div className="text-center mb-4 w-full">
                         <motion.p
@@ -260,21 +266,21 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                 opacity: currentPhase.name === 'ping' ? 1 : 0.6
                             }}
                             transition={{ duration: 0.4 }}
-                            className="p-3 rounded-lg bg-gradient-to-br from-yellow-500/20 to-transparent border border-yellow-500/60 shadow-lg shadow-yellow-500/20"
+                            className="p-4 rounded-xl bg-gradient-to-br from-yellow-500/20 to-yellow-500/5 border border-yellow-500/50 shadow-lg shadow-yellow-500/10 backdrop-blur-sm hover:shadow-yellow-500/30 transition-all duration-300"
                         >
-                            <p className="text-2xl mb-1">📡</p>
-                            <p className="text-xs text-gray-400 mb-2 font-semibold uppercase">PING</p>
+                            <p className="text-3xl mb-2">📡</p>
+                            <p className="text-xs text-gray-400 mb-2 font-semibold uppercase tracking-wide">PING</p>
                             <motion.p
                                 key={`ping-${testDetails.currentSpeed}`}
                                 initial={{ scale: 0.8, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
-                                className="text-3xl font-black text-yellow-400"
+                                className="text-4xl font-black text-yellow-300"
                             >
                                 {currentPhase.name === 'ping' && testDetails.currentSpeed > 0
                                     ? testDetails.currentSpeed.toFixed(0)
                                     : '--'}
                             </motion.p>
-                            <p className="text-xs text-gray-500 mt-1">ms</p>
+                            <p className="text-xs text-gray-500 mt-2">ms</p>
                         </motion.div>
 
                         {/* Descarga */}
@@ -284,21 +290,21 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                 opacity: currentPhase.name === 'download' ? 1 : 0.6
                             }}
                             transition={{ duration: 0.4 }}
-                            className="p-3 rounded-lg bg-gradient-to-br from-blue-500/20 to-transparent border border-blue-500/60 shadow-lg shadow-blue-500/20"
+                            className="p-4 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-500/5 border border-blue-500/50 shadow-lg shadow-blue-500/10 backdrop-blur-sm hover:shadow-blue-500/30 transition-all duration-300"
                         >
-                            <p className="text-2xl mb-1">⬇️</p>
-                            <p className="text-xs text-gray-400 mb-2 font-semibold uppercase">DESCARGA</p>
+                            <p className="text-3xl mb-2">⬇️</p>
+                            <p className="text-xs text-gray-400 mb-2 font-semibold uppercase tracking-wide">DESCARGA</p>
                             <motion.p
                                 key={`download-${testDetails.currentSpeed}`}
                                 initial={{ scale: 0.8, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
-                                className="text-3xl font-black text-blue-400"
+                                className="text-4xl font-black text-blue-300"
                             >
                                 {currentPhase.name === 'download' && testDetails.currentSpeed > 0
                                     ? testDetails.currentSpeed.toFixed(1)
                                     : '--'}
                             </motion.p>
-                            <p className="text-xs text-gray-500 mt-1">Mbps</p>
+                            <p className="text-xs text-gray-500 mt-2">Mbps</p>
                         </motion.div>
 
                         {/* Subida */}
@@ -308,21 +314,21 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                 opacity: currentPhase.name === 'upload' ? 1 : 0.6
                             }}
                             transition={{ duration: 0.4 }}
-                            className="p-3 rounded-lg bg-gradient-to-br from-green-500/20 to-transparent border border-green-500/60 shadow-lg shadow-green-500/20"
+                            className="p-4 rounded-xl bg-gradient-to-br from-green-500/20 to-green-500/5 border border-green-500/50 shadow-lg shadow-green-500/10 backdrop-blur-sm hover:shadow-green-500/30 transition-all duration-300"
                         >
-                            <p className="text-2xl mb-1">⬆️</p>
-                            <p className="text-xs text-gray-400 mb-2 font-semibold uppercase">SUBIDA</p>
+                            <p className="text-3xl mb-2">⬆️</p>
+                            <p className="text-xs text-gray-400 mb-2 font-semibold uppercase tracking-wide">SUBIDA</p>
                             <motion.p
                                 key={`upload-${testDetails.currentSpeed}`}
                                 initial={{ scale: 0.8, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
-                                className="text-3xl font-black text-green-400"
+                                className="text-4xl font-black text-green-300"
                             >
                                 {currentPhase.name === 'upload' && testDetails.currentSpeed > 0
                                     ? testDetails.currentSpeed.toFixed(1)
                                     : '--'}
                             </motion.p>
-                            <p className="text-xs text-gray-500 mt-1">Mbps</p>
+                            <p className="text-xs text-gray-500 mt-2">Mbps</p>
                         </motion.div>
                     </div>
 
@@ -390,7 +396,7 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
-                className="glow-border rounded-lg md:rounded-xl p-6 md:p-8 bg-gradient-to-br from-white/5 to-white/0 relative z-10"
+                className="glow-border rounded-lg md:rounded-xl p-6 md:p-8 bg-gradient-to-br from-white/5 to-white/0 relative z-10 backdrop-blur-sm hover:from-white/8 transition-all duration-300"
             >
                 <div className="text-center">
                     {!result ? (
@@ -411,7 +417,10 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                             <ValidationError message={error} type="error" onClose={() => setError(null)} />
 
                             {!isAnonymous && (
-                                <input
+                                <motion.input
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.4 }}
                                     type="text"
                                     placeholder="Tu nombre"
                                     value={userName}
@@ -421,32 +430,36 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                             handleStartTest()
                                         }
                                     }}
-                                    className="w-full px-4 py-3 md:py-4 rounded-lg mb-6 bg-white/5 border-2 border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:bg-white/10 transition-colors text-base cursor-text pointer-events-auto relative z-10"
+                                    className="w-full px-4 py-3 md:py-4 rounded-xl mb-6 bg-white/5 border-2 border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:bg-white/10 focus:shadow-lg focus:shadow-blue-500/20 transition-all text-base cursor-text pointer-events-auto relative z-10 backdrop-blur-sm"
                                     autoFocus
                                 />
                             )}
 
                             <div className="space-y-3 mb-6 relative z-20">
-                                <button
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
                                     onClick={handleStartTest}
-                                    className="w-full py-3 md:py-4 rounded-lg font-bold text-base md:text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all duration-300 text-white cursor-pointer active:scale-95 shadow-lg hover:shadow-xl shadow-blue-500/40 pointer-events-auto relative z-10"
+                                    className="w-full py-3 md:py-4 rounded-xl font-bold text-base md:text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all duration-300 text-white cursor-pointer shadow-lg hover:shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 pointer-events-auto relative z-10 backdrop-blur-sm border border-blue-400/20"
                                 >
                                     🚀 {isAnonymous ? 'Comenzar (Anónima)' : 'Comenzar Prueba'}
-                                </button>
+                                </motion.button>
 
-                                <button
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
                                     onClick={() => {
                                         setIsAnonymous(!isAnonymous)
                                         setUserName('')
                                         setError(null)
                                     }}
-                                    className={`w-full py-3 rounded-lg font-semibold text-sm md:text-base transition-all duration-300 cursor-pointer pointer-events-auto relative z-10 ${isAnonymous
-                                        ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg'
-                                        : 'bg-white/10 hover:bg-white/20 text-gray-300 border border-white/20'
+                                    className={`w-full py-3 rounded-xl font-semibold text-sm md:text-base transition-all duration-300 cursor-pointer pointer-events-auto relative z-10 backdrop-blur-sm border ${isAnonymous
+                                        ? 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white shadow-lg hover:shadow-emerald-500/40 border-emerald-400/20'
+                                        : 'bg-white/10 hover:bg-white/20 text-gray-300 border-white/20 hover:border-white/40'
                                         }`}
                                 >
                                     {isAnonymous ? '🔒 Anónimo Activo' : '👤 Modo Anónimo'}
-                                </button>
+                                </motion.button>
                             </div>
 
                             <p className="text-xs md:text-sm text-gray-400 px-2 pointer-events-none">
@@ -557,8 +570,8 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                 />
 
                                 <motion.button
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
                                     onClick={() => {
                                         setResult(null)
                                         setUserName('')
@@ -567,7 +580,7 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
                                         setStatusMsg('Listo')
                                         setUnlockedBadges([])
                                     }}
-                                    className="w-full py-4 rounded-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 border border-blue-400 shadow-lg hover:shadow-xl shadow-blue-500/40 transition-all text-white cursor-pointer active:scale-95 pointer-events-auto relative z-10"
+                                    className="w-full py-4 rounded-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 border border-blue-400/30 shadow-lg hover:shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 transition-all text-white cursor-pointer pointer-events-auto relative z-10 backdrop-blur-sm"
                                 >
                                     🔄 Realizar Otra Prueba
                                 </motion.button>

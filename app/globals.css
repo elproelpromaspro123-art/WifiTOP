@@ -238,6 +238,33 @@ a:hover {
   transform: scale(1.25);
 }
 
+/* Ocultar scrollbar en modal pero permitir scroll */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Animación de highlight para resultados */
+@keyframes result-glow {
+  0% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(59, 130, 246, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0);
+  }
+}
+
+.result-highlight {
+  animation: result-glow 0.6s ease-in-out;
+}
+
 /* Responsive improvements */
 @media (max-width: 768px) {
   html {

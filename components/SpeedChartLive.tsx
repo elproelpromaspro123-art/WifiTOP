@@ -88,14 +88,16 @@ export default function SpeedChartLive({
         <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white/5 rounded-lg p-2 border border-white/10"
+            className="bg-gradient-to-br from-white/8 to-white/3 rounded-xl p-3 border border-white/20 shadow-lg shadow-white/5 backdrop-blur-sm hover:shadow-lg hover:shadow-white/10 transition-all duration-300"
         >
-            <p className="text-xs font-semibold text-gray-400 mb-1">{title}</p>
-            <canvas
-                ref={canvasRef}
-                className="w-full"
-                style={{ height: `${height}px` }}
-            />
+            <p className="text-xs font-semibold text-gray-300 mb-2 tracking-wide">{title}</p>
+            <div className="bg-white/5 rounded-lg overflow-hidden">
+                <canvas
+                    ref={canvasRef}
+                    className="w-full"
+                    style={{ height: `${height}px` }}
+                />
+            </div>
         </motion.div>
     )
 }

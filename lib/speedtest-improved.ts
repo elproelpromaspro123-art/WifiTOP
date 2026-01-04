@@ -115,13 +115,15 @@ async function measureDownloadReal(
     const downloadSize = 10 * 1024 * 1024 * 1024 // 10GB
     const samples: number[] = []
     let lastMaxSpeed = 0
-    let lastMaxSpeedTime = 0
     
-    // Detección inteligente de estabilidad
+    // Detección de estabilidad: 3 segundos sin cambio = estable
     const recentSpeeds: number[] = []
-    const STABILITY_THRESHOLD = 0.97 // 97% del máximo = estable
-    const requiredConsistentDrops = 4 // 4 mediciones bajando = caída real
-    let stabilizationDetected = false // Flag para parar inmediatamente
+    const STABILITY_WINDOW = 3000 // 3 segundos
+    const MEASUREMENT_INTERVAL = 500 // medir cada 500ms
+    const REQUIRED_MEASUREMENTS = 6 // 3 segundos / 500ms = 6 mediciones
+    const STABILITY_THRESHOLD = 0.98 // 98% del máximo = sin cambio significativo
+    let lastStabilityCheckTime = 0
+    let stabilizationDetected = false
 
     try {
         const controller = new AbortController()
@@ -153,7 +155,7 @@ async function measureDownloadReal(
         while (true) {
             // Si ya se detectó estabilidad, parar inmediatamente
             if (stabilizationDetected) {
-                console.log(`[Download] ✓ PARADO: Velocidad máxima estable alcanzada`)
+                console.log(`[Download] ✓ PARADO: Velocidad máxima estable alcanzada durante 3 segundos`)
                 reader.cancel()
                 break
             }
@@ -165,46 +167,37 @@ async function measureDownloadReal(
             const now = performance.now()
             const elapsedSec = (now - startTime) / 1000
 
-            // Reportar cada 500ms
-            if (now - lastReportTime > 500 && elapsedSec > 2) {
+            // Reportar cada 500ms (después de 2 segundos iniciales)
+            if (now - lastReportTime > MEASUREMENT_INTERVAL && elapsedSec > 2) {
                 const instantSpeed = (downloadedBytes * 8) / elapsedSec / 1024 / 1024
                 
-                // Registrar para lógica inteligente
+                // Registrar medición
                 recentSpeeds.push(instantSpeed)
-                if (recentSpeeds.length > 10) {
-                    recentSpeeds.shift()
+                if (recentSpeeds.length > REQUIRED_MEASUREMENTS) {
+                    recentSpeeds.shift() // Mantener solo últimas 6 mediciones (3 segundos)
                 }
 
-                // Detectar estabilidad
+                // Actualizar máxima velocidad
                 if (instantSpeed > lastMaxSpeed) {
                     lastMaxSpeed = instantSpeed
-                    lastMaxSpeedTime = now
                     samples.push(instantSpeed)
                 }
 
-                // Lógica inteligente: ¿está estabilizado?
+                // Detectar estabilidad: 3 segundos sin cambio significativo
                 let isStabilized = false
-                if (recentSpeeds.length >= 6 && downloadedBytes > 1 * 1024 * 1024 * 1024) {
-                    const lastFive = recentSpeeds.slice(-5)
-                    const avgRecent = lastFive.reduce((a, b) => a + b) / lastFive.length
+                if (recentSpeeds.length === REQUIRED_MEASUREMENTS && downloadedBytes > 1 * 1024 * 1024 * 1024) {
+                    // Verificar si las últimas 6 mediciones son estables (98% del máximo)
                     const stabilityThreshold = lastMaxSpeed * STABILITY_THRESHOLD
-                    const isInStableRange = avgRecent >= stabilityThreshold
+                    const allInRange = recentSpeeds.every(speed => speed >= stabilityThreshold)
+                    const avgRecent = recentSpeeds.reduce((a, b) => a + b) / recentSpeeds.length
                     
-                    // Detectar caída consistente
-                    let consecutiveDrops = 0
-                    for (let i = recentSpeeds.length - 1; i > 0; i--) {
-                        if (recentSpeeds[i] < recentSpeeds[i - 1]) {
-                            consecutiveDrops++
-                        } else {
-                            break
-                        }
-                    }
+                    isStabilized = allInRange && avgRecent >= stabilityThreshold
                     
-                    isStabilized = isInStableRange && consecutiveDrops < requiredConsistentDrops
+                    console.log(`[Download] Stability Check - Avg: ${avgRecent.toFixed(1)} Mbps, Max: ${lastMaxSpeed.toFixed(1)}, Threshold: ${stabilityThreshold.toFixed(1)}, All in range: ${allInRange}`)
                 }
 
                 const blockProgress = 10 + (downloadedBytes / downloadSize) * 60
-                const statusExtra = isStabilized ? ' (✓ Estabilizado)' : ''
+                const statusExtra = isStabilized ? ' (✓ Estabilizado 3s)' : ''
 
                 onProgress?.(
                     Math.min(blockProgress, 70),
@@ -213,11 +206,10 @@ async function measureDownloadReal(
                 )
                 lastReportTime = now
 
-                // Si está estabilizado, MARCAR PARA PARAR INMEDIATAMENTE
+                // Si está estabilizado, marcar para parar
                 if (isStabilized) {
-                    console.log(`[Download] ✓ Estabilidad detectada en ${lastMaxSpeed.toFixed(2)} Mbps después de ${(downloadedBytes / 1024 / 1024 / 1024).toFixed(2)}GB`)
+                    console.log(`[Download] ✓ Estabilidad detectada en ${lastMaxSpeed.toFixed(2)} Mbps durante 3s después de ${(downloadedBytes / 1024 / 1024 / 1024).toFixed(2)}GB`)
                     stabilizationDetected = true
-                    // No hace break aquí, la siguiente iteración verá el flag y parará
                 }
             }
         }
@@ -447,11 +439,10 @@ async function uploadToLocalEndpointStable(
         let stabilizationDetected = false // Flag para parar inmediatamente
         
         // Nuevas variables para detección inteligente
-        const recentSpeeds: number[] = [] // Últimas 10 mediciones
-        const maxRecentSpeeds = 10
-        const STABILITY_THRESHOLD = 0.97 // 97% del máximo = estable
-        let consistentDropCount = 0
-        const requiredConsistentDrops = 4 // 4 mediciones seguidas bajando
+        const recentSpeeds: number[] = [] // Últimas 6 mediciones (3 segundos)
+        const MEASUREMENT_INTERVAL = 500 // medir cada 500ms
+        const REQUIRED_MEASUREMENTS = 6 // 3 segundos / 500ms = 6 mediciones
+        const STABILITY_THRESHOLD = 0.98 // 98% del máximo = sin cambio significativo
         
         const CHUNK_SIZE = 5 * 1024 * 1024 // 5MB chunks
         const totalChunks = Math.ceil(uploadSize / CHUNK_SIZE)
@@ -461,33 +452,18 @@ async function uploadToLocalEndpointStable(
         const maxConcurrent = 2
 
         const isStabilized = (): boolean => {
-            // Necesita mínimo 6 mediciones para decidir
-            if (recentSpeeds.length < 6) return false
+            // Necesita exactamente 6 mediciones (3 segundos)
+            if (recentSpeeds.length < REQUIRED_MEASUREMENTS) return false
             
-            // Calcular promedio de últimas 5 mediciones
-            const lastFive = recentSpeeds.slice(-5)
-            const avgRecent = lastFive.reduce((a, b) => a + b) / lastFive.length
-            
-            // ¿Está dentro del 97% del máximo?
+            // Verificar si las últimas 6 mediciones están dentro del 98% del máximo
             const stabilityThreshold = lastMaxSpeed * STABILITY_THRESHOLD
-            const isInStableRange = avgRecent >= stabilityThreshold
+            const allInRange = recentSpeeds.every(speed => speed >= stabilityThreshold)
+            const avgRecent = recentSpeeds.reduce((a, b) => a + b) / recentSpeeds.length
             
-            // Detectar caída consistente (4+ mediciones bajando)
-            let consecutiveDrops = 0
-            for (let i = recentSpeeds.length - 1; i > 0; i--) {
-                if (recentSpeeds[i] < recentSpeeds[i - 1]) {
-                    consecutiveDrops++
-                } else {
-                    break // Se interrumpe si sube
-                }
-            }
+            console.log(`[Upload Stability Check] Avg: ${avgRecent.toFixed(1)} Mbps, Max: ${lastMaxSpeed.toFixed(1)}, Threshold: ${stabilityThreshold.toFixed(1)}, All in range: ${allInRange}`)
             
-            const hasConsistentDrop = consecutiveDrops >= requiredConsistentDrops
-            
-            console.log(`[Stability Check] Avg: ${avgRecent.toFixed(1)} Mbps, Max: ${lastMaxSpeed.toFixed(1)}, Threshold: ${stabilityThreshold.toFixed(1)}, Drops: ${consecutiveDrops}`)
-            
-            // Estable = está en rango Y no hay caída consistente
-            return isInStableRange && !hasConsistentDrop
+            // Estable = todas las mediciones están dentro del rango durante 3 segundos
+            return allInRange && avgRecent >= stabilityThreshold
         }
 
         const sendChunk = () => {
@@ -545,14 +521,14 @@ async function uploadToLocalEndpointStable(
                 const now = performance.now()
                 const elapsed = (now - startTime) / 1000
 
-                if (now - lastReportTime >= 500 && elapsed > 2) {
+                if (now - lastReportTime >= MEASUREMENT_INTERVAL && elapsed > 2) {
                     const uploadedSoFar = totalUploaded + e.loaded
                     const speed = (uploadedSoFar * 8) / elapsed / 1024 / 1024
 
-                    // Registrar medición para lógica inteligente
+                    // Registrar medición
                     recentSpeeds.push(speed)
-                    if (recentSpeeds.length > maxRecentSpeeds) {
-                        recentSpeeds.shift() // Mantener solo últimas 10
+                    if (recentSpeeds.length > REQUIRED_MEASUREMENTS) {
+                        recentSpeeds.shift() // Mantener solo últimas 6 mediciones (3 segundos)
                     }
 
                     // Track máxima velocidad
@@ -563,11 +539,11 @@ async function uploadToLocalEndpointStable(
 
                     // Determinar estado de estabilidad
                     let isStabilizedNow = false
-                    if (recentSpeeds.length >= 6 && totalUploaded > 1 * 1024 * 1024 * 1024) {
+                    if (recentSpeeds.length === REQUIRED_MEASUREMENTS && totalUploaded > 1 * 1024 * 1024 * 1024) {
                         isStabilizedNow = isStabilized()
                     }
                     
-                    const statusExtra = isStabilizedNow ? ' (✓ Estabilizado)' : ''
+                    const statusExtra = isStabilizedNow ? ' (✓ Estabilizado 3s)' : ''
                     const blockProgress = 71 + (uploadedSoFar / uploadSize) * 25
 
                     console.log(`[Upload Progress] ${(uploadedSoFar / 1024 / 1024 / 1024).toFixed(2)}GB / 10GB @ ${speed.toFixed(2)} Mbps`)
@@ -579,11 +555,10 @@ async function uploadToLocalEndpointStable(
                     )
                     lastReportTime = now
 
-                    // Si está estabilizado, MARCAR PARA PARAR INMEDIATAMENTE (sin enviar más chunks)
+                    // Si está estabilizado, marcar para parar
                     if (isStabilizedNow && !stabilizationDetected) {
-                        console.log(`[Upload] ✓ Estabilidad detectada en ${lastMaxSpeed.toFixed(2)} Mbps después de ${(totalUploaded / 1024 / 1024 / 1024).toFixed(2)}GB`)
+                        console.log(`[Upload] ✓ Estabilidad detectada en ${lastMaxSpeed.toFixed(2)} Mbps durante 3s después de ${(totalUploaded / 1024 / 1024 / 1024).toFixed(2)}GB`)
                         stabilizationDetected = true
-                        // Los chunks activos seguirán, pero no se enviarán nuevos
                     }
                 }
             })

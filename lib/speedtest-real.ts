@@ -255,9 +255,24 @@ async function measureUpload(
             const controller = new AbortController()
             const timeoutId = setTimeout(() => controller.abort(), maxTimeoutPerUpload)
 
-            // Crear buffer de datos aleatorios (incompresibles)
+            // Crear buffer de datos aleatorios en chunks (límite crypto: 65KB por llamada)
+            const chunks: Uint8Array[] = []
+            const chunkSize = 65536 // 64KB máximo por getRandomValues
+
+            for (let offset = 0; offset < size; offset += chunkSize) {
+                const remainingBytes = Math.min(chunkSize, size - offset)
+                const chunk = new Uint8Array(remainingBytes)
+                crypto.getRandomValues(chunk)
+                chunks.push(chunk)
+            }
+
+            // Concatenar chunks en un único buffer
             const buffer = new Uint8Array(size)
-            crypto.getRandomValues(buffer)
+            let offset = 0
+            for (const chunk of chunks) {
+                buffer.set(chunk, offset)
+                offset += chunk.length
+            }
 
             const uploadStart = performance.now()
 

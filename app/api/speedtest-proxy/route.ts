@@ -3,6 +3,8 @@
  * Redirecciona las peticiones al servidor interno
  */
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: Request) {
   try {
     const speedtestUrl = process.env.SPEEDTEST_INTERNAL_URL || 'http://localhost:3001'

@@ -18,7 +18,7 @@ export default function TestPage() {
 
     try {
       // Importar directamente la función para probar
-      const { simulateSpeedTestImproved: simulateSpeedTest } = await import('@/lib/speedtest-improved')
+      const { simulateSpeedTestReal: simulateSpeedTest } = await import('@/lib/speedtest-real')
       
       const result = await simulateSpeedTest((progress, status, details) => {
         setProgress(progress)

@@ -180,20 +180,24 @@ async function measureDownloadReal(
                     samples.push(instantSpeed)
                 }
 
-                // Detectar estabilidad: el promedio no sube más de 1 Mbps
+                // Detectar estabilidad: threshold relativo a la velocidad
                 let isStabilized = false
-                if (recentSpeeds.length >= REQUIRED_MEASUREMENTS && downloadedBytes > 500 * 1024 * 1024) {
+                if (recentSpeeds.length >= REQUIRED_MEASUREMENTS && downloadedBytes > 100 * 1024 * 1024) {
                     const avgRecent = recentSpeeds.reduce((a, b) => a + b) / recentSpeeds.length
+                    
+                    // Threshold = 5% de la velocidad máxima (escalable a cualquier conexión)
+                    const percentThreshold = lastMaxSpeed * 0.05
                     const diffFromMax = lastMaxSpeed - avgRecent
                     
-                    // Estable si: promedio está dentro de 1 Mbps del máximo Y no hay aumento en últimas 2 mediciones
-                    const isCloseToMax = diffFromMax <= 1
+                    // Estable si: promedio está dentro del 5% del máximo Y no hay aumento significativo
+                    const isCloseToMax = diffFromMax <= percentThreshold
                     const lastTwo = recentSpeeds.slice(-2)
-                    const isNotIncreasing = lastTwo.length >= 2 ? lastTwo[1] <= lastTwo[0] + 0.5 : true
+                    const increaseAllowed = lastMaxSpeed * 0.01 // Permitir 1% de aumento
+                    const isNotIncreasing = lastTwo.length >= 2 ? lastTwo[1] <= lastTwo[0] + increaseAllowed : true
                     
                     isStabilized = isCloseToMax && isNotIncreasing
                     
-                    console.log(`[Download] Stability: Avg=${avgRecent.toFixed(1)}, Max=${lastMaxSpeed.toFixed(1)}, Diff=${diffFromMax.toFixed(1)}, CloseToMax=${isCloseToMax}, NotIncreasing=${isNotIncreasing} → ${isStabilized}`)
+                    console.log(`[Download] Stability: Avg=${avgRecent.toFixed(1)}, Max=${lastMaxSpeed.toFixed(1)}, Diff=${diffFromMax.toFixed(1)} (threshold=${percentThreshold.toFixed(1)}), Stable=${isStabilized}`)
                 }
 
                 const blockProgress = 10 + (downloadedBytes / downloadSize) * 60
@@ -461,14 +465,18 @@ async function uploadToLocalEndpointStable(
             if (recentSpeeds.length < REQUIRED_MEASUREMENTS) return false
             
             const avgRecent = recentSpeeds.reduce((a, b) => a + b) / recentSpeeds.length
+            
+            // Threshold = 5% de la velocidad máxima (escalable a cualquier conexión)
+            const percentThreshold = lastMaxSpeed * 0.05
             const diffFromMax = lastMaxSpeed - avgRecent
             
-            // Estable si: promedio está dentro de 1 Mbps del máximo Y no hay aumento en últimas 2 mediciones
-            const isCloseToMax = diffFromMax <= 1
+            // Estable si: promedio está dentro del 5% del máximo Y no hay aumento significativo
+            const isCloseToMax = diffFromMax <= percentThreshold
             const lastTwo = recentSpeeds.slice(-2)
-            const isNotIncreasing = lastTwo.length >= 2 ? lastTwo[1] <= lastTwo[0] + 0.5 : true
+            const increaseAllowed = lastMaxSpeed * 0.01 // Permitir 1% de aumento
+            const isNotIncreasing = lastTwo.length >= 2 ? lastTwo[1] <= lastTwo[0] + increaseAllowed : true
             
-            console.log(`[Upload Stability] Avg=${avgRecent.toFixed(1)}, Max=${lastMaxSpeed.toFixed(1)}, Diff=${diffFromMax.toFixed(1)}, CloseToMax=${isCloseToMax}, NotIncreasing=${isNotIncreasing} → ${isCloseToMax && isNotIncreasing}`)
+            console.log(`[Upload Stability] Avg=${avgRecent.toFixed(1)}, Max=${lastMaxSpeed.toFixed(1)}, Diff=${diffFromMax.toFixed(1)} (threshold=${percentThreshold.toFixed(1)}), Stable=${isCloseToMax && isNotIncreasing}`)
             
             return isCloseToMax && isNotIncreasing
         }

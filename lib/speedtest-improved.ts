@@ -16,7 +16,9 @@ export interface DetailedSpeedTestResult extends SpeedTestResult {
 /**
  * Mide el ping ICMP-like usando requests muy pequeños con múltiples servidores
  */
-async function measurePingAccurate(): Promise<{
+async function measurePingAccurate(
+    onProgress?: (progress: number, ping: number, statusMsg: string) => void
+): Promise<{
     pings: number[]
     avgPing: number
     minPing: number
@@ -28,17 +30,17 @@ async function measurePingAccurate(): Promise<{
         'https://1.1.1.1/cdn-cgi/trace',
         'https://speed.cloudflare.com/__down?bytes=100',
     ]
-    
+
     const measurements = 30 // Más mediciones para mejor precisión estadística
-    
+
     for (let i = 0; i < measurements; i++) {
         try {
             const server = testServers[i % testServers.length]
             const startTime = performance.now()
-            
+
             const controller = new AbortController()
             const timeoutId = setTimeout(() => controller.abort(), 3000)
-            
+
             try {
                 const response = await fetch(server, {
                     method: 'GET',
@@ -46,20 +48,22 @@ async function measurePingAccurate(): Promise<{
                     signal: controller.signal,
                     mode: 'no-cors'
                 })
-                
+
                 // Consumir al menos algunos bytes para asegurar que la conexión es real
                 if (response.ok) {
                     const chunk = await response.arrayBuffer()
                 }
-                
+
                 clearTimeout(timeoutId)
                 const endTime = performance.now()
                 const latency = endTime - startTime
-                
+
                 // Filtrar requests que tardaron mucho (probablemente incluyen DNS)
                 // El ping real debe estar entre 1ms y 500ms
                 if (latency >= 1 && latency < 500) {
                     pings.push(latency)
+                    const progress = (pings.length / measurements) * 10 // 0-10% durante ping
+                    onProgress?.(progress, latency, `Midiendo ping... ${pings.length}/${measurements}`)
                 }
             } catch (e) {
                 clearTimeout(timeoutId)
@@ -80,21 +84,21 @@ async function measurePingAccurate(): Promise<{
 
     // Ordenar para análisis
     const sorted = [...pings].sort((a, b) => a - b)
-    
+
     // Usar los valores más bajos (son los más precisos sin overhead)
     // El ping real es el mínimo consistente, no el promedio
     const minPing = sorted[0]
-    
+
     // Filtrar valores que están muy por encima del mínimo (probablemente tienen overhead)
     // Permitir solo 20% de variación sobre el mínimo
     const maxThreshold = minPing * 1.2
     const validPings = sorted.filter(p => p <= maxThreshold)
-    
+
     // Si no tenemos suficientes valores válidos, usar los primeros 30%
-    const finalPings = validPings.length >= 3 
-        ? validPings 
+    const finalPings = validPings.length >= 3
+        ? validPings
         : sorted.slice(0, Math.max(3, Math.floor(sorted.length * 0.3)))
-    
+
     // Usar mediana de los valores más bajos para mayor precisión
     const avgPing = finalPings.length > 0
         ? finalPings[Math.floor(finalPings.length * 0.5)]
@@ -122,11 +126,12 @@ async function measureDownloadEnhanced(
 }> {
     const samples: number[] = []
     let testSizes: number[]
-    
+
     // Detectar conexión rápida: si ping es muy bajo, usar archivos más grandes
     const pingResult = await measurePingAccurate()
     const estimatedSpeed = 100 // Estimación inicial conservadora
-    
+    // (Esta llamada no reporta progreso ya que es interna)
+
     // Estrategia adaptativa: usar tamaños menores pero múltiples muestras
     // - Optimizado para velocidad de prueba: ~30-40 segundos total
     // - Mantiene precisión con múltiples muestras pequeñas
@@ -136,7 +141,7 @@ async function measureDownloadEnhanced(
         50000000,      // 50MB
         100000000,     // 100MB
     ]
-    
+
     let totalProgress = 0
 
     for (let testIndex = 0; testIndex < testSizes.length; testIndex++) {
@@ -230,15 +235,15 @@ async function measureDownloadEnhanced(
 
     // Usar media armónica para descargas (más preciso que mediana para velocidades)
     const sorted = [...samples].sort((a, b) => a - b)
-    
+
     // Descartar outliers extremos (>20% de variación del min)
     const minSpeed = sorted[0]
     const validSamples = sorted.filter(s => s <= minSpeed * 1.2)
-    
+
     // Si hay al menos 2 muestras válidas, usar media armónica
     let avgSpeed = sorted[Math.floor(sorted.length / 2)]
     if (validSamples.length >= 2) {
-        avgSpeed = validSamples.length / validSamples.reduce((sum, s) => sum + 1/s, 0)
+        avgSpeed = validSamples.length / validSamples.reduce((sum, s) => sum + 1 / s, 0)
     }
 
     return {
@@ -278,7 +283,7 @@ async function measureUploadEnhanced(
 
             // Generar datos aleatorios criptográficamente para evitar compresión
             const data = new Uint8Array(uploadSize)
-            
+
             // Llenar con números pseudo-aleatorios (incompresibles)
             const chunkSize = 1024 * 1024 // 1MB chunks para no saturar memoria
             for (let offset = 0; offset < uploadSize; offset += chunkSize) {
@@ -335,15 +340,15 @@ async function measureUploadEnhanced(
 
     // Usar media armónica para uploads (más preciso)
     const sorted = [...samples].sort((a, b) => a - b)
-    
+
     // Descartar outliers extremos
     const minSpeed = sorted[0]
     const validSamples = sorted.filter(s => s <= minSpeed * 1.2)
-    
+
     // Si hay muestras válidas, usar media armónica
     let avgSpeed = sorted[Math.floor(sorted.length / 2)]
     if (validSamples.length >= 2) {
-        avgSpeed = validSamples.length / validSamples.reduce((sum, s) => sum + 1/s, 0)
+        avgSpeed = validSamples.length / validSamples.reduce((sum, s) => sum + 1 / s, 0)
     }
 
     return {
@@ -371,13 +376,13 @@ export async function simulateSpeedTestImproved(
         try {
             const controller = new AbortController()
             const timeoutId = setTimeout(() => controller.abort(), 5000)
-            
+
             await fetch('https://speed.cloudflare.com/__down?bytes=1', {
                 cache: 'no-store',
                 mode: 'no-cors',
                 signal: controller.signal
             })
-            
+
             clearTimeout(timeoutId)
         } catch (e) {
             // Ignorar errores de pre-calentamiento
@@ -386,7 +391,12 @@ export async function simulateSpeedTestImproved(
         // FASE 1: Ping
         onProgress?.(5, 'Midiendo latencia (Ping)...', { phase: 'ping' })
         console.log('Midiendo ping...')
-        const pingResult = await measurePingAccurate()
+        const pingResult = await measurePingAccurate((progress, ping, statusMsg) => {
+            onProgress?.(progress, statusMsg, {
+                phase: 'ping',
+                currentSpeed: ping
+            })
+        })
         console.log(`Ping: ${pingResult.avgPing.toFixed(1)}ms (min: ${pingResult.minPing.toFixed(1)}, max: ${pingResult.maxPing.toFixed(1)})`)
         onProgress?.(15, `Ping completado: ${pingResult.avgPing.toFixed(1)}ms`, {
             phase: 'ping',

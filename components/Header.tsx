@@ -3,9 +3,12 @@
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useState } from 'react'
+import LanguageSwitcher from './LanguageSwitcher'
+import { useLanguage } from '@/hooks/useLanguage'
 
 export default function Header() {
   const [activeLink, setActiveLink] = useState('home')
+  const { t } = useLanguage()
 
   const navLinks = [
     { id: 'home', label: '🏠 Inicio', href: '/' },
@@ -54,6 +57,9 @@ export default function Header() {
               </motion.a>
             ))}
           </div>
+
+          {/* Language Switcher */}
+          <LanguageSwitcher />
 
           {/* Mobile Menu Button */}
           <motion.button

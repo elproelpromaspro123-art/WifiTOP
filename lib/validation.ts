@@ -1,3 +1,5 @@
+import { containsBadWords } from './badwords'
+
 export function validateUserName(name: string): { valid: boolean; error?: string } {
   if (!name || typeof name !== 'string') {
     return { valid: false, error: 'El nombre es requerido' }
@@ -9,12 +11,16 @@ export function validateUserName(name: string): { valid: boolean; error?: string
     return { valid: false, error: 'El nombre debe tener al menos 2 caracteres' }
   }
 
-  if (trimmed.length > 255) {
-    return { valid: false, error: 'El nombre no puede exceder 255 caracteres' }
+  if (trimmed.length > 30) {
+    return { valid: false, error: 'El nombre no puede exceder 30 caracteres' }
   }
 
   if (!/^[a-zA-Z0-9\s\-_.áéíóúÁÉÍÓÚñÑ]+$/.test(trimmed)) {
     return { valid: false, error: 'El nombre contiene caracteres inválidos' }
+  }
+
+  if (containsBadWords(trimmed)) {
+    return { valid: false, error: 'El nombre contiene palabras no permitidas' }
   }
 
   return { valid: true }

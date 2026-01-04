@@ -6,6 +6,7 @@ import { simulateSpeedTestImproved } from '@/lib/speedtest-improved'
 import { getBadgeInfo } from '@/lib/badges'
 import { useBadges } from '@/hooks/useBadges'
 import { useTestHistory } from '@/hooks/useTestHistory'
+import { useLanguage } from '@/hooks/useLanguage'
 import ValidationError from './ValidationError'
 import ShareButtons from './ShareButtons'
 import SpeedChartLive from './SpeedChartLive'
@@ -35,17 +36,22 @@ interface TestPhase {
     color: string
 }
 
-const PHASES: Record<string, TestPhase> = {
-    idle: { name: 'idle', label: 'Listo', icon: '⚡', color: 'text-gray-400' },
-    ping: { name: 'ping', label: 'Midiendo Ping', icon: '📡', color: 'text-yellow-400' },
-    download: { name: 'download', label: 'Descargando', icon: '⬇️', color: 'text-blue-400' },
-    upload: { name: 'upload', label: 'Subiendo', icon: '⬆️', color: 'text-green-400' },
-    complete: { name: 'complete', label: 'Completado', icon: '✅', color: 'text-emerald-400' }
+function getPHASES(t: (key: string) => string): Record<string, TestPhase> {
+    return {
+        idle: { name: 'idle', label: 'Listo', icon: '⚡', color: 'text-gray-400' },
+        ping: { name: 'ping', label: 'Midiendo Ping', icon: '📡', color: 'text-yellow-400' },
+        download: { name: 'download', label: 'Descargando', icon: '⬇️', color: 'text-blue-400' },
+        upload: { name: 'upload', label: 'Subiendo', icon: '⬆️', color: 'text-green-400' },
+        complete: { name: 'complete', label: 'Completado', icon: '✅', color: 'text-emerald-400' }
+    }
 }
 
 export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardProps) {
     const { unlockNewBadges } = useBadges()
     const { addTest } = useTestHistory()
+    const { t } = useLanguage()
+    const PHASES = getPHASES(t)
+    
     const [testing, setTesting] = useState(false)
     const [result, setResult] = useState<TestResult | null>(null)
     const [unlockedBadges, setUnlockedBadges] = useState<string[]>([])
@@ -53,7 +59,7 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
     const [isAnonymous, setIsAnonymous] = useState(false)
     const [progress, setProgress] = useState(0)
     const [currentPhase, setCurrentPhase] = useState<TestPhase>(PHASES.idle)
-    const [statusMsg, setStatusMsg] = useState('Listo')
+    const [statusMsg, setStatusMsg] = useState(PHASES.idle.label)
     const [error, setError] = useState<string | null>(null)
     const [testDetails, setTestDetails] = useState({
         currentSpeed: 0,
@@ -76,7 +82,25 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
             }
 
             if (userName.trim().length < 2) {
-                setError('El nombre debe tener al menos 2 caracteres')
+                setError(t('validation.name_too_short'))
+                return
+            }
+
+            if (userName.trim().length > 30) {
+                setError(t('validation.name_too_long'))
+                return
+            }
+
+            // Validar caracteres inválidos
+            if (!/^[a-zA-Z0-9\s\-_.áéíóúÁÉÍÓÚñÑ]+$/.test(userName.trim())) {
+                setError(t('validation.name_invalid_chars'))
+                return
+            }
+
+            // Validar palabras prohibidas
+            const { containsBadWords } = require('@/lib/badwords')
+            if (containsBadWords(userName.trim())) {
+                setError(t('validation.name_bad_words'))
                 return
             }
         }

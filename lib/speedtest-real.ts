@@ -33,7 +33,9 @@ export interface SpeedTestResult {
 /**
  * Mide ping con alta precisión
  */
-async function measurePing(): Promise<{ avg: number; min: number; max: number; samples: number[] }> {
+async function measurePing(
+    onProgress?: (speed: number) => void
+): Promise<{ avg: number; min: number; max: number; samples: number[] }> {
     const pings: number[] = []
     const servers = [
         'https://www.cloudflare.com/',
@@ -59,6 +61,7 @@ async function measurePing(): Promise<{ avg: number; min: number; max: number; s
 
                 if (latency > 0 && latency < 5000) {
                     pings.push(latency)
+                    onProgress?.(latency)
                 }
             } catch {
                 // Continuar con siguiente intento
@@ -85,10 +88,10 @@ async function measureDownload(
 ): Promise<{ speed: number; samples: number[] }> {
     const samples: number[] = []
     const testSizes = [10_000_000, 25_000_000, 50_000_000] // 10MB, 25MB, 50MB
-    
+
     for (let idx = 0; idx < testSizes.length; idx++) {
         const size = testSizes[idx]
-        
+
         try {
             const controller = new AbortController()
             const timeoutId = setTimeout(() => controller.abort(), 120_000)
@@ -127,7 +130,7 @@ async function measureDownload(
                 if (now - lastReportTime > 250) {
                     const elapsedSec = (now - startTime) / 1000
                     const instantSpeed = (downloadedBytes * 8) / elapsedSec / 1024 / 1024
-                    
+
                     const progressPercent = (idx * 33) + (downloadedBytes / size) * 33
                     onProgress?.(Math.min(progressPercent, 95), instantSpeed)
 
@@ -192,7 +195,12 @@ export async function simulateSpeedTestReal(
         console.log('📡 Midiendo ping...')
         onProgress?.(5, 'Midiendo latencia...', { phase: 'ping', currentSpeed: 0 })
 
-        const pingData = await measurePing()
+        const pingData = await measurePing((latency) => {
+            onProgress?.(5 + Math.random() * 5, `Ping: ${latency.toFixed(1)}ms`, {
+                phase: 'ping',
+                currentSpeed: latency
+            })
+        })
         console.log(`✓ Ping: ${pingData.avg.toFixed(1)}ms (min: ${pingData.min.toFixed(1)}, max: ${pingData.max.toFixed(1)})`)
         onProgress?.(10, 'Ping completado. Midiendo descarga...', { phase: 'ping', currentSpeed: pingData.avg })
 
@@ -206,7 +214,7 @@ export async function simulateSpeedTestReal(
                 currentSpeed: speed
             })
         })
-        
+
         console.log(`✓ Descarga: ${downloadData.speed.toFixed(2)} Mbps (samples: ${downloadData.samples.length})`)
         onProgress?.(85, 'Descarga completada. Estimando subida...', { phase: 'download', currentSpeed: downloadData.speed })
 

@@ -36,13 +36,13 @@ export async function POST(request: Request) {
             )
         }
         
-        // Limitar el tamaño máximo a 1GB por chunk
-        const MAX_CHUNK_SIZE = 1 * 1024 * 1024 * 1024 // 1GB
+        // Limitar el tamaño máximo a 50MB para Render free tier
+        const MAX_CHUNK_SIZE = 50 * 1024 * 1024 // 50MB
         if (buffer.byteLength > MAX_CHUNK_SIZE) {
             clearTimeout(timeoutId)
-            console.warn(`[Upload Test] Chunk demasiado grande: ${(buffer.byteLength / 1024 / 1024 / 1024).toFixed(2)}GB`)
+            console.warn(`[Upload Test] Chunk demasiado grande: ${(buffer.byteLength / 1024 / 1024).toFixed(2)}MB`)
             return Response.json(
-                { error: 'Chunk too large. Maximum is 1GB' },
+                { error: 'Chunk too large. Maximum is 50MB' },
                 { status: 413 }
             )
         }

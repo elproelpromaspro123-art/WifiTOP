@@ -297,19 +297,16 @@ async function measureUploadStable(
             const controller = new AbortController()
             const timeoutId = setTimeout(() => controller.abort(), config.timeout)
 
-            // Generar datos en chunks pequeños para evitar OOM
-            const chunkSize = Math.min(1_000_000, config.size) // 1MB chunks máximo
-            let totalGenerated = 0
-            
-            // Usar blob en lugar de buffer completo
+            // Generar datos: IMPORTANTE - crypto.getRandomValues máximo 65536 bytes por llamada
+            // Generar en chunks pequeños de 64KB
+            const CRYPTO_MAX = 65536 // Máximo permitido por crypto.getRandomValues
             const blobs: Blob[] = []
             
-            for (let offset = 0; offset < config.size; offset += chunkSize) {
-                const thisChunkSize = Math.min(chunkSize, config.size - offset)
+            for (let offset = 0; offset < config.size; offset += CRYPTO_MAX) {
+                const thisChunkSize = Math.min(CRYPTO_MAX, config.size - offset)
                 const chunk = new Uint8Array(thisChunkSize)
                 crypto.getRandomValues(chunk)
                 blobs.push(new Blob([chunk]))
-                totalGenerated += thisChunkSize
             }
 
             const blob = new Blob(blobs)

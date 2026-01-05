@@ -25,31 +25,14 @@ async function measurePingStable(
     onProgress?: (speed: number) => void
 ): Promise<{ avg: number; min: number; max: number; samples: number[] }> {
     const pings: number[] = []
-
     const SAMPLES = 16
-    const TIMEOUT = 5000 // 5s máximo
 
     for (let i = 0; i < SAMPLES; i++) {
         try {
-            const start = performance.now()
-            const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), TIMEOUT)
+            const response = await fetch('/api/ping')
+            const data = await response.json()
+            const latency = data.latency
 
-            // Cloudflare Speed - ultra rápido, sin CORS issues
-            // Usar /ping endpoint que devuelve pequeño payload
-            const url = `https://speed.cloudflare.com/api/timing?t=${Date.now()}_${Math.random()}`
-
-            const response = await fetch(url, {
-                method: 'GET',
-                cache: 'no-store',
-                signal: controller.signal,
-                priority: 'high'
-            })
-
-            clearTimeout(timeoutId)
-            const latency = performance.now() - start
-
-            // Validación: entre 1ms y 2s
             if (latency > 0.5 && latency < 2000) {
                 pings.push(latency)
                 onProgress?.(latency)
@@ -59,12 +42,10 @@ async function measurePingStable(
         }
     }
 
-    // Si no hay pings válidos, usar fallback
     if (pings.length < 8) {
         return { avg: 15, min: 10, max: 20, samples: [15] }
     }
 
-    // Calcular estadísticas robustas
     const sorted = [...pings].sort((a, b) => a - b)
     const trimmed = sorted.slice(2, sorted.length - 2)
     const min = sorted[0]
@@ -80,86 +61,44 @@ async function measureDownloadStable(
     onProgress?: (progress: number, speed: number) => void
 ): Promise<{ speed: number; samples: number[] }> {
     const samples: number[] = []
-
-    // Tamaños más agresivos para Cloudflare
     const testConfigs = [
-        { size: 10_000_000, timeout: 15_000, name: '10MB' },
-        { size: 25_000_000, timeout: 25_000, name: '25MB' },
-        { size: 50_000_000, timeout: 40_000, name: '50MB' },
-        { size: 100_000_000, timeout: 60_000, name: '100MB' },
+        { size: 10_000_000, name: '10MB' },
+        { size: 25_000_000, name: '25MB' },
+        { size: 50_000_000, name: '50MB' },
+        { size: 100_000_000, name: '100MB' },
     ]
 
-    const maxTotalTime = 240_000 // 4 minutos
     const startTime = performance.now()
     let successCount = 0
 
     for (let idx = 0; idx < testConfigs.length; idx++) {
         const config = testConfigs[idx]
 
-        if (performance.now() - startTime > maxTotalTime - 15000) {
+        if (performance.now() - startTime > 240000) {
             break
         }
 
         try {
-            const chunkStart = performance.now()
-            const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), config.timeout)
-
-            const url = `https://speed.cloudflare.com/__down?bytes=${config.size}&t=${Date.now()}`
-
-            const response = await fetch(url, {
-                cache: 'no-store',
-                signal: controller.signal,
-                priority: 'high'
-            })
+            const response = await fetch(`/api/download-test?bytes=${config.size}`)
+            const data = await response.json()
 
             if (!response.ok) {
-                clearTimeout(timeoutId)
                 continue
             }
 
-            const reader = response.body?.getReader()
-            if (!reader) {
-                clearTimeout(timeoutId)
-                continue
-            }
+            const speedMbps = data.speedMbps
+            onProgress?.(Math.min(20 + (idx / testConfigs.length) * 65, 85), speedMbps)
 
-            let downloadedBytes = 0
-            let lastReportTime = chunkStart
-            const chunkStartTime = chunkStart
+            if (speedMbps > 0.5 && speedMbps < 500) {
+                samples.push(speedMbps)
+                successCount++
 
-            while (true) {
-                const { done, value } = await reader.read()
-                if (done) break
+                if (successCount >= 2 && samples.length >= 2) {
+                    const lastTwo = samples.slice(-2)
+                    const diffPct = Math.abs(lastTwo[1] - lastTwo[0]) / lastTwo[0] * 100
 
-                downloadedBytes += value.length
-                const now = performance.now()
-
-                if (now - lastReportTime > 200) {
-                    const elapsedSec = (now - chunkStartTime) / 1000
-                    const instantSpeed = (downloadedBytes * 8) / elapsedSec / 1024 / 1024
-                    onProgress?.(Math.min(20 + (idx / testConfigs.length) * 65, 85), instantSpeed)
-                    lastReportTime = now
-                }
-            }
-
-            clearTimeout(timeoutId)
-            const duration = (performance.now() - chunkStartTime) / 1000
-
-            if (duration >= 0.3 && downloadedBytes >= config.size * 0.95) {
-                const speedMbps = (downloadedBytes * 8) / duration / 1024 / 1024
-
-                if (speedMbps > 0.5 && speedMbps < 500) {
-                    samples.push(speedMbps)
-                    successCount++
-
-                    if (successCount >= 2 && samples.length >= 2) {
-                        const lastTwo = samples.slice(-2)
-                        const diffPct = Math.abs(lastTwo[1] - lastTwo[0]) / lastTwo[0] * 100
-
-                        if (diffPct < 15) {
-                            break
-                        }
+                    if (diffPct < 15) {
+                        break
                     }
                 }
             }
@@ -181,29 +120,23 @@ async function measureUploadStable(
     onProgress?: (progress: number, speed: number) => void
 ): Promise<{ speed: number; samples: number[] }> {
     const samples: number[] = []
-
     const uploadConfigs = [
-        { size: 10_000_000, timeout: 20_000, name: '10MB' },
-        { size: 25_000_000, timeout: 40_000, name: '25MB' },
-        { size: 50_000_000, timeout: 80_000, name: '50MB' },
+        { size: 10_000_000, name: '10MB' },
+        { size: 25_000_000, name: '25MB' },
+        { size: 50_000_000, name: '50MB' },
     ]
 
-    const maxTotalTime = 240_000
     const startTime = performance.now()
     let successCount = 0
 
     for (let idx = 0; idx < uploadConfigs.length; idx++) {
         const config = uploadConfigs[idx]
 
-        if (performance.now() - startTime > maxTotalTime - 15000) {
+        if (performance.now() - startTime > 240000) {
             break
         }
 
         try {
-            const uploadStart = performance.now()
-            const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), config.timeout)
-
             const CRYPTO_MAX = 65536
             const chunks: BlobPart[] = []
 
@@ -216,38 +149,29 @@ async function measureUploadStable(
 
             const blob = new Blob(chunks as BlobPart[])
 
-            const response = await fetch('https://speed.cloudflare.com/__up', {
+            const response = await fetch('/api/upload-speed', {
                 method: 'POST',
-                body: blob,
-                signal: controller.signal,
-                headers: {
-                    'Content-Type': 'application/octet-stream'
-                }
+                body: blob
             })
-
-            clearTimeout(timeoutId)
 
             if (!response.ok) {
                 continue
             }
 
-            const duration = (performance.now() - uploadStart) / 1000
+            const data = await response.json()
+            const speedMbps = data.speedMbps
 
-            if (duration >= 0.3) {
-                const speedMbps = (config.size * 8) / duration / 1024 / 1024
+            if (speedMbps > 0.5 && speedMbps < 500) {
+                samples.push(speedMbps)
+                successCount++
+                onProgress?.(Math.min(85 + (idx / uploadConfigs.length) * 12, 97), speedMbps)
 
-                if (speedMbps > 0.5 && speedMbps < 500) {
-                    samples.push(speedMbps)
-                    successCount++
-                    onProgress?.(Math.min(85 + (idx / uploadConfigs.length) * 12, 97), speedMbps)
+                if (successCount >= 2 && samples.length >= 2) {
+                    const lastTwo = samples.slice(-2)
+                    const diffPct = Math.abs(lastTwo[1] - lastTwo[0]) / lastTwo[0] * 100
 
-                    if (successCount >= 2 && samples.length >= 2) {
-                        const lastTwo = samples.slice(-2)
-                        const diffPct = Math.abs(lastTwo[1] - lastTwo[0]) / lastTwo[0] * 100
-
-                        if (diffPct < 20) {
-                            break
-                        }
+                    if (diffPct < 20) {
+                        break
                     }
                 }
             }

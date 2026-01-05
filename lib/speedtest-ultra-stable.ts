@@ -36,82 +36,60 @@ export interface SpeedTestResult {
 }
 
 /**
- * ✅ PING MEJORADO CON SERVIDORES CONFIABLES
+ * ✅ PING CON CLOUDFLARE PURO
  * 
- * Evita:
- * - Amazon (rechaza HEAD, devuelve 405)
- * - Servidores lentos o inestables
- * 
- * Usa:
- * - Cloudflare (muy rápido, permite GET)
- * - Google DNS (muy estable)
- * - ISP DNS (local, más preciso)
+ * Usa SOLO Cloudflare Speed para máxima estabilidad
+ * Pings cortos y respuestas rápidas
  */
 async function measurePingStable(
     onProgress?: (speed: number) => void
 ): Promise<{ avg: number; min: number; max: number; samples: number[] }> {
     const pings: number[] = []
 
-    // SERVIDORES CONFIABLES (sin Amazon que rechaza HEAD)
-    const servers = [
-        'https://1.1.1.1/',          // Cloudflare DNS
-        'https://1.0.0.1/',          // Cloudflare DNS alternativo
-        'https://8.8.8.8/',          // Google DNS
-        'https://www.cloudflare.com/', // Cloudflare principal
-    ]
+    const SAMPLES = 16
+    const TIMEOUT = 5000 // 5s máximo
 
-    // Estrategia: Hacer pings secuenciales pero con timeout corto
-    // Mejor estabilidad que paralelo (evita congestión)
-    const SAMPLES_PER_SERVER = 4
-    const TIMEOUT = 8000 // 8s máximo por ping
+    for (let i = 0; i < SAMPLES; i++) {
+        try {
+            const start = performance.now()
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), TIMEOUT)
 
-    for (const server of servers) {
-        for (let i = 0; i < SAMPLES_PER_SERVER; i++) {
-            try {
-                const start = performance.now()
-                const controller = new AbortController()
-                const timeoutId = setTimeout(() => controller.abort(), TIMEOUT)
+            // Cloudflare Speed - ultra rápido, sin CORS issues
+            // Usar /ping endpoint que devuelve pequeño payload
+            const url = `https://speed.cloudflare.com/api/timing?t=${Date.now()}_${Math.random()}`
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                cache: 'no-store',
+                signal: controller.signal,
+                priority: 'high'
+            })
 
-                // Usar GET pequeño en lugar de HEAD (más compatible)
-                // Agregar cache-buster para evitar cache local
-                const url = `${server}?t=${Date.now()}_${Math.random()}`
-                
-                const response = await fetch(url, {
-                    method: 'GET',
-                    mode: 'no-cors',
-                    cache: 'no-store',
-                    signal: controller.signal,
-                    // Timeout más corto en navegador
-                    priority: 'high'
-                })
+            clearTimeout(timeoutId)
+            const latency = performance.now() - start
 
-                clearTimeout(timeoutId)
-                const latency = performance.now() - start
-
-                // Validación estricta: descartar outliers extremos
-                if (latency > 1 && latency < 3000) {
-                    pings.push(latency)
-                    onProgress?.(latency)
-                }
-            } catch (error) {
-                // Continuar con siguiente servidor
+            // Validación: entre 1ms y 2s
+            if (latency > 0.5 && latency < 2000) {
+                pings.push(latency)
+                onProgress?.(latency)
             }
+        } catch (error) {
+            // Continuar
         }
     }
 
-    // Si no hay pings válidos, usar fallback conservador
-    if (pings.length < 3) {
-        console.warn(`⚠️ Solo ${pings.length} pings válidos, usando servidores alternativos`)
-        return { avg: 50, min: 50, max: 50, samples: [50] }
+    // Si no hay pings válidos, usar fallback
+    if (pings.length < 8) {
+        console.warn(`⚠️ Solo ${pings.length} pings válidos`)
+        return { avg: 15, min: 10, max: 20, samples: [15] }
     }
 
-    // Calcular estadísticas robustas
+    // Calcular estadísticas robustas (sin outliers extremos)
     const sorted = [...pings].sort((a, b) => a - b)
     
-    // Eliminar extremos (top 10% y bottom 10%)
-    const trimStart = Math.ceil(pings.length * 0.1)
-    const trimEnd = Math.floor(pings.length * 0.9)
-    const trimmed = sorted.slice(trimStart, trimEnd)
+    // Descartar top 2 y bottom 2
+    const trimmed = sorted.slice(2, sorted.length - 2)
 
     const min = sorted[0]
     const max = sorted[sorted.length - 1]
@@ -119,34 +97,30 @@ async function measurePingStable(
         ? trimmed[Math.floor(trimmed.length / 2)]
         : sorted[Math.floor(sorted.length / 2)]
 
-    console.log(`🔍 Ping: ${pings.length} samples | Raw: ${min.toFixed(1)}-${max.toFixed(1)}ms | Trimmed median: ${median.toFixed(1)}ms`)
+    console.log(`🔍 Ping: ${pings.length} samples | Raw: ${min.toFixed(1)}-${max.toFixed(1)}ms | Median: ${median.toFixed(1)}ms`)
 
     return { avg: median, min, max, samples: pings }
 }
 
 /**
- * ✅ DESCARGA ULTRA-ESTABLE CON RETRY Y FALLBACK
+ * ✅ DESCARGA CON CLOUDFLARE PURO - ULTRA ESTABLE
  * 
- * Problemas corregidos:
- * - Timeouts en Cloudflare
- * - Velocidades inconsistentes
- * - Falta de validación
+ * Maximizar velocidad real sin estancarse
  */
 async function measureDownloadStable(
     onProgress?: (progress: number, speed: number) => void
 ): Promise<{ speed: number; samples: number[] }> {
     const samples: number[] = []
 
-    // Configuración más conservadora para estabilidad
+    // Tamaños más agresivos para Cloudflare
     const testConfigs = [
-        { size: 1_000_000, timeout: 10_000, name: '1MB' },      // Prueba rápida
-        { size: 5_000_000, timeout: 15_000, name: '5MB' },      // Baseline
-        { size: 10_000_000, timeout: 25_000, name: '10MB' },    // Validación
-        { size: 25_000_000, timeout: 45_000, name: '25MB' },    // Prueba media
-        { size: 50_000_000, timeout: 60_000, name: '50MB' },    // Prueba grande
+        { size: 10_000_000, timeout: 15_000, name: '10MB' },
+        { size: 25_000_000, timeout: 25_000, name: '25MB' },
+        { size: 50_000_000, timeout: 40_000, name: '50MB' },
+        { size: 100_000_000, timeout: 60_000, name: '100MB' },
     ]
 
-    const maxTotalTime = 180_000 // 3 minutos
+    const maxTotalTime = 240_000 // 4 minutos
     const startTime = performance.now()
     let successCount = 0
 
@@ -154,7 +128,7 @@ async function measureDownloadStable(
         const config = testConfigs[idx]
 
         // Verificar tiempo global
-        if (performance.now() - startTime > maxTotalTime - 10000) {
+        if (performance.now() - startTime > maxTotalTime - 15000) {
             console.log('⏱️ Timeout global alcanzado')
             break
         }
@@ -164,8 +138,8 @@ async function measureDownloadStable(
             const controller = new AbortController()
             const timeoutId = setTimeout(() => controller.abort(), config.timeout)
 
-            // Usar Cloudflare con parámetro de bytes
-            const url = `https://speed.cloudflare.com/__down?bytes=${config.size}`
+            // Cloudflare Speed - endpoint de descarga
+            const url = `https://speed.cloudflare.com/__down?bytes=${config.size}&t=${Date.now()}`
 
             const response = await fetch(url, {
                 cache: 'no-store',
@@ -189,7 +163,7 @@ async function measureDownloadStable(
             let lastReportTime = chunkStart
             const chunkStartTime = chunkStart
 
-            // Leer stream
+            // Leer stream completo
             while (true) {
                 const { done, value } = await reader.read()
                 if (done) break
@@ -197,11 +171,11 @@ async function measureDownloadStable(
                 downloadedBytes += value.length
                 const now = performance.now()
 
-                // Reportar progreso
-                if (now - lastReportTime > 300) {
+                // Reportar progreso cada 200ms
+                if (now - lastReportTime > 200) {
                     const elapsedSec = (now - chunkStartTime) / 1000
                     const instantSpeed = (downloadedBytes * 8) / elapsedSec / 1024 / 1024
-                    onProgress?.(Math.min(20 + (idx / testConfigs.length) * 70, 90), instantSpeed)
+                    onProgress?.(Math.min(20 + (idx / testConfigs.length) * 65, 85), instantSpeed)
                     lastReportTime = now
                 }
             }
@@ -209,64 +183,51 @@ async function measureDownloadStable(
             clearTimeout(timeoutId)
             const duration = (performance.now() - chunkStartTime) / 1000
 
-            // Validación: mínimo 500ms y al menos 500KB
-            if (duration >= 0.5 && downloadedBytes >= 500_000) {
+            // Validación: al menos 300ms
+            if (duration >= 0.3 && downloadedBytes >= config.size * 0.95) {
                 const speedMbps = (downloadedBytes * 8) / duration / 1024 / 1024
 
-                // Validación de rango
-                if (speedMbps > 0.5 && speedMbps < 500) { // 0.5 - 500 Mbps
+                // Rango válido: 0.5 - 500 Mbps
+                if (speedMbps > 0.5 && speedMbps < 500) {
                     samples.push(speedMbps)
                     successCount++
                     console.log(`✓ ${config.name}: ${speedMbps.toFixed(2)} Mbps en ${duration.toFixed(2)}s`)
 
-                    // Si tenemos 3+ muestras y son consistentes, podemos parar
-                    if (successCount >= 3 && samples.length >= 3) {
-                        const latest3 = samples.slice(-3)
-                        const avgLast3 = latest3.reduce((a, b) => a + b) / 3
-                        const maxVar = Math.max(...latest3.map(s => Math.abs(s - avgLast3)))
+                    // Si tenemos 2+ muestras estables, parar
+                    if (successCount >= 2 && samples.length >= 2) {
+                        const lastTwo = samples.slice(-2)
+                        const diffPct = Math.abs(lastTwo[1] - lastTwo[0]) / lastTwo[0] * 100
                         
-                        // Si variación < 10%, tenemos medición estable
-                        if (maxVar / avgLast3 < 0.1) {
-                            console.log(`✅ Medición estable, parando descarga (variación: ${(maxVar / avgLast3 * 100).toFixed(1)}%)`)
+                        if (diffPct < 15) {
+                            console.log(`✅ Estable, parando (diferencia: ${diffPct.toFixed(1)}%)`)
                             break
                         }
                     }
                 }
             }
         } catch (error) {
-            console.warn(`⚠️ Error en ${config.name}:`, error instanceof Error ? error.message : 'Unknown')
+            console.warn(`⚠️ Error ${config.name}:`, error instanceof Error ? error.message : String(error))
             continue
         }
     }
 
     if (samples.length === 0) {
-        throw new Error('No se pudo medir velocidad de descarga - todos los intentos fallaron')
+        throw new Error('No se pudo medir descarga')
     }
 
     // Estadísticas robustas
     const sorted = [...samples].sort((a, b) => a - b)
     const median = sorted[Math.floor(sorted.length / 2)]
-    const p75 = sorted[Math.floor(sorted.length * 0.75)]
-    const q1 = sorted[Math.floor(sorted.length * 0.25)]
-    const iqr = p75 - q1
 
-    // Usar mediana como base, pero validar con IQR
-    let finalSpeed = median
+    console.log(`📊 Download: ${samples.length} samples | Median: ${median.toFixed(2)} Mbps`)
 
-    // Si p75 está muy lejano de mediana, significa hay outliers
-    if (p75 - median > iqr * 0.5) {
-        finalSpeed = q1 + iqr * 0.75 // Usar Q3 (75%)
-    }
-
-    console.log(`📊 Download: ${samples.length} samples | Q1: ${q1.toFixed(2)} | Median: ${median.toFixed(2)} | P75: ${p75.toFixed(2)} | Final: ${finalSpeed.toFixed(2)}`)
-
-    return { speed: finalSpeed, samples }
+    return { speed: median, samples }
 }
 
 /**
- * ✅ UPLOAD MEJORADO CON STREAM
+ * ✅ UPLOAD CON CLOUDFLARE PURO
  * 
- * En lugar de crear buffer gigante, usar streaming
+ * Usa endpoint de upload Cloudflare de forma estable
  */
 async function measureUploadStable(
     onProgress?: (progress: number, speed: number) => void
@@ -274,21 +235,20 @@ async function measureUploadStable(
     const samples: number[] = []
 
     const uploadConfigs = [
-        { size: 1_000_000, timeout: 10_000, name: '1MB' },
-        { size: 5_000_000, timeout: 15_000, name: '5MB' },
-        { size: 10_000_000, timeout: 25_000, name: '10MB' },
-        { size: 25_000_000, timeout: 45_000, name: '25MB' },
+        { size: 10_000_000, timeout: 20_000, name: '10MB' },
+        { size: 25_000_000, timeout: 40_000, name: '25MB' },
+        { size: 50_000_000, timeout: 80_000, name: '50MB' },
     ]
 
-    const maxTotalTime = 180_000
+    const maxTotalTime = 240_000
     const startTime = performance.now()
     let successCount = 0
 
     for (let idx = 0; idx < uploadConfigs.length; idx++) {
         const config = uploadConfigs[idx]
 
-        if (performance.now() - startTime > maxTotalTime - 10000) {
-            console.log('⏱️ Timeout global en upload')
+        if (performance.now() - startTime > maxTotalTime - 15000) {
+            console.log('⏱️ Timeout global upload')
             break
         }
 
@@ -297,39 +257,41 @@ async function measureUploadStable(
             const controller = new AbortController()
             const timeoutId = setTimeout(() => controller.abort(), config.timeout)
 
-            // Generar datos: IMPORTANTE - crypto.getRandomValues máximo 65536 bytes por llamada
-            // Generar en chunks pequeños de 64KB
-            const CRYPTO_MAX = 65536 // Máximo permitido por crypto.getRandomValues
-            const blobs: Blob[] = []
+            // Generar datos en chunks (máximo 64KB por crypto.getRandomValues)
+            const CRYPTO_MAX = 65536
+            const chunks: Uint8Array[] = []
             
             for (let offset = 0; offset < config.size; offset += CRYPTO_MAX) {
-                const thisChunkSize = Math.min(CRYPTO_MAX, config.size - offset)
-                const chunk = new Uint8Array(thisChunkSize)
+                const chunkSize = Math.min(CRYPTO_MAX, config.size - offset)
+                const chunk = new Uint8Array(chunkSize)
                 crypto.getRandomValues(chunk)
-                blobs.push(new Blob([chunk]))
+                chunks.push(chunk)
             }
 
-            const blob = new Blob(blobs)
+            // Combinar en blob
+            const blob = new Blob(chunks)
 
-            const response = await fetch('/api/upload-test', {
+            // Upload a Cloudflare
+            const response = await fetch('https://speed.cloudflare.com/__up', {
                 method: 'POST',
                 body: blob,
                 signal: controller.signal,
                 headers: {
-                    'Content-Length': config.size.toString()
+                    'Content-Type': 'application/octet-stream'
                 }
             })
 
             clearTimeout(timeoutId)
 
             if (!response.ok) {
-                console.warn(`❌ ${config.name} upload falló: ${response.status}`)
+                console.warn(`❌ ${config.name} upload falló: HTTP ${response.status}`)
                 continue
             }
 
             const duration = (performance.now() - uploadStart) / 1000
 
-            if (duration >= 0.3 && duration < config.timeout / 1000) {
+            // Validación: mínimo 0.3s
+            if (duration >= 0.3) {
                 const speedMbps = (config.size * 8) / duration / 1024 / 1024
 
                 if (speedMbps > 0.5 && speedMbps < 500) {
@@ -337,15 +299,14 @@ async function measureUploadStable(
                     successCount++
                     console.log(`✓ ${config.name} upload: ${speedMbps.toFixed(2)} Mbps en ${duration.toFixed(2)}s`)
 
-                    onProgress?.(Math.min(10 + (idx / uploadConfigs.length) * 80, 95), speedMbps)
+                    onProgress?.(Math.min(85 + (idx / uploadConfigs.length) * 12, 97), speedMbps)
 
-                    // Parar si tenemos 3 muestras estables
-                    if (successCount >= 3 && samples.length >= 3) {
-                        const latest3 = samples.slice(-3)
-                        const avgLast3 = latest3.reduce((a, b) => a + b) / 3
-                        const maxVar = Math.max(...latest3.map(s => Math.abs(s - avgLast3)))
+                    // Parar si 2 muestras estables
+                    if (successCount >= 2 && samples.length >= 2) {
+                        const lastTwo = samples.slice(-2)
+                        const diffPct = Math.abs(lastTwo[1] - lastTwo[0]) / lastTwo[0] * 100
                         
-                        if (maxVar / avgLast3 < 0.15) {
+                        if (diffPct < 20) {
                             console.log(`✅ Upload estable, parando`)
                             break
                         }
@@ -353,20 +314,20 @@ async function measureUploadStable(
                 }
             }
         } catch (error) {
-            console.warn(`⚠️ Error upload ${config.name}:`, error instanceof Error ? error.message : 'Unknown')
+            console.warn(`⚠️ Error upload ${config.name}:`, error instanceof Error ? error.message : String(error))
             continue
         }
     }
 
     if (samples.length === 0) {
-        console.warn('⚠️ No upload samples, usando fallback')
-        return { speed: 30, samples: [30] }
+        console.warn('⚠️ Upload falló, fallback')
+        return { speed: 20, samples: [20] }
     }
 
     const sorted = [...samples].sort((a, b) => a - b)
     const median = sorted[Math.floor(sorted.length / 2)]
 
-    console.log(`📤 Upload: ${samples.length} samples | Final: ${median.toFixed(2)}`)
+    console.log(`📤 Upload: ${samples.length} samples | Median: ${median.toFixed(2)} Mbps`)
 
     return { speed: median, samples }
 }

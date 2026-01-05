@@ -30,20 +30,34 @@ async function measurePingStable(
     for (let i = 0; i < SAMPLES; i++) {
         try {
             const response = await fetch('/api/ping')
+
+            if (!response.ok) {
+                throw new Error(`Ping failed: ${response.status}`)
+            }
+
             const data = await response.json()
+
+            if (!data.success) {
+                throw new Error(data.error || 'Ping error')
+            }
+
             const latency = data.latency
 
-            if (latency > 0.5 && latency < 2000) {
+            if (latency > 0.5 && latency < 5000) {
                 pings.push(latency)
                 onProgress?.(latency)
             }
         } catch (error) {
-            // Continuar
+            // Continuar intentando
         }
     }
 
+    if (pings.length === 0) {
+        throw new Error('No se pudo medir ping - todos los intentos fallaron')
+    }
+
     if (pings.length < 8) {
-        return { avg: 15, min: 10, max: 20, samples: [15] }
+        throw new Error(`Ping inestable: solo ${pings.length}/16 mediciones válidas`)
     }
 
     const sorted = [...pings].sort((a, b) => a - b)
@@ -72,23 +86,30 @@ async function measureDownloadStable(
 
         try {
             const response = await fetch(`/api/download-test?bytes=${size}`)
-            const data = await response.json()
 
             if (!response.ok) {
                 idx++
                 continue
             }
 
-            const speedMbps = data.speedMbps
-            const elapsed = (performance.now() - startTime) / 1000
-            const progress = (elapsed / 30) * 50
-            
-            onProgress?.(Math.min(15 + progress, 64), speedMbps)
+            const data = await response.json()
 
-            if (speedMbps > 0.5 && speedMbps < 500) {
+            if (!data || typeof data.speedMbps !== 'number') {
+                idx++
+                continue
+            }
+
+            const speedMbps = data.speedMbps
+
+            // Validar que es una medición REAL (no un fallback)
+            if (speedMbps > 0.5) {
+                const elapsed = (performance.now() - startTime) / 1000
+                const progress = (elapsed / 30) * 50
+
+                onProgress?.(Math.min(15 + progress, 64), speedMbps)
                 samples.push(speedMbps)
             }
-            
+
             idx++
         } catch (error) {
             idx++
@@ -97,7 +118,7 @@ async function measureDownloadStable(
     }
 
     if (samples.length === 0) {
-        throw new Error('No se pudo medir descarga')
+        throw new Error('No se pudo medir descarga - todos los intentos fallaron')
     }
 
     const sorted = [...samples].sort((a, b) => a - b)
@@ -142,16 +163,22 @@ async function measureUploadStable(
             }
 
             const data = await response.json()
-            const speedMbps = data.speedMbps
-            const elapsed = (performance.now() - startTime) / 1000
-            const progress = (elapsed / 30) * 30
-            
-            onProgress?.(Math.min(65 + progress, 94), speedMbps)
 
-            if (speedMbps > 0.5 && speedMbps < 500) {
+            if (!data || typeof data.speedMbps !== 'number') {
+                idx++
+                continue
+            }
+
+            const speedMbps = data.speedMbps
+
+            if (speedMbps > 0.5) {
+                const elapsed = (performance.now() - startTime) / 1000
+                const progress = (elapsed / 30) * 30
+
+                onProgress?.(Math.min(65 + progress, 94), speedMbps)
                 samples.push(speedMbps)
             }
-            
+
             idx++
         } catch (error) {
             idx++
@@ -160,7 +187,7 @@ async function measureUploadStable(
     }
 
     if (samples.length === 0) {
-        return { speed: 20, samples: [20] }
+        throw new Error('No se pudo medir subida - todos los intentos fallaron')
     }
 
     const sorted = [...samples].sort((a, b) => a - b)
@@ -176,7 +203,7 @@ export async function simulateSpeedTestStable(
     try {
         onProgress?.(0, 'Iniciando prueba...', { phase: 'ping' })
         onProgress?.(3, 'Midiendo latencia...', { phase: 'ping' })
-        
+
         const pingData = await measurePingStable((latency) => {
             const progress = 3 + ((latency % 10) * 0.3)
             onProgress?.(Math.min(progress, 14), `Ping: ${latency.toFixed(1)}ms`, {
@@ -184,14 +211,14 @@ export async function simulateSpeedTestStable(
                 currentSpeed: latency
             })
         })
-        
-        onProgress?.(15, `Ping: ${pingData.avg.toFixed(1)}ms`, { 
-            phase: 'ping', 
-            currentSpeed: pingData.avg 
+
+        onProgress?.(15, `Ping: ${pingData.avg.toFixed(1)}ms`, {
+            phase: 'ping',
+            currentSpeed: pingData.avg
         })
 
         onProgress?.(15, 'Descargando...', { phase: 'download' })
-        
+
         const downloadData = await measureDownloadStable((progress, speed) => {
             const progressValue = 15 + (progress * 0.5)
             onProgress?.(Math.min(progressValue, 64), `⬇️ ${speed.toFixed(1)} Mbps`, {
@@ -199,13 +226,13 @@ export async function simulateSpeedTestStable(
                 currentSpeed: speed
             })
         })
-        
-        onProgress?.(65, `Descarga: ${downloadData.speed.toFixed(1)} Mbps`, { 
-            phase: 'download' 
+
+        onProgress?.(65, `Descarga: ${downloadData.speed.toFixed(1)} Mbps`, {
+            phase: 'download'
         })
 
         onProgress?.(65, 'Subiendo...', { phase: 'upload' })
-        
+
         const uploadData = await measureUploadStable((progress, speed) => {
             const progressValue = 65 + (progress * 0.3)
             onProgress?.(Math.min(progressValue, 94), `⬆️ ${speed.toFixed(1)} Mbps`, {
@@ -213,9 +240,9 @@ export async function simulateSpeedTestStable(
                 currentSpeed: speed
             })
         })
-        
-        onProgress?.(95, `Subida: ${uploadData.speed.toFixed(1)} Mbps`, { 
-            phase: 'upload' 
+
+        onProgress?.(95, `Subida: ${uploadData.speed.toFixed(1)} Mbps`, {
+            phase: 'upload'
         })
 
         let avgJitter = 0
@@ -237,10 +264,10 @@ export async function simulateSpeedTestStable(
             maxPing: parseFloat(pingData.max.toFixed(1)),
             jitter: parseFloat(avgJitter.toFixed(1)),
             stability: parseFloat(stability.toFixed(1)),
-            minDownload: parseFloat((downloadData.speed * 0.9).toFixed(2)),
-            maxDownload: parseFloat((downloadData.speed * 1.1).toFixed(2)),
-            minUpload: parseFloat((uploadData.speed * 0.9).toFixed(2)),
-            maxUpload: parseFloat((uploadData.speed * 1.1).toFixed(2)),
+            minDownload: parseFloat(Math.min(...downloadData.samples).toFixed(2)),
+            maxDownload: parseFloat(Math.max(...downloadData.samples).toFixed(2)),
+            minUpload: parseFloat(Math.min(...uploadData.samples).toFixed(2)),
+            maxUpload: parseFloat(Math.max(...uploadData.samples).toFixed(2)),
             downloadSamples: downloadData.samples,
             uploadSamples: uploadData.samples,
             testDuration,

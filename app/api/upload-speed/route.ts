@@ -26,6 +26,9 @@ async function uploadWithRetry(blob: Blob, maxRetries: number = 2): Promise<{ by
                 throw new Error(`HTTP ${response.status}`)
             }
 
+            // Validar que Cloudflare recibió los datos
+            const responseData = await response.json().catch(() => ({}))
+
             return { bytes: blob.size, duration }
         } catch (error) {
             clearTimeout(timeout)
@@ -41,7 +44,7 @@ async function uploadWithRetry(blob: Blob, maxRetries: number = 2): Promise<{ by
 export async function POST(request: Request) {
     try {
         const blob = await request.blob()
-        
+
         if (blob.size < 100_000 || blob.size > 500_000_000) {
             return Response.json({ error: 'Invalid size' }, { status: 400 })
         }
@@ -52,7 +55,7 @@ export async function POST(request: Request) {
         return Response.json({
             bytes,
             duration,
-            speedMbps: Math.max(0.1, Math.min(speedMbps, 500))
+            speedMbps: speedMbps
         })
     } catch (error) {
         return Response.json(

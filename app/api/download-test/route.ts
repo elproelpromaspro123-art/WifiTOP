@@ -24,13 +24,13 @@ async function downloadWithRetry(size: number, maxRetries: number = 2): Promise<
 
             clearTimeout(timeout)
 
-            // Validar que se descargó correctamente
-            if (buffer.byteLength >= size * 0.98) {
+            // Validar que se descargó COMPLETAMENTE
+            if (buffer.byteLength === size) {
                 return { bytes: buffer.byteLength, duration }
             }
 
             if (attempt < maxRetries) continue
-            throw new Error(`Incomplete download: ${buffer.byteLength}/${size} bytes`)
+            throw new Error(`Incomplete download: ${buffer.byteLength}/${size} bytes (${((buffer.byteLength / size) * 100).toFixed(1)}%)`)
         } catch (error) {
             if (attempt === maxRetries) throw error
         }
@@ -55,7 +55,7 @@ export async function GET(request: Request) {
         return Response.json({
             bytes: downloadedBytes,
             duration,
-            speedMbps: Math.max(0.1, Math.min(speedMbps, 500))
+            speedMbps: speedMbps
         })
     } catch (error) {
         return Response.json(

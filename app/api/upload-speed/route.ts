@@ -4,7 +4,8 @@ async function uploadWithRetry(blob: Blob, maxRetries: number = 2): Promise<{ by
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         const start = performance.now()
         const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), Math.min(blob.size / 1_000_000 * 15000, 90000))
+        // Para 500MB a 1Mbps = 500s. Usar 10x el tiempo estimado, máximo 5 minutos
+        const timeout = setTimeout(() => controller.abort(), Math.min(blob.size / 1_000_000 * 15000, 300000))
 
         try {
             const response = await fetch('https://speed.cloudflare.com/__up', {
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
     try {
         const blob = await request.blob()
         
-        if (blob.size < 100_000 || blob.size > 200_000_000) {
+        if (blob.size < 100_000 || blob.size > 500_000_000) {
             return Response.json({ error: 'Invalid size' }, { status: 400 })
         }
 

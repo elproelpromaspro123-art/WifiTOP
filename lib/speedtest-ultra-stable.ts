@@ -61,48 +61,37 @@ async function measureDownloadStable(
     onProgress?: (progress: number, speed: number) => void
 ): Promise<{ speed: number; samples: number[] }> {
     const samples: number[] = []
-    const testConfigs = [
-        { size: 10_000_000, name: '10MB' },
-        { size: 25_000_000, name: '25MB' },
-        { size: 50_000_000, name: '50MB' },
-        { size: 100_000_000, name: '100MB' },
-    ]
+    const MIN_TEST_DURATION = 30000 // 30 segundos mínimo
+    const testSizes = [100_000_000, 200_000_000, 300_000_000, 400_000_000, 500_000_000]
 
     const startTime = performance.now()
-    let successCount = 0
+    let idx = 0
 
-    for (let idx = 0; idx < testConfigs.length; idx++) {
-        const config = testConfigs[idx]
-
-        if (performance.now() - startTime > 240000) {
-            break
-        }
+    while (performance.now() - startTime < MIN_TEST_DURATION && idx < testSizes.length) {
+        const size = testSizes[idx]
 
         try {
-            const response = await fetch(`/api/download-test?bytes=${config.size}`)
+            const response = await fetch(`/api/download-test?bytes=${size}`)
             const data = await response.json()
 
             if (!response.ok) {
+                idx++
                 continue
             }
 
             const speedMbps = data.speedMbps
-            onProgress?.(Math.min(20 + (idx / testConfigs.length) * 65, 85), speedMbps)
+            const elapsed = (performance.now() - startTime) / 1000
+            const progress = (elapsed / 30) * 50
+            
+            onProgress?.(Math.min(15 + progress, 64), speedMbps)
 
             if (speedMbps > 0.5 && speedMbps < 500) {
                 samples.push(speedMbps)
-                successCount++
-
-                if (successCount >= 2 && samples.length >= 2) {
-                    const lastTwo = samples.slice(-2)
-                    const diffPct = Math.abs(lastTwo[1] - lastTwo[0]) / lastTwo[0] * 100
-
-                    if (diffPct < 15) {
-                        break
-                    }
-                }
             }
+            
+            idx++
         } catch (error) {
+            idx++
             continue
         }
     }
@@ -120,28 +109,21 @@ async function measureUploadStable(
     onProgress?: (progress: number, speed: number) => void
 ): Promise<{ speed: number; samples: number[] }> {
     const samples: number[] = []
-    const uploadConfigs = [
-        { size: 10_000_000, name: '10MB' },
-        { size: 25_000_000, name: '25MB' },
-        { size: 50_000_000, name: '50MB' },
-    ]
+    const MIN_TEST_DURATION = 30000 // 30 segundos mínimo
+    const testSizes = [100_000_000, 200_000_000, 300_000_000, 400_000_000, 500_000_000]
 
     const startTime = performance.now()
-    let successCount = 0
+    let idx = 0
 
-    for (let idx = 0; idx < uploadConfigs.length; idx++) {
-        const config = uploadConfigs[idx]
-
-        if (performance.now() - startTime > 240000) {
-            break
-        }
+    while (performance.now() - startTime < MIN_TEST_DURATION && idx < testSizes.length) {
+        const size = testSizes[idx]
 
         try {
             const CRYPTO_MAX = 65536
             const chunks: BlobPart[] = []
 
-            for (let offset = 0; offset < config.size; offset += CRYPTO_MAX) {
-                const chunkSize = Math.min(CRYPTO_MAX, config.size - offset)
+            for (let offset = 0; offset < size; offset += CRYPTO_MAX) {
+                const chunkSize = Math.min(CRYPTO_MAX, size - offset)
                 const chunk = new Uint8Array(chunkSize)
                 crypto.getRandomValues(chunk)
                 chunks.push(chunk)
@@ -155,27 +137,24 @@ async function measureUploadStable(
             })
 
             if (!response.ok) {
+                idx++
                 continue
             }
 
             const data = await response.json()
             const speedMbps = data.speedMbps
+            const elapsed = (performance.now() - startTime) / 1000
+            const progress = (elapsed / 30) * 30
+            
+            onProgress?.(Math.min(65 + progress, 94), speedMbps)
 
             if (speedMbps > 0.5 && speedMbps < 500) {
                 samples.push(speedMbps)
-                successCount++
-                onProgress?.(Math.min(85 + (idx / uploadConfigs.length) * 12, 97), speedMbps)
-
-                if (successCount >= 2 && samples.length >= 2) {
-                    const lastTwo = samples.slice(-2)
-                    const diffPct = Math.abs(lastTwo[1] - lastTwo[0]) / lastTwo[0] * 100
-
-                    if (diffPct < 20) {
-                        break
-                    }
-                }
             }
+            
+            idx++
         } catch (error) {
+            idx++
             continue
         }
     }

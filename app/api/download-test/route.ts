@@ -5,7 +5,8 @@ async function downloadWithRetry(size: number, maxRetries: number = 2): Promise<
         try {
             const start = performance.now()
             const controller = new AbortController()
-            const timeout = setTimeout(() => controller.abort(), Math.min(size / 1_000_000 * 10000, 60000))
+            // Para 500MB a 1Mbps = 500s. Usar 10x el tiempo estimado, máximo 5 minutos
+            const timeout = setTimeout(() => controller.abort(), Math.min(size / 1_000_000 * 10000, 300000))
 
             const response = await fetch(`https://speed.cloudflare.com/__down?bytes=${size}`, {
                 cache: 'no-store',
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
     const bytes = searchParams.get('bytes') || '10000000'
     const size = parseInt(bytes)
 
-    if (size < 1_000_000 || size > 100_000_000) {
+    if (size < 1_000_000 || size > 500_000_000) {
         return Response.json({ error: 'Invalid size' }, { status: 400 })
     }
 

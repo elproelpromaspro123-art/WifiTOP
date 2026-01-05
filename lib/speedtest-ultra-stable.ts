@@ -195,30 +195,48 @@ export async function simulateSpeedTestStable(
     const testStartTime = performance.now()
 
     try {
-        onProgress?.(5, 'Midiendo latencia...', { phase: 'ping' })
+        onProgress?.(0, 'Iniciando prueba...', { phase: 'ping' })
+        onProgress?.(3, 'Midiendo latencia...', { phase: 'ping' })
+        
         const pingData = await measurePingStable((latency) => {
-            onProgress?.(5 + Math.random() * 5, `Ping: ${latency.toFixed(1)}ms`, {
+            const progress = 3 + ((latency % 10) * 0.3)
+            onProgress?.(Math.min(progress, 14), `Ping: ${latency.toFixed(1)}ms`, {
                 phase: 'ping',
                 currentSpeed: latency
             })
         })
-        onProgress?.(12, 'Ping completado. Midiendo descarga...', { phase: 'ping', currentSpeed: pingData.avg })
+        
+        onProgress?.(15, `Ping: ${pingData.avg.toFixed(1)}ms`, { 
+            phase: 'ping', 
+            currentSpeed: pingData.avg 
+        })
 
-        onProgress?.(15, 'Iniciando descarga...', { phase: 'download' })
+        onProgress?.(15, 'Descargando...', { phase: 'download' })
+        
         const downloadData = await measureDownloadStable((progress, speed) => {
-            onProgress?.(15 + progress * 0.7, `Descargando... ${speed.toFixed(1)} Mbps`, {
+            const progressValue = 15 + (progress * 0.5)
+            onProgress?.(Math.min(progressValue, 64), `⬇️ ${speed.toFixed(1)} Mbps`, {
                 phase: 'download',
                 currentSpeed: speed
             })
         })
-        onProgress?.(85, 'Descarga completada. Midiendo subida...', { phase: 'download' })
+        
+        onProgress?.(65, `Descarga: ${downloadData.speed.toFixed(1)} Mbps`, { 
+            phase: 'download' 
+        })
 
-        onProgress?.(85, 'Midiendo subida...', { phase: 'upload' })
+        onProgress?.(65, 'Subiendo...', { phase: 'upload' })
+        
         const uploadData = await measureUploadStable((progress, speed) => {
-            onProgress?.(85 + progress * 0.1, `Subiendo... ${speed.toFixed(1)} Mbps`, {
+            const progressValue = 65 + (progress * 0.3)
+            onProgress?.(Math.min(progressValue, 94), `⬆️ ${speed.toFixed(1)} Mbps`, {
                 phase: 'upload',
                 currentSpeed: speed
             })
+        })
+        
+        onProgress?.(95, `Subida: ${uploadData.speed.toFixed(1)} Mbps`, { 
+            phase: 'upload' 
         })
 
         let avgJitter = 0
@@ -226,7 +244,7 @@ export async function simulateSpeedTestStable(
             const jitters = pingData.samples
                 .slice(1)
                 .map((p, i) => Math.abs(p - pingData.samples[i]))
-            avgJitter = jitters.reduce((a, b) => a + b) / jitters.length
+            avgJitter = jitters.reduce((a, b) => a + b, 0) / jitters.length
         }
 
         const stability = Math.max(0, Math.min(100, 100 - avgJitter * 3))
@@ -250,7 +268,7 @@ export async function simulateSpeedTestStable(
             precision: downloadData.samples.length >= 4 ? 'high' : 'medium'
         }
 
-        onProgress?.(100, `Prueba completada en ${testDuration.toFixed(1)}s`, { phase: 'complete' })
+        onProgress?.(100, 'Prueba completada', { phase: 'complete' })
         return result
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Error desconocido'

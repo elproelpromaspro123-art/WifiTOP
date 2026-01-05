@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useMemo } from 'react'
 import { motion } from 'framer-motion'
 
 interface DataPoint {
@@ -24,6 +24,14 @@ export default function SpeedChartLive({
     height = 150
 }: SpeedChartLiveProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null)
+    
+    const stats = useMemo(() => {
+        if (data.length < 1) return { minVal: 0, maxVal: 100, range: 100 }
+        const values = data.map(d => d.value)
+        const minVal = Math.min(...values)
+        const maxVal = Math.max(...values)
+        return { minVal, maxVal, range: maxVal - minVal || 1 }
+    }, [data])
 
     useEffect(() => {
         const canvas = canvasRef.current
@@ -33,19 +41,16 @@ export default function SpeedChartLive({
         if (!ctx) return
 
         // Configurar resolución
-        canvas.width = canvas.offsetWidth * 2
+        const canvasWidth = canvas.offsetWidth
+        canvas.width = canvasWidth * 2
         canvas.height = height * 2
         ctx.scale(2, 2)
 
         // Limpiar
         ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'
-        ctx.fillRect(0, 0, canvas.width / 2, height)
+        ctx.fillRect(0, 0, canvasWidth, height)
 
-        // Encontrar min/max
-        const values = data.map(d => d.value)
-        const minVal = Math.min(...values)
-        const maxVal = Math.max(...values)
-        const range = maxVal - minVal || 1
+        const { minVal, maxVal, range } = stats
 
         // Dibujar línea
         ctx.strokeStyle = color
@@ -53,7 +58,7 @@ export default function SpeedChartLive({
         ctx.beginPath()
 
         data.forEach((point, i) => {
-            const x = (i / (data.length - 1)) * (canvas.width / 2)
+            const x = (i / (data.length - 1)) * canvasWidth
             const y = height - ((point.value - minVal) / range) * (height * 0.8) - 10
 
             if (i === 0) {
@@ -65,24 +70,26 @@ export default function SpeedChartLive({
 
         ctx.stroke()
 
-        // Dibujar puntos
-        ctx.fillStyle = color
-        data.forEach((point, i) => {
-            const x = (i / (data.length - 1)) * (canvas.width / 2)
-            const y = height - ((point.value - minVal) / range) * (height * 0.8) - 10
+        // Dibujar puntos solo si son pocos
+        if (data.length <= 20) {
+            ctx.fillStyle = color
+            data.forEach((point, i) => {
+                const x = (i / (data.length - 1)) * canvasWidth
+                const y = height - ((point.value - minVal) / range) * (height * 0.8) - 10
 
-            ctx.beginPath()
-            ctx.arc(x, y, 2, 0, Math.PI * 2)
-            ctx.fill()
-        })
+                ctx.beginPath()
+                ctx.arc(x, y, 2, 0, Math.PI * 2)
+                ctx.fill()
+            })
+        }
 
         // Texto de valores
         ctx.fillStyle = 'rgba(200, 200, 200, 0.6)'
         ctx.font = '10px sans-serif'
         ctx.textAlign = 'right'
-        ctx.fillText(`Max: ${maxVal.toFixed(1)} ${unit}`, canvas.width / 2 - 5, 15)
-        ctx.fillText(`Min: ${minVal.toFixed(1)} ${unit}`, canvas.width / 2 - 5, 28)
-    }, [data, color, unit, height])
+        ctx.fillText(`Max: ${maxVal.toFixed(1)} ${unit}`, canvasWidth - 5, 15)
+        ctx.fillText(`Min: ${minVal.toFixed(1)} ${unit}`, canvasWidth - 5, 28)
+    }, [data, color, unit, height, stats])
 
     return (
         <motion.div

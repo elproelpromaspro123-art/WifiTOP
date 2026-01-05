@@ -1,22 +1,46 @@
 export const runtime = 'nodejs'
 
-export async function GET() {
-    const start = Date.now()
+async function measureLatency(): Promise<number> {
+    const samples: number[] = []
     
-    try {
-        const response = await fetch('https://speed.cloudflare.com/api/timing', {
-            method: 'GET',
-            cache: 'no-store'
-        })
-        
-        const latency = Date.now() - start
-        
-        if (!response.ok) {
-            return Response.json({ latency: latency > 0 ? latency : 10 })
+    for (let i = 0; i < 3; i++) {
+        const start = performance.now()
+        try {
+            await fetch('https://1.1.1.1/', {
+                method: 'HEAD',
+                cache: 'no-store',
+                signal: AbortSignal.timeout(2000)
+            }).catch(() => { })
+            
+            const latency = performance.now() - start
+            if (latency > 0 && latency < 500) {
+                samples.push(latency)
+            }
+        } catch (e) {
+            // Continue
         }
-        
-        return Response.json({ latency })
-    } catch (error) {
-        return Response.json({ latency: 20 })
     }
+    
+    if (samples.length === 0) {
+        const start = performance.now()
+        try {
+            const response = await fetch('https://speed.cloudflare.com/api/timing', {
+                method: 'GET',
+                cache: 'no-store',
+                signal: AbortSignal.timeout(2000)
+            })
+            
+            const latency = performance.now() - start
+            return latency > 0 ? latency : 10
+        } catch (e) {
+            return 15
+        }
+    }
+    
+    return Math.min(...samples)
+}
+
+export async function GET() {
+    const latency = await measureLatency()
+    return Response.json({ latency: Math.round(latency * 10) / 10 })
 }

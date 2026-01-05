@@ -1,36 +1,61 @@
 export const runtime = 'nodejs'
 
-export async function POST(request: Request) {
-    const start = Date.now()
+async function uploadWithRetry(blob: Blob, maxRetries: number = 2): Promise<{ bytes: number; duration: number }> {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        const start = performance.now()
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), Math.min(blob.size / 1_000_000 * 15000, 90000))
 
+        try {
+            const response = await fetch('https://speed.cloudflare.com/__up', {
+                method: 'POST',
+                body: blob,
+                signal: controller.signal,
+                headers: {
+                    'Content-Type': 'application/octet-stream',
+                    'Content-Length': blob.size.toString()
+                }
+            })
+
+            clearTimeout(timeout)
+            const duration = (performance.now() - start) / 1000
+
+            if (!response.ok) {
+                if (attempt < maxRetries) continue
+                throw new Error(`HTTP ${response.status}`)
+            }
+
+            return { bytes: blob.size, duration }
+        } catch (error) {
+            clearTimeout(timeout)
+            if (attempt === maxRetries) throw error
+            // Exponential backoff before retry
+            await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 500))
+        }
+    }
+
+    throw new Error('Upload failed after retries')
+}
+
+export async function POST(request: Request) {
     try {
         const blob = await request.blob()
-        const size = blob.size
-
-        const response = await fetch('https://speed.cloudflare.com/__up', {
-            method: 'POST',
-            body: blob,
-            headers: {
-                'Content-Type': 'application/octet-stream'
-            }
-        })
-
-        const duration = (Date.now() - start) / 1000
-
-        if (!response.ok) {
-            return Response.json({ error: 'Upload failed' }, { status: 400 })
+        
+        if (blob.size < 100_000 || blob.size > 200_000_000) {
+            return Response.json({ error: 'Invalid size' }, { status: 400 })
         }
 
-        const speedMbps = (size * 8) / duration / 1024 / 1024
+        const { bytes, duration } = await uploadWithRetry(blob)
+        const speedMbps = (bytes * 8) / duration / 1024 / 1024
 
         return Response.json({
-            bytes: size,
+            bytes,
             duration,
-            speedMbps
+            speedMbps: Math.max(0.1, Math.min(speedMbps, 500))
         })
     } catch (error) {
         return Response.json(
-            { error: error instanceof Error ? error.message : 'Unknown error' },
+            { error: error instanceof Error ? error.message : 'Upload failed' },
             { status: 500 }
         )
     }

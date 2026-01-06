@@ -169,17 +169,35 @@ async function measureUploadStable(
 
         try {
             console.log(`[SPEEDTEST] Subiendo ${size / 1_000_000}MB...`)
-            const CRYPTO_MAX = 65536
-            const chunks: BlobPart[] = []
+            
+            // Generar datos de forma no bloqueante
+            const blob = await new Promise<Blob>((resolve) => {
+                const CRYPTO_MAX = 65536
+                const chunks: Uint8Array[] = []
+                let offset = 0
 
-            for (let offset = 0; offset < size; offset += CRYPTO_MAX) {
-                const chunkSize = Math.min(CRYPTO_MAX, size - offset)
-                const chunk = new Uint8Array(chunkSize)
-                crypto.getRandomValues(chunk)
-                chunks.push(chunk)
-            }
+                const generateChunk = () => {
+                    if (offset >= size) {
+                        resolve(new Blob(chunks))
+                        return
+                    }
 
-            const blob = new Blob(chunks as BlobPart[])
+                    const chunkSize = Math.min(CRYPTO_MAX, size - offset)
+                    const chunk = new Uint8Array(chunkSize)
+                    crypto.getRandomValues(chunk)
+                    chunks.push(chunk)
+                    offset += chunkSize
+
+                    // Yield to event loop every 1MB
+                    if (offset % 1_000_000 === 0) {
+                        setTimeout(generateChunk, 0)
+                    } else {
+                        generateChunk()
+                    }
+                }
+
+                generateChunk()
+            })
 
             const response = await fetch('/api/upload-speed', {
                 method: 'POST',
@@ -204,7 +222,8 @@ async function measureUploadStable(
 
             // VALIDACIÓN INTELIGENTE: detectar outliers anómalos
             // Si descarga fue ~90Mbps y subida sale como 167Mbps, probablemente sea error de servidor
-            if (expectedDownloadSpeed && speedMbps > expectedDownloadSpeed * 1.5) {
+            // Usar threshold más estricto: 1.3x en lugar de 1.5x
+            if (expectedDownloadSpeed && speedMbps > expectedDownloadSpeed * 1.3) {
                 console.warn(
                     `[SPEEDTEST] ⚠️ Subida anómala detectada: ${speedMbps.toFixed(2)} Mbps vs descarga ${expectedDownloadSpeed.toFixed(2)} Mbps (descartando)`
                 )
@@ -238,6 +257,11 @@ async function measureUploadStable(
     if (samples.length === 0) {
         console.error('[SPEEDTEST] NO se pudo medir subida')
         throw new Error('No se pudo medir subida - todos los intentos fallaron')
+    }
+
+    if (samples.length < 2) {
+        console.error('[SPEEDTEST] Subida insuficiente:', samples.length, 'muestra(s)')
+        throw new Error(`Subida inestable: solo ${samples.length} medición(es) válida(s)`)
     }
 
     const sorted = [...samples].sort((a, b) => a - b)

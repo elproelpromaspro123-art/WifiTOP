@@ -146,11 +146,12 @@ async function measureDownloadStable(
 }
 
 async function measureUploadStable(
-    onProgress?: (progress: number, speed: number) => void
+    onProgress?: (progress: number, speed: number) => void,
+    expectedDownloadSpeed?: number
 ): Promise<{ speed: number; samples: number[] }> {
     const samples: number[] = []
     const MIN_TEST_DURATION = 30000 // 30 segundos mínimo
-    const testSizes = [50_000_000, 75_000_000, 100_000_000] // Max 100MB
+    const testSizes = [25_000_000, 40_000_000, 60_000_000] // 25-60MB (más pequeño que descarga)
 
     const startTime = performance.now()
     let idx = 0
@@ -199,7 +200,18 @@ async function measureUploadStable(
                 continue
             }
 
-            const speedMbps = data.speedMbps
+            let speedMbps = data.speedMbps
+
+            // VALIDACIÓN INTELIGENTE: detectar outliers anómalos
+            // Si descarga fue ~90Mbps y subida sale como 167Mbps, probablemente sea error de servidor
+            if (expectedDownloadSpeed && speedMbps > expectedDownloadSpeed * 1.5) {
+                console.warn(
+                    `[SPEEDTEST] ⚠️ Subida anómala detectada: ${speedMbps.toFixed(2)} Mbps vs descarga ${expectedDownloadSpeed.toFixed(2)} Mbps (descartando)`
+                )
+                idx++
+                continue // Descartar medición anómala, reintentar
+            }
+
             console.log(`[SPEEDTEST] Subida ${size / 1_000_000}MB = ${speedMbps.toFixed(2)} Mbps`)
 
             if (speedMbps > 0.5) {
@@ -280,13 +292,16 @@ export async function simulateSpeedTestStable(
         console.log('[SPEEDTEST] FASE 3: SUBIDA')
         onProgress?.(65, 'Subiendo...', { phase: 'upload' })
 
-        const uploadData = await measureUploadStable((progress, speed) => {
-            const progressValue = 65 + (progress * 0.3)
-            onProgress?.(Math.min(progressValue, 94), `⬆️ ${speed.toFixed(1)} Mbps`, {
-                phase: 'upload',
-                currentSpeed: speed
-            })
-        })
+        const uploadData = await measureUploadStable(
+            (progress, speed) => {
+                const progressValue = 65 + (progress * 0.3)
+                onProgress?.(Math.min(progressValue, 94), `⬆️ ${speed.toFixed(1)} Mbps`, {
+                    phase: 'upload',
+                    currentSpeed: speed
+                })
+            },
+            downloadData.speed // Pasar descarga para validar outliers
+        )
 
         console.log('[SPEEDTEST] SUBIDA completada:', uploadData.speed, 'Mbps')
 

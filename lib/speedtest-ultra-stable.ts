@@ -374,8 +374,3 @@ export async function simulateSpeedTestStable(
         throw new Error(message)
     }
 }
-
-// Compatibility aliases
-export const simulateSpeedTestPrecision = simulateSpeedTestStable
-export const simulateSpeedTestImproved = simulateSpeedTestStable
-export const simulateSpeedTestReal = simulateSpeedTestStable

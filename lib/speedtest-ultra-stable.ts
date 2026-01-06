@@ -173,7 +173,7 @@ async function measureUploadStable(
             // Generar datos de forma no bloqueante
             const blob = await new Promise<Blob>((resolve) => {
                 const CRYPTO_MAX = 65536
-                const chunks: Uint8Array[] = []
+                const chunks: BlobPart[] = []
                 let offset = 0
 
                 const generateChunk = () => {

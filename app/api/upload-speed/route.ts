@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     try {
         const blob = await request.blob()
 
-        if (blob.size < 100_000 || blob.size > 500_000_000) {
+        if (blob.size < 100_000 || blob.size > 100_000_000) {
             return Response.json({ error: 'Invalid size' }, { status: 400 })
         }
 

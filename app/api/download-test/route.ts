@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     const bytes = searchParams.get('bytes') || '10000000'
     const size = parseInt(bytes)
 
-    if (size < 1_000_000 || size > 500_000_000) {
+    if (size < 1_000_000 || size > 100_000_000) {
         return Response.json({ error: 'Invalid size' }, { status: 400 })
     }
 

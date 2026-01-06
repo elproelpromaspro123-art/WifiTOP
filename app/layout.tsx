@@ -6,16 +6,18 @@ const siteName = process.env.NEXT_PUBLIC_SITE_NAME || 'WifiTOP'
 
 export const metadata: Metadata = {
     title: `${siteName} - Presume tu velocidad de WiFi`,
-    description: '🚀 Speedtest ultra preciso con ranking global de 10,000+ usuarios. Mide descarga, subida, ping y jitter. Desbloquea badges exclusivos y demuestra que tienes la mejor conexión.',
+    description: 'Speedtest ultra preciso con ranking global de 10,000+ usuarios. Mide descarga, subida, ping y jitter. Desbloquea badges exclusivos y demuestra que tienes la mejor conexión.',
     keywords: ['speedtest', 'wifi', 'velocidad', 'internet', 'ranking', 'speed test', 'internet speed', 'connection test'],
     authors: [{ name: 'WifiTOP Team' }],
+    creator: 'WifiTOP Team',
+    publisher: 'WifiTOP',
     openGraph: {
         type: 'website',
         locale: 'es_ES',
         url: siteUrl,
         siteName: siteName,
-        title: `${siteName} - 🚀 Presume tu velocidad de WiFi`,
-        description: '⚡ Speedtest ultra preciso con ranking global. Mide descarga, subida, ping y jitter. ¡Compite con 10,000+ usuarios!',
+        title: `${siteName} - Presume tu velocidad de WiFi`,
+        description: 'Speedtest ultra preciso con ranking global. Mide descarga, subida, ping y jitter. Compite con 10,000+ usuarios.',
         images: [
             {
                 url: `${siteUrl}/og-image.png`,
@@ -27,11 +29,12 @@ export const metadata: Metadata = {
     },
     twitter: {
         card: 'summary_large_image',
-        title: `${siteName} - Presume tu velocidad de WiFi 🚀`,
-        description: '⚡ Speedtest ultra preciso. Mide descarga, subida, ping, jitter. Ranking global de 10,000+ usuarios.',
+        title: `${siteName} - Presume tu velocidad de WiFi`,
+        description: 'Speedtest ultra preciso. Mide descarga, subida, ping, jitter. Ranking global de 10,000+ usuarios.',
         images: [`${siteUrl}/og-image.png`],
         creator: '@WifiTOP',
     },
+    category: 'Technology',
     robots: 'index, follow',
 }
 

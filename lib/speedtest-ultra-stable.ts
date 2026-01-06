@@ -82,22 +82,17 @@ async function measureDownloadStable(
     let idx = 0
     let lastReportTime = startTime
 
-    console.log('[SPEEDTEST] Iniciando descarga con tamaños:', testSizes)
-
     while (performance.now() - startTime < MIN_TEST_DURATION && idx < testSizes.length) {
         const size = testSizes[idx]
 
         if (performance.now() - startTime > 240000) {
-            console.log('[SPEEDTEST] Timeout global en descarga')
             break
         }
 
         try {
-            console.log(`[SPEEDTEST] Descargando ${size / 1_000_000}MB...`)
             const response = await fetch(`/api/download-test?bytes=${size}`)
 
             if (!response.ok) {
-                console.warn(`[SPEEDTEST] Error descarga: HTTP ${response.status}`)
                 idx++
                 continue
             }
@@ -105,13 +100,11 @@ async function measureDownloadStable(
             const data = await response.json()
 
             if (!data || typeof data.speedMbps !== 'number') {
-                console.warn('[SPEEDTEST] Respuesta inválida descarga')
                 idx++
                 continue
             }
 
             const speedMbps = data.speedMbps
-            console.log(`[SPEEDTEST] Descarga ${size / 1_000_000}MB = ${speedMbps.toFixed(2)} Mbps`)
 
             if (speedMbps > 0.5) {
                 const elapsed = (performance.now() - startTime) / 1000
@@ -127,21 +120,18 @@ async function measureDownloadStable(
 
             idx++
         } catch (error) {
-            console.error('[SPEEDTEST] Error descarga:', error)
             idx++
-            await new Promise(r => setTimeout(r, 1000)) // Esperar antes de reintentar
+            await new Promise(r => setTimeout(r, 1000))
             continue
         }
     }
 
     if (samples.length === 0) {
-        console.error('[SPEEDTEST] NO se pudo medir descarga')
         throw new Error('No se pudo medir descarga - todos los intentos fallaron')
     }
 
     const sorted = [...samples].sort((a, b) => a - b)
     const median = sorted[Math.floor(sorted.length / 2)]
-    console.log('[SPEEDTEST] Descarga finalizada:', { samples, median })
     return { speed: median, samples }
 }
 
@@ -157,19 +147,15 @@ async function measureUploadStable(
     let idx = 0
     let lastReportTime = startTime
 
-    console.log('[SPEEDTEST] Iniciando subida con tamaños:', testSizes)
-
     while (performance.now() - startTime < MIN_TEST_DURATION && idx < testSizes.length) {
         const size = testSizes[idx]
 
         if (performance.now() - startTime > 240000) {
-            console.log('[SPEEDTEST] Timeout global en subida')
             break
         }
 
         try {
-            console.log(`[SPEEDTEST] Subiendo ${size / 1_000_000}MB...`)
-            
+
             // Generar datos de forma no bloqueante
             const blob = await new Promise<Blob>((resolve) => {
                 const CRYPTO_MAX = 65536
@@ -205,7 +191,6 @@ async function measureUploadStable(
             })
 
             if (!response.ok) {
-                console.warn(`[SPEEDTEST] Error subida: HTTP ${response.status}`)
                 idx++
                 continue
             }
@@ -213,25 +198,16 @@ async function measureUploadStable(
             const data = await response.json()
 
             if (!data || typeof data.speedMbps !== 'number') {
-                console.warn('[SPEEDTEST] Respuesta inválida subida')
                 idx++
                 continue
             }
 
             let speedMbps = data.speedMbps
 
-            // VALIDACIÓN INTELIGENTE: detectar outliers anómalos
-            // Si descarga fue ~90Mbps y subida sale como 167Mbps, probablemente sea error de servidor
-            // Usar threshold más estricto: 1.3x en lugar de 1.5x
             if (expectedDownloadSpeed && speedMbps > expectedDownloadSpeed * 1.3) {
-                console.warn(
-                    `[SPEEDTEST] ⚠️ Subida anómala detectada: ${speedMbps.toFixed(2)} Mbps vs descarga ${expectedDownloadSpeed.toFixed(2)} Mbps (descartando)`
-                )
                 idx++
-                continue // Descartar medición anómala, reintentar
+                continue
             }
-
-            console.log(`[SPEEDTEST] Subida ${size / 1_000_000}MB = ${speedMbps.toFixed(2)} Mbps`)
 
             if (speedMbps > 0.5) {
                 const elapsed = (performance.now() - startTime) / 1000
@@ -247,7 +223,6 @@ async function measureUploadStable(
 
             idx++
         } catch (error) {
-            console.error('[SPEEDTEST] Error subida:', error)
             idx++
             await new Promise(r => setTimeout(r, 1000))
             continue
@@ -255,12 +230,10 @@ async function measureUploadStable(
     }
 
     if (samples.length === 0) {
-        console.error('[SPEEDTEST] NO se pudo medir subida')
         throw new Error('No se pudo medir subida - todos los intentos fallaron')
     }
 
     if (samples.length < 2) {
-        console.error('[SPEEDTEST] Subida insuficiente:', samples.length, 'muestra(s)')
         throw new Error(`Subida inestable: solo ${samples.length} medición(es) válida(s)`)
     }
 
@@ -274,10 +247,7 @@ export async function simulateSpeedTestStable(
 ): Promise<SpeedTestResult> {
     const testStartTime = performance.now()
 
-    console.log('[SPEEDTEST] ========== INICIANDO PRUEBA ==========')
-
     try {
-        console.log('[SPEEDTEST] FASE 1: PING')
         onProgress?.(0, 'Iniciando prueba...', { phase: 'ping' })
         onProgress?.(3, 'Midiendo latencia...', { phase: 'ping' })
 
@@ -289,14 +259,11 @@ export async function simulateSpeedTestStable(
             })
         })
 
-        console.log('[SPEEDTEST] PING completado:', pingData.avg, 'ms')
-
         onProgress?.(15, `Ping: ${pingData.avg.toFixed(1)}ms`, {
             phase: 'ping',
             currentSpeed: pingData.avg
         })
 
-        console.log('[SPEEDTEST] FASE 2: DESCARGA')
         onProgress?.(15, 'Descargando...', { phase: 'download' })
 
         const downloadData = await measureDownloadStable((progress, speed) => {
@@ -307,13 +274,10 @@ export async function simulateSpeedTestStable(
             })
         })
 
-        console.log('[SPEEDTEST] DESCARGA completada:', downloadData.speed, 'Mbps')
-
         onProgress?.(65, `Descarga: ${downloadData.speed.toFixed(1)} Mbps`, {
             phase: 'download'
         })
 
-        console.log('[SPEEDTEST] FASE 3: SUBIDA')
         onProgress?.(65, 'Subiendo...', { phase: 'upload' })
 
         const uploadData = await measureUploadStable(
@@ -324,10 +288,8 @@ export async function simulateSpeedTestStable(
                     currentSpeed: speed
                 })
             },
-            downloadData.speed // Pasar descarga para validar outliers
+            downloadData.speed
         )
-
-        console.log('[SPEEDTEST] SUBIDA completada:', uploadData.speed, 'Mbps')
 
         onProgress?.(95, `Subida: ${uploadData.speed.toFixed(1)} Mbps`, {
             phase: 'upload'
@@ -362,15 +324,10 @@ export async function simulateSpeedTestStable(
             precision: downloadData.samples.length >= 4 ? 'high' : 'medium'
         }
 
-        console.log('[SPEEDTEST] ========== PRUEBA COMPLETADA ==========')
-        console.log('[SPEEDTEST] RESULTADOS:', result)
-        console.log('[SPEEDTEST] Duración total:', testDuration, 'segundos')
-
         onProgress?.(100, 'Prueba completada', { phase: 'complete' })
         return result
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Error desconocido'
-        console.error('[SPEEDTEST] ❌ ERROR:', message)
         throw new Error(message)
     }
 }

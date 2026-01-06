@@ -6,14 +6,10 @@ const pool = new Pool({
 })
 
 export async function query<T extends QueryResultRow = any>(text: string, params?: any[]): Promise<QueryResult<T>> {
-  const start = Date.now()
   try {
     const result = await pool.query<T>(text, params)
-    const duration = Date.now() - start
-    console.log('Executed query', { text, duration, rows: result.rowCount })
     return result
   } catch (error) {
-    console.error('Database error:', error)
     throw error
   }
 }
@@ -72,9 +68,7 @@ export async function initializeDatabase() {
       ON rate_limits(last_request)
     `)
 
-    console.log('Database initialized successfully')
   } catch (error) {
-    console.error('Failed to initialize database:', error)
     throw error
   }
 }

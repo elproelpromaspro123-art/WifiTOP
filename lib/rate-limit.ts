@@ -14,7 +14,7 @@ if (typeof global !== 'undefined') {
         [oneHourAgo]
       )
     } catch (error) {
-      console.error('Rate limit cleanup error:', error)
+      // Silently handle cleanup errors
     }
   }, CLEANUP_INTERVAL)
 
@@ -81,8 +81,6 @@ export async function checkRateLimit(
 
     return { allowed: true }
   } catch (error) {
-    console.error('Rate limit check error:', error)
-    // En caso de error, permitir el request para no bloquear
     return { allowed: true }
   }
 }

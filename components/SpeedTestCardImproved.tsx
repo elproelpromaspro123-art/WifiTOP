@@ -242,7 +242,6 @@ export default function SpeedTestCardImproved({ onTestComplete }: SpeedTestCardP
 
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
-            console.error('Error en prueba:', error)
             setError(errorMsg)
             setTesting(false)
         }

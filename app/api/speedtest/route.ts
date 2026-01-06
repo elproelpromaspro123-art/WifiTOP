@@ -46,9 +46,8 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        const { userName } = body
+        const { userName, testResult } = body
 
-        // Validar solo que el nombre no esté vacío
         if (!userName || !userName.trim()) {
             return NextResponse.json(
                 { error: 'El nombre es requerido' },
@@ -56,8 +55,14 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // Resultado viene del cliente (speedtest.js real)
-        const testResult = body.testResult
+        // Validar nombre
+        const userNameValidation = validateUserName(userName)
+        if (!userNameValidation.valid) {
+            return NextResponse.json(
+                { error: userNameValidation.error },
+                { status: 400 }
+            )
+        }
 
         if (!testResult) {
             return NextResponse.json(
@@ -92,7 +97,6 @@ export async function POST(request: NextRequest) {
         // Detectar anomalías y fraude
         const anomalyDetection = detectAnomalies(result)
         if (anomalyDetection.anomaly && (anomalyDetection.confidence || 0) > 70) {
-            console.warn(`Anomalía detectada para IP ${ip}:`, anomalyDetection)
             return NextResponse.json(
                 { error: 'Resultado sospechoso detectado. Por favor intenta de nuevo.' },
                 { status: 400 }
@@ -203,7 +207,6 @@ export async function POST(request: NextRequest) {
             { status: 200 }
         )
     } catch (error) {
-        console.error('Speed test error:', error)
         return NextResponse.json(
             { error: 'Error al procesar la prueba de velocidad' },
             { status: 500 }

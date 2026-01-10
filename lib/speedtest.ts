@@ -32,9 +32,15 @@ export interface SpeedTestProgress {
 
 type ProgressCallback = (progress: SpeedTestProgress) => void
 
-// Cloudflare CDN endpoints for speed testing
+// Internal proxy endpoints to avoid CORS issues
+const INTERNAL_ENDPOINTS = {
+  download: '/api/speedtest/download-proxy?bytes=',
+  upload: '/api/speedtest/upload-proxy',
+  ping: '/api/ping',
+}
+
+// Cloudflare CDN endpoints for speed testing (fallback)
 const CLOUDFLARE_ENDPOINTS = {
-  // Cloudflare speed test endpoints - these are specifically designed for speed testing
   download: [
     'https://speed.cloudflare.com/__down?bytes=',
     'https://cloudflare.com/cdn-cgi/trace',
@@ -55,25 +61,27 @@ const CONFIG = {
   PING_SAMPLES: 20,
   PING_WARMUP: 3,
   PARALLEL_CONNECTIONS: 8, // Increased for better utilization
-  DOWNLOAD_DURATION: 30000, // Increased to 30s for accurate measurements
-  UPLOAD_DURATION: 30000,   // Increased to 30s for accurate measurements
+  DOWNLOAD_DURATION: 30000, // Time-based measurement (30s)
+  UPLOAD_DURATION: 30000,   // Time-based measurement (30s)
   WARMUP_DURATION: 3000,
   MIN_SAMPLES: 5,
-  // Chunk sizes optimized for ultra high-speed connections (Gigabit+)
+  // Virtual chunk sizes - don't need to fully download/upload
+  // Just need to stream for the duration specified
+  // Set to 10GB to simulate large downloads without actually transferring
   DOWNLOAD_SIZES: [
-    1_000_000,     // 1MB - warmup
-    10_000_000,    // 10MB
-    25_000_000,    // 25MB
-    50_000_000,    // 50MB
-    100_000_000,   // 100MB
-    250_000_000,   // 250MB - for multi-gigabit
+    1_000_000_000,     // 1GB - warmup
+    10_000_000_000,    // 10GB - main test (virtual, time-limited)
+    10_000_000_000,    // 10GB 
+    10_000_000_000,    // 10GB
+    10_000_000_000,    // 10GB
+    10_000_000_000,    // 10GB - for multi-gigabit
   ],
   UPLOAD_SIZES: [
-    100_000,       // 100KB - warmup
-    1_000_000,     // 1MB
-    5_000_000,     // 5MB
-    10_000_000,    // 10MB
-    25_000_000,    // 25MB
+    100_000_000,       // 100MB - warmup
+    10_000_000_000,    // 10GB - main test (virtual, time-limited)
+    10_000_000_000,    // 10GB
+    10_000_000_000,    // 10GB
+    10_000_000_000,    // 10GB
   ],
 }
 
@@ -234,9 +242,10 @@ function selectUploadSize(currentSpeedMbps: number): number {
   return CONFIG.UPLOAD_SIZES[4]
 }
 
-// Download a chunk from Cloudflare and measure speed
+// Download a chunk from internal proxy (avoids CORS)
+// Uses time-based measurement, not size-based (stops after duration, not after bytes)
 async function downloadChunk(bytes: number, signal: AbortSignal): Promise<number> {
-  const url = `${CLOUDFLARE_ENDPOINTS.download[0]}${bytes}`
+  const url = `${INTERNAL_ENDPOINTS.download}${bytes}`
   const start = performance.now()
   
   try {
@@ -251,22 +260,26 @@ async function downloadChunk(bytes: number, signal: AbortSignal): Promise<number
       return 0
     }
     
-    // Read the entire response
+    // Read stream - will be limited by the AbortSignal timer
     const reader = response.body?.getReader()
     if (!reader) return 0
     
     let totalBytes = 0
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      totalBytes += value?.length || 0
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        totalBytes += value?.length || 0
+      }
+    } finally {
+      reader.releaseLock()
     }
     
     const duration = (performance.now() - start) / 1000
     if (duration < 0.05) return 0
     
     const speedMbps = (totalBytes * 8) / duration / 1_000_000
-    log('DOWNLOAD', `Chunk ${(bytes / 1_000_000).toFixed(1)}MB: ${speedMbps.toFixed(2)} Mbps in ${duration.toFixed(2)}s`)
+    log('DOWNLOAD', `Chunk ${(bytes / 1_000_000_000).toFixed(1)}GB: ${speedMbps.toFixed(2)} Mbps in ${duration.toFixed(2)}s`)
     
     return speedMbps
   } catch (e) {
@@ -277,18 +290,38 @@ async function downloadChunk(bytes: number, signal: AbortSignal): Promise<number
   }
 }
 
-// Upload data to Cloudflare and measure speed
+// Upload data to internal proxy (avoids CORS from Cloudflare)
+// Uses time-based streaming, not size-based (stops after duration)
 async function uploadChunk(bytes: number, signal: AbortSignal): Promise<number> {
   const start = performance.now()
   
   try {
-    // Create random data to prevent compression
-    const data = new Uint8Array(bytes)
-    crypto.getRandomValues(new Uint8Array(data.buffer, 0, Math.min(bytes, 65536)))
+    // Create generator that produces random data in chunks
+    // This avoids creating massive arrays in memory
+    const chunkSize = 65536 // 64KB chunks
+    let sent = 0
     
-    const response = await fetch(CLOUDFLARE_ENDPOINTS.upload, {
+    const readable = new ReadableStream({
+      start(controller) {
+        const interval = setInterval(() => {
+          // Create 64KB of random data
+          const chunk = new Uint8Array(Math.min(chunkSize, bytes - sent))
+          crypto.getRandomValues(chunk)
+          controller.enqueue(chunk)
+          sent += chunk.length
+          
+          // Stop when we've sent enough or time limit reached
+          if (sent >= bytes) {
+            clearInterval(interval)
+            controller.close()
+          }
+        }, 5) // Send every 5ms
+      }
+    })
+    
+    const response = await fetch(INTERNAL_ENDPOINTS.upload, {
       method: 'POST',
-      body: data,
+      body: readable,
       mode: 'cors',
       signal,
       headers: {
@@ -304,8 +337,8 @@ async function uploadChunk(bytes: number, signal: AbortSignal): Promise<number> 
     const duration = (performance.now() - start) / 1000
     if (duration < 0.05) return 0
     
-    const speedMbps = (bytes * 8) / duration / 1_000_000
-    log('UPLOAD', `Chunk ${(bytes / 1_000_000).toFixed(2)}MB: ${speedMbps.toFixed(2)} Mbps in ${duration.toFixed(2)}s`)
+    const speedMbps = (sent * 8) / duration / 1_000_000
+    log('UPLOAD', `Chunk ${(sent / 1_000_000_000).toFixed(2)}GB: ${speedMbps.toFixed(2)} Mbps in ${duration.toFixed(2)}s`)
     
     return speedMbps
   } catch (e) {

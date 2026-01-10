@@ -133,11 +133,23 @@ export default function SpeedTest({ onComplete }: Props) {
               </div>
 
               <label className="flex items-center gap-3 cursor-pointer group">
-                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all
-                              ${anonymous ? 'bg-blue-500 border-blue-500' : 'border-gray-500 group-hover:border-gray-400'}`}>
+                <input
+                  type="checkbox"
+                  checked={anonymous}
+                  onChange={(e) => setAnonymous(e.target.checked)}
+                  className="sr-only"
+                />
+                <div 
+                  onClick={() => setAnonymous(!anonymous)}
+                  className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all cursor-pointer
+                              ${anonymous ? 'bg-blue-500 border-blue-500' : 'border-gray-500 group-hover:border-gray-400'}`}
+                >
                   {anonymous && <span className="text-white text-xs">✓</span>}
                 </div>
-                <span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">
+                <span 
+                  onClick={() => setAnonymous(!anonymous)}
+                  className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors cursor-pointer"
+                >
                   {t('test.anonymous')} <span className="text-gray-500">(no se guardará en el ranking)</span>
                 </span>
               </label>

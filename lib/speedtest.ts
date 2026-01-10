@@ -54,26 +54,26 @@ const FALLBACK_ENDPOINTS = {
 const CONFIG = {
   PING_SAMPLES: 20,
   PING_WARMUP: 3,
-  PARALLEL_CONNECTIONS: 6,
-  DOWNLOAD_DURATION: 15000,
-  UPLOAD_DURATION: 12000,
-  WARMUP_DURATION: 2000,
+  PARALLEL_CONNECTIONS: 8, // Increased for better utilization
+  DOWNLOAD_DURATION: 30000, // Increased to 30s for accurate measurements
+  UPLOAD_DURATION: 30000,   // Increased to 30s for accurate measurements
+  WARMUP_DURATION: 3000,
   MIN_SAMPLES: 5,
-  // Chunk sizes optimized for high-speed connections
+  // Chunk sizes optimized for ultra high-speed connections (Gigabit+)
   DOWNLOAD_SIZES: [
     1_000_000,     // 1MB - warmup
-    5_000_000,     // 5MB
     10_000_000,    // 10MB
     25_000_000,    // 25MB
     50_000_000,    // 50MB
-    100_000_000,   // 100MB - for gigabit
+    100_000_000,   // 100MB
+    250_000_000,   // 250MB - for multi-gigabit
   ],
   UPLOAD_SIZES: [
     100_000,       // 100KB - warmup
-    500_000,       // 500KB
     1_000_000,     // 1MB
-    2_000_000,     // 2MB
     5_000_000,     // 5MB
+    10_000_000,    // 10MB
+    25_000_000,    // 25MB
   ],
 }
 
@@ -217,20 +217,20 @@ async function measurePing(onProgress?: (ping: number) => void): Promise<{
 
 // Select optimal download size based on current speed
 function selectDownloadSize(currentSpeedMbps: number): number {
-  if (currentSpeedMbps < 20) return CONFIG.DOWNLOAD_SIZES[0]
-  if (currentSpeedMbps < 50) return CONFIG.DOWNLOAD_SIZES[1]
-  if (currentSpeedMbps < 100) return CONFIG.DOWNLOAD_SIZES[2]
-  if (currentSpeedMbps < 300) return CONFIG.DOWNLOAD_SIZES[3]
-  if (currentSpeedMbps < 500) return CONFIG.DOWNLOAD_SIZES[4]
+  if (currentSpeedMbps < 30) return CONFIG.DOWNLOAD_SIZES[0]
+  if (currentSpeedMbps < 100) return CONFIG.DOWNLOAD_SIZES[1]
+  if (currentSpeedMbps < 200) return CONFIG.DOWNLOAD_SIZES[2]
+  if (currentSpeedMbps < 500) return CONFIG.DOWNLOAD_SIZES[3]
+  if (currentSpeedMbps < 1000) return CONFIG.DOWNLOAD_SIZES[4]
   return CONFIG.DOWNLOAD_SIZES[5]
 }
 
 // Select optimal upload size based on current speed
 function selectUploadSize(currentSpeedMbps: number): number {
-  if (currentSpeedMbps < 10) return CONFIG.UPLOAD_SIZES[0]
-  if (currentSpeedMbps < 30) return CONFIG.UPLOAD_SIZES[1]
-  if (currentSpeedMbps < 50) return CONFIG.UPLOAD_SIZES[2]
-  if (currentSpeedMbps < 100) return CONFIG.UPLOAD_SIZES[3]
+  if (currentSpeedMbps < 20) return CONFIG.UPLOAD_SIZES[0]
+  if (currentSpeedMbps < 50) return CONFIG.UPLOAD_SIZES[1]
+  if (currentSpeedMbps < 100) return CONFIG.UPLOAD_SIZES[2]
+  if (currentSpeedMbps < 500) return CONFIG.UPLOAD_SIZES[3]
   return CONFIG.UPLOAD_SIZES[4]
 }
 

@@ -31,11 +31,11 @@ export function validateSpeedResult(result: any): { valid: boolean; error?: stri
 }
 
 export function detectFraud(result: any): { fraud: boolean; reason?: string } {
+  // Permitir velocidades hasta 10 Gbps (100,000 Mbps)
   if (result.downloadSpeed > 100000) return { fraud: true, reason: 'Velocidad imposible' }
-  if (result.ping < 0.1) return { fraud: true, reason: 'Ping imposible' }
-  if (result.uploadSpeed > result.downloadSpeed * 1.2) return { fraud: true, reason: 'Upload sospechoso' }
-  if (result.downloadSpeed === result.uploadSpeed && result.downloadSpeed > 0) {
-    return { fraud: true, reason: 'Speeds idénticas' }
-  }
+  if (result.ping < 0.01) return { fraud: true, reason: 'Ping imposible' }
+  // REMOVIDO: Ya no rechazamos speeds altas en upload para redes simétricas
+  // Permitir redes simétricas (upload cercano a download)
+  // REMOVIDO: Ya no rechazamos si speeds son idénticas
   return { fraud: false }
 }

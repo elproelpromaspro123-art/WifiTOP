@@ -11,9 +11,10 @@ export async function GET(request: Request) {
   const duration = parseInt(searchParams.get('duration') || '30000', 10) // 30s by default
 
   // Generate continuous stream of random data for the specified duration
-  const chunkSize = 1024 * 1024 // 1MB chunks for efficient streaming
+  const chunkSize = 64 * 1024 // 64KB chunks for stable server memory usage
   const startTime = Date.now()
   let sent = 0
+  const chunk = new Uint8Array(chunkSize)
   
   const readable = new ReadableStream({
     start(controller) {
@@ -27,9 +28,8 @@ export async function GET(request: Request) {
         }
         
         // Generate and send random data chunk
-        const chunk = new Uint8Array(chunkSize)
         crypto.getRandomValues(chunk)
-        controller.enqueue(chunk)
+        controller.enqueue(chunk.slice(0))
         sent += chunkSize
         
         // Schedule next chunk immediately for maximum throughput

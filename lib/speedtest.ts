@@ -34,7 +34,7 @@ type ProgressCallback = (progress: SpeedTestProgress) => void
 
 // Internal proxy endpoints to avoid CORS issues
 const INTERNAL_ENDPOINTS = {
-  download: '/api/speedtest/download-proxy?bytes=',
+  download: '/api/speedtest/download-proxy',
   upload: '/api/speedtest/upload-proxy',
   ping: '/api/ping',
 }
@@ -331,8 +331,9 @@ async function measureUpload(
   
   try {
     // Create single 30-second upload stream
-    const chunkSize = 1024 * 1024 // 1MB chunks
+    const chunkSize = 64 * 1024 // 64KB chunks to stay within getRandomValues limits
     let sent = 0
+    const chunk = new Uint8Array(chunkSize)
     
     const readable = new ReadableStream({
       start(controller) {
@@ -345,10 +346,9 @@ async function measureUpload(
             return
           }
           
-          // Generate and send 1MB of random data
-          const chunk = new Uint8Array(chunkSize)
+          // Fill and send 64KB of random data
           crypto.getRandomValues(chunk)
-          controller.enqueue(chunk)
+          controller.enqueue(chunk.slice(0)) // enqueue a copy
           sent += chunk.length
           
           // Schedule next chunk immediately

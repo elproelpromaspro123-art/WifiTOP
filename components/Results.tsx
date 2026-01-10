@@ -67,7 +67,9 @@ export default function Results({ result }: Props) {
           <span className="text-gray-400">Tipo de conexión</span>
           <span className="text-white font-medium capitalize">
             {result.connectionType === 'fiber' ? 'Fibra Óptica' :
-             result.connectionType === 'cable' ? 'Cable' :
+             result.connectionType === 'ethernet' ? 'Ethernet/Cable' :
+             result.connectionType === 'wifi' ? 'WiFi' :
+             result.connectionType === 'cable' ? 'Cable/DOCSIS' :
              result.connectionType === 'dsl' ? 'DSL' :
              result.connectionType === 'mobile' ? 'Móvil' : 'Desconocido'}
           </span>

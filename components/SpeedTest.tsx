@@ -326,6 +326,8 @@ export default function SpeedTest({ onComplete }: Props) {
                   <p className="text-sm text-gray-400">Tipo de conexión detectada</p>
                   <p className="text-lg font-bold text-white capitalize">
                     {finalResult.connectionType === 'fiber' ? '🔷 Fibra Óptica' :
+                     finalResult.connectionType === 'ethernet' ? '🔌 Ethernet/Cable' :
+                     finalResult.connectionType === 'wifi' ? '📶 WiFi' :
                      finalResult.connectionType === 'cable' ? '📺 Cable/DOCSIS' :
                      finalResult.connectionType === 'dsl' ? '📞 DSL' :
                      finalResult.connectionType === 'mobile' ? '📱 Móvil' : '❓ Desconocido'}

@@ -1,69 +1,33 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Language, detectBrowserLanguage, t, translations } from '@/lib/i18n'
-
-// Almacenamiento global para forzar re-renders
-let globalLanguageValue: Language = 'en'
-const languageListeners = new Set<(lang: Language) => void>()
+import { Language, detectLanguage, t as translate } from '@/lib/i18n'
 
 export function useLanguage() {
   const [language, setLanguage] = useState<Language>('en')
   const [isLoaded, setIsLoaded] = useState(false)
 
-  // Detectar idioma del navegador al montar
   useEffect(() => {
-    const detectedLang = detectBrowserLanguage()
-    const savedLang = localStorage.getItem('wifitop_language') as Language | null
-
-    const finalLanguage = savedLang || detectedLang
-    setLanguage(finalLanguage)
-    globalLanguageValue = finalLanguage
+    const saved = localStorage.getItem('wifitop_lang') as Language | null
+    const lang = saved || detectLanguage()
+    setLanguage(lang)
     setIsLoaded(true)
   }, [])
 
-  // Escuchar cambios de idioma global
-  useEffect(() => {
-    const listener = (newLang: Language) => {
-      setLanguage(newLang)
-    }
-
-    languageListeners.add(listener)
-    return () => {
-      languageListeners.delete(listener)
-    }
+  const changeLanguage = useCallback((lang: Language) => {
+    setLanguage(lang)
+    localStorage.setItem('wifitop_lang', lang)
   }, [])
 
-  // Cambiar idioma y guardar en localStorage + notificar a todos los listeners
-  const changeLanguage = useCallback((newLanguage: Language) => {
-    setLanguage(newLanguage)
-    globalLanguageValue = newLanguage
-    localStorage.setItem('wifitop_language', newLanguage)
-    
-    // Notificar a todos los componentes escuchando
-    languageListeners.forEach(listener => listener(newLanguage))
-  }, [])
+  const t = useCallback((key: string) => translate(key, language), [language])
 
-  // Obtener traducción
-  const translate = useCallback((key: string): string => {
-    return t(key, language)
-  }, [language])
-
-  // Obtener todos los idiomas disponibles
-  const availableLanguages: Array<{ code: Language; name: string; flag: string }> = [
-    { code: 'en', name: 'English', flag: '🇺🇸' },
-    { code: 'es', name: 'Español', flag: '🇪🇸' },
-    { code: 'zh', name: '中文', flag: '🇨🇳' },
-    { code: 'hi', name: 'हिन्दी', flag: '🇮🇳' },
-    { code: 'fr', name: 'Français', flag: '🇫🇷' },
+  const languages = [
+    { code: 'en' as Language, name: 'English', flag: '🇺🇸' },
+    { code: 'es' as Language, name: 'Español', flag: '🇪🇸' },
+    { code: 'zh' as Language, name: '中文', flag: '🇨🇳' },
+    { code: 'hi' as Language, name: 'हिन्दी', flag: '🇮🇳' },
+    { code: 'fr' as Language, name: 'Français', flag: '🇫🇷' },
   ]
 
-  return {
-    language,
-    isLoaded,
-    changeLanguage,
-    translate,
-    t: translate,
-    availableLanguages,
-  }
+  return { language, isLoaded, changeLanguage, t, languages }
 }

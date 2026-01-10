@@ -5,72 +5,40 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 })
 
-export async function query<T extends QueryResultRow = any>(text: string, params?: any[]): Promise<QueryResult<T>> {
-  try {
-    const result = await pool.query<T>(text, params)
-    return result
-  } catch (error) {
-    throw error
-  }
+export async function query<T extends QueryResultRow = any>(
+  text: string,
+  params?: any[]
+): Promise<QueryResult<T>> {
+  return pool.query<T>(text, params)
 }
 
 export async function initializeDatabase() {
-  try {
-    // Create results table
-    await query(`
-      CREATE TABLE IF NOT EXISTS results (
-        id BIGSERIAL PRIMARY KEY,
-        user_name VARCHAR(255) NOT NULL,
-        download_speed FLOAT NOT NULL,
-        upload_speed FLOAT NOT NULL,
-        ping FLOAT NOT NULL,
-        country VARCHAR(255),
-        isp VARCHAR(255),
-        ip_address VARCHAR(255),
-        rank INTEGER,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `)
+  await query(`
+    CREATE TABLE IF NOT EXISTS results (
+      id BIGSERIAL PRIMARY KEY,
+      user_name VARCHAR(255) NOT NULL,
+      download_speed FLOAT NOT NULL,
+      upload_speed FLOAT NOT NULL,
+      ping FLOAT NOT NULL,
+      country VARCHAR(255),
+      isp VARCHAR(255),
+      ip_address VARCHAR(255),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
 
-    // Create index on download_speed for faster ranking queries
-    await query(`
-      CREATE INDEX IF NOT EXISTS idx_results_download_speed 
-      ON results(download_speed DESC)
-    `)
+  await query(`CREATE INDEX IF NOT EXISTS idx_results_download ON results(download_speed DESC)`)
+  await query(`CREATE INDEX IF NOT EXISTS idx_results_created ON results(created_at DESC)`)
 
-    // Create index on created_at for time-based queries
-    await query(`
-      CREATE INDEX IF NOT EXISTS idx_results_created_at 
-      ON results(created_at DESC)
-    `)
-
-    // Create index on country for geo-based queries
-    await query(`
-      CREATE INDEX IF NOT EXISTS idx_results_country 
-      ON results(country)
-    `)
-
-    // Create rate_limits table
-    await query(`
-      CREATE TABLE IF NOT EXISTS rate_limits (
-        ip_address VARCHAR(255) PRIMARY KEY,
-        request_count INTEGER DEFAULT 1,
-        last_request TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        hour_requests INTEGER DEFAULT 1,
-        last_hour_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `)
-
-    // Create index for cleanup queries
-    await query(`
-      CREATE INDEX IF NOT EXISTS idx_rate_limits_last_request
-      ON rate_limits(last_request)
-    `)
-
-  } catch (error) {
-    throw error
-  }
+  await query(`
+    CREATE TABLE IF NOT EXISTS rate_limits (
+      ip_address VARCHAR(255) PRIMARY KEY,
+      request_count INTEGER DEFAULT 1,
+      last_request TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      hour_requests INTEGER DEFAULT 1,
+      last_hour_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
 }
 
 export default pool

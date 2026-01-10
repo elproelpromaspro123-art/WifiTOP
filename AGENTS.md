@@ -1,41 +1,36 @@
-# Style Guide & Architecture
+# WifiTOP - Agent Guidelines
 
-## Core Principles
-- ✅ No console.log in production (all removed)
-- Single source of truth for speedtest (speedtest-ultra-stable.ts)
-- Cloudflare Speed API for all measurements
-- TypeScript strict mode enabled
-- Security headers configured in middleware
-- Rate limiting: 5 requests/minute, 20 requests/hour
+## Commands
+- **Dev**: `npm run dev`
+- **Build**: `npm run build`
+- **Start**: `npm start`
+- **Lint**: `npm run lint`
 
-## Project Structure
-- `/lib/speedtest-ultra-stable.ts` - Main speedtest engine (production ready, no console logs)
-- `/lib/db.ts` - Database abstraction layer (cleaned)
-- `/lib/rate-limit.ts` - Rate limiting logic (cleaned)
-- `/components/SpeedTestCardImproved.tsx` - UI component (optimized)
-- `/app/api/speedtest/route.ts` - Main API endpoint (security improved)
-- All translation keys in `/lib/i18n.ts` (5 languages: en, es, zh, hi, fr)
+## Stack
+- Next.js 14 (App Router)
+- React 18
+- TypeScript
+- Tailwind CSS
+- PostgreSQL (via `pg`)
 
-## Recent Cleanup (2026-01-05)
-✅ Completed:
-- Removed ALL console.log/console.error from production code
-  - speedtest-ultra-stable.ts: 11 console calls removed
-  - db.ts: query logging removed
-  - rate-limit.ts: error logging removed
-  - speedtest route: anomaly detection logging removed
-- Improved metadata in layout.tsx (removed emojis from SEO)
-- Enhanced name validation in speedtest route
-- Optimized component rendering
-- Added error boundaries and proper error handling
+## Structure
+```
+app/          # Pages and API routes
+components/   # React components
+hooks/        # Custom hooks
+lib/          # Core logic (db, speedtest, i18n, validation, badges)
+types/        # TypeScript types
+```
 
-## Environment Variables
-- DATABASE_URL: PostgreSQL connection string (required)
-- NEXT_PUBLIC_SITE_URL: Public site URL
-- NEXT_PUBLIC_SITE_NAME: Site name (default: WifiTOP)
-- NODE_ENV: development | production
+## Key Features
+- Speedtest using Cloudflare CDN
+- Global ranking (top 100k)
+- Rate limiting (5/min, 20/hour)
+- Fraud detection
+- Multi-language (en, es, zh, hi, fr)
+- Badge system (12 badges)
 
-## Security
-- Middleware: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection
-- Name validation: 2-30 chars, alphanumeric + accents
-- Anomaly detection: 12 fraud detection flags
-- Rate limiting: Per-IP minute and hour limits
+## Deployment
+- Platform: Render
+- Database: PostgreSQL (Render)
+- Config: render.yaml

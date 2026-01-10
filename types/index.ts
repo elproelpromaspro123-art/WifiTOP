@@ -3,11 +3,7 @@ export interface SpeedTestResult {
   uploadSpeed: number
   ping: number
   jitter: number
-  stability?: number
-  minDownload?: number
-  maxDownload?: number
-  minUpload?: number
-  maxUpload?: number
+  stability: number
 }
 
 export interface RankingEntry {
@@ -17,16 +13,9 @@ export interface RankingEntry {
   downloadSpeed: number
   uploadSpeed: number
   ping: number
-  city?: string
   country?: string
   isp?: string
   createdAt: Date
-}
-
-export interface ApiResponse<T> {
-  success: boolean
-  error?: string
-  data?: T
 }
 
 export interface StatsData {

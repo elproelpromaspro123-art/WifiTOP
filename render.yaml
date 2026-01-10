@@ -18,7 +18,6 @@ services:
     startCommand: npm run start
     autoDeploy: true
     healthCheckPath: /api/health
-    healthCheckInterval: 30
     envVars:
       - key: NODE_ENV
         value: production

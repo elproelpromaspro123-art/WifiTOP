@@ -1,67 +1,28 @@
-import { useState, useEffect, useRef } from 'react'
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
 import { StatsData } from '@/types'
 
-interface UseStatsReturn {
-  stats: StatsData
-  loading: boolean
-  error: string | null
-  refetch: () => Promise<void>
-}
-
-export function useStats(): UseStatsReturn {
+export function useStats() {
   const [stats, setStats] = useState<StatsData>({ total: 0, maxSpeed: 0, avgSpeed: 0 })
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const isMountedRef = useRef(true)
 
-  const fetchStats = async () => {
-    if (!isMountedRef.current) return
-    
+  const fetch_ = useCallback(async () => {
     try {
-      setLoading(true)
-      setError(null)
-      const response = await fetch('/api/stats', {
-        cache: 'no-store'
-      })
-      
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({ error: 'Error al obtener estadísticas' }))
-        throw new Error(data.error || 'Error al obtener estadísticas')
+      const res = await fetch('/api/stats')
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) setStats(data.stats)
       }
-      
-      const data = await response.json()
-      if (!data.success) {
-        throw new Error(data.error || 'Error desconocido')
-      }
-
-      if (isMountedRef.current && data.stats) {
-        setStats(data.stats)
-        setError(null)
-      }
-    } catch (err) {
-      if (isMountedRef.current) {
-        const message = err instanceof Error ? err.message : 'Error desconocido'
-        setError(message)
-        console.error('Error fetching stats:', err)
-      }
-    } finally {
-      if (isMountedRef.current) {
-        setLoading(false)
-      }
-    }
-  }
-
-  useEffect(() => {
-    isMountedRef.current = true
-    fetchStats()
-    
-    const interval = setInterval(fetchStats, 15000) // 15 segundos para actualizaciones instantáneas
-    
-    return () => {
-      isMountedRef.current = false
-      clearInterval(interval)
-    }
+    } catch {}
+    setLoading(false)
   }, [])
 
-  return { stats, loading, error, refetch: fetchStats }
+  useEffect(() => {
+    fetch_()
+    const interval = setInterval(fetch_, 30000)
+    return () => clearInterval(interval)
+  }, [fetch_])
+
+  return { stats, loading, refetch: fetch_ }
 }

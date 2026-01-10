@@ -1,47 +1,34 @@
 import { NextResponse } from 'next/server'
-import { getTopResults, getTotalResultsCount } from '@/lib/ranking'
+import { query } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-    try {
-        // Reducir a 100 para evitar sobrecarga en Render
-        const [results, totalResults] = await Promise.all([
-            getTopResults(100),
-            getTotalResultsCount(),
-        ])
+  try {
+    const results = await query(`
+      SELECT 
+        id,
+        ROW_NUMBER() OVER (ORDER BY download_speed DESC) as rank,
+        user_name as "userName",
+        download_speed as "downloadSpeed",
+        upload_speed as "uploadSpeed",
+        ping,
+        country,
+        isp,
+        created_at as "createdAt"
+      FROM results
+      ORDER BY download_speed DESC
+      LIMIT 100
+    `)
 
-        if (!Array.isArray(results)) {
-            throw new Error('Invalid results format')
-        }
+    const total = await query<{ count: string }>(`SELECT COUNT(*) as count FROM results`)
 
-        return NextResponse.json(
-            {
-                success: true,
-                results: results || [],
-                totalResults: Math.max(0, totalResults || 0),
-            },
-            {
-                headers: {
-                    'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
-                },
-            }
-        )
-    } catch (error) {
-        console.error('[API] Ranking error:', error)
-        // En caso de error, devolver array vacío en lugar de error 500
-        return NextResponse.json(
-            {
-                success: true,
-                results: [],
-                totalResults: 0,
-                cached: true,
-            },
-            {
-                headers: {
-                    'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=10',
-                },
-            }
-        )
-    }
+    return NextResponse.json({
+      success: true,
+      results: results.rows,
+      totalResults: parseInt(total.rows[0]?.count || '0'),
+    })
+  } catch {
+    return NextResponse.json({ success: true, results: [], totalResults: 0 })
+  }
 }

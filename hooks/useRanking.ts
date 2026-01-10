@@ -1,70 +1,32 @@
-import { useState, useEffect, useRef } from 'react'
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
 import { RankingEntry } from '@/types'
 
-interface UseRankingReturn {
-  ranking: RankingEntry[]
-  loading: boolean
-  error: string | null
-  totalResults: number
-  refetch: () => Promise<void>
-}
-
-export function useRanking(): UseRankingReturn {
+export function useRanking() {
   const [ranking, setRanking] = useState<RankingEntry[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [totalResults, setTotalResults] = useState(0)
-  const isMountedRef = useRef(true)
+  const [loading, setLoading] = useState(true)
 
-  const fetchRanking = async () => {
-    if (!isMountedRef.current) return
-    
+  const fetch_ = useCallback(async () => {
     try {
-      setLoading(true)
-      setError(null)
-      const response = await fetch('/api/ranking', {
-        cache: 'no-store'
-      })
-      
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({ error: 'Error al obtener ranking' }))
-        throw new Error(data.error || 'Error al obtener ranking')
+      const res = await fetch('/api/ranking')
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success) {
+          setRanking(data.results || [])
+          setTotalResults(data.totalResults || 0)
+        }
       }
-      
-      const data = await response.json()
-      if (!data.success) {
-        throw new Error(data.error || 'Error desconocido')
-      }
-
-      if (isMountedRef.current) {
-        setRanking(data.results || [])
-        setTotalResults(data.totalResults || 0)
-        setError(null)
-      }
-    } catch (err) {
-      if (isMountedRef.current) {
-        const message = err instanceof Error ? err.message : 'Error desconocido'
-        setError(message)
-        console.error('Error fetching ranking:', err)
-      }
-    } finally {
-      if (isMountedRef.current) {
-        setLoading(false)
-      }
-    }
-  }
-
-  useEffect(() => {
-    isMountedRef.current = true
-    fetchRanking()
-    
-    const interval = setInterval(fetchRanking, 10000) // 10 segundos para actualizaciones más rápidas
-    
-    return () => {
-      isMountedRef.current = false
-      clearInterval(interval)
-    }
+    } catch {}
+    setLoading(false)
   }, [])
 
-  return { ranking, loading, error, totalResults, refetch: fetchRanking }
+  useEffect(() => {
+    fetch_()
+    const interval = setInterval(fetch_, 15000)
+    return () => clearInterval(interval)
+  }, [fetch_])
+
+  return { ranking, totalResults, loading, refetch: fetch_ }
 }

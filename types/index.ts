@@ -4,6 +4,15 @@ export interface SpeedTestResult {
   ping: number
   jitter: number
   stability: number
+  connectionType: 'fiber' | 'cable' | 'dsl' | 'mobile' | 'unknown'
+  isSymmetric: boolean
+  peakDownload: number
+  peakUpload: number
+  samples: {
+    download: number[]
+    upload: number[]
+    ping: number[]
+  }
 }
 
 export interface RankingEntry {

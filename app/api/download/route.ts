@@ -1,36 +1,44 @@
-export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const bytes = parseInt(searchParams.get('bytes') || '10000000')
+  const { searchParams } = new URL(request.url);
+  const bytes = parseInt(searchParams.get('bytes') || '0', 10);
 
-  if (bytes < 1_000_000 || bytes > 100_000_000) {
-    return Response.json({ error: 'Invalid size' }, { status: 400 })
+  if (!bytes) {
+      return new Response(null, { status: 200 });
   }
 
-  try {
-    const start = performance.now()
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 60000)
+  const stream = new ReadableStream({
+    async start(controller) {
+      const chunkSize = 64 * 1024; // 64KB
+      const chunk = new Uint8Array(chunkSize); // Zero-filled is fast
+      let sent = 0;
 
-    const response = await fetch(`https://speed.cloudflare.com/__down?bytes=${bytes}`, {
-      cache: 'no-store',
-      signal: controller.signal,
-    })
+      while (sent < bytes) {
+        const remaining = bytes - sent;
+        const currentChunkSize = Math.min(chunkSize, remaining);
+        
+        if (currentChunkSize === chunkSize) {
+            controller.enqueue(chunk);
+        } else {
+            controller.enqueue(chunk.slice(0, currentChunkSize));
+        }
+        sent += currentChunkSize;
+        
+        // Basic backpressure handling
+        if (controller.desiredSize !== null && controller.desiredSize <= 0) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+      }
+      controller.close();
+    },
+  });
 
-    if (!response.ok) {
-      clearTimeout(timeout)
-      throw new Error(`HTTP ${response.status}`)
-    }
-
-    const buffer = await response.arrayBuffer()
-    const duration = (performance.now() - start) / 1000
-    clearTimeout(timeout)
-
-    const speedMbps = (buffer.byteLength * 8) / duration / 1024 / 1024
-
-    return Response.json({ bytes: buffer.byteLength, duration, speedMbps })
-  } catch (error) {
-    return Response.json({ error: 'Download failed' }, { status: 500 })
-  }
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      'Content-Length': bytes.toString(),
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    },
+  });
 }

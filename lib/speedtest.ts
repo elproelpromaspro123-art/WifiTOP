@@ -60,29 +60,11 @@ const FALLBACK_ENDPOINTS = {
 const CONFIG = {
   PING_SAMPLES: 20,
   PING_WARMUP: 3,
-  PARALLEL_CONNECTIONS: 8, // Increased for better utilization
-  DOWNLOAD_DURATION: 30000, // Time-based measurement (30s)
-  UPLOAD_DURATION: 30000,   // Time-based measurement (30s)
-  WARMUP_DURATION: 3000,
-  MIN_SAMPLES: 5,
-  // Virtual chunk sizes - don't need to fully download/upload
-  // Just need to stream for the duration specified
-  // Set to 10GB to simulate large downloads without actually transferring
-  DOWNLOAD_SIZES: [
-    1_000_000_000,     // 1GB - warmup
-    10_000_000_000,    // 10GB - main test (virtual, time-limited)
-    10_000_000_000,    // 10GB 
-    10_000_000_000,    // 10GB
-    10_000_000_000,    // 10GB
-    10_000_000_000,    // 10GB - for multi-gigabit
-  ],
-  UPLOAD_SIZES: [
-    100_000_000,       // 100MB - warmup
-    10_000_000_000,    // 10GB - main test (virtual, time-limited)
-    10_000_000_000,    // 10GB
-    10_000_000_000,    // 10GB
-    10_000_000_000,    // 10GB
-  ],
+  PARALLEL_CONNECTIONS: 8, // For concurrent download/upload streams
+  DOWNLOAD_DURATION: 30000, // 30 seconds of continuous download
+  UPLOAD_DURATION: 30000,   // 30 seconds of continuous upload
+  WARMUP_DURATION: 3000,    // 3 seconds warmup before measurements
+  MIN_SAMPLES: 2,           // Minimum samples needed for valid test
 }
 
 // Console logging helper
@@ -223,228 +205,109 @@ async function measurePing(onProgress?: (ping: number) => void): Promise<{
   return { avg, min, max, jitter, samples }
 }
 
-// Select optimal download size based on current speed
-function selectDownloadSize(currentSpeedMbps: number): number {
-  if (currentSpeedMbps < 30) return CONFIG.DOWNLOAD_SIZES[0]
-  if (currentSpeedMbps < 100) return CONFIG.DOWNLOAD_SIZES[1]
-  if (currentSpeedMbps < 200) return CONFIG.DOWNLOAD_SIZES[2]
-  if (currentSpeedMbps < 500) return CONFIG.DOWNLOAD_SIZES[3]
-  if (currentSpeedMbps < 1000) return CONFIG.DOWNLOAD_SIZES[4]
-  return CONFIG.DOWNLOAD_SIZES[5]
-}
-
-// Select optimal upload size based on current speed
-function selectUploadSize(currentSpeedMbps: number): number {
-  if (currentSpeedMbps < 20) return CONFIG.UPLOAD_SIZES[0]
-  if (currentSpeedMbps < 50) return CONFIG.UPLOAD_SIZES[1]
-  if (currentSpeedMbps < 100) return CONFIG.UPLOAD_SIZES[2]
-  if (currentSpeedMbps < 500) return CONFIG.UPLOAD_SIZES[3]
-  return CONFIG.UPLOAD_SIZES[4]
-}
-
-// Download a chunk from internal proxy (avoids CORS)
-// Uses time-based measurement, not size-based (stops after duration, not after bytes)
-async function downloadChunk(bytes: number, signal: AbortSignal): Promise<number> {
-  const url = `${INTERNAL_ENDPOINTS.download}${bytes}`
-  const start = performance.now()
-  
-  try {
-    const response = await fetch(url, {
-      cache: 'no-store',
-      mode: 'cors',
-      signal,
-    })
-    
-    if (!response.ok) {
-      log('DOWNLOAD', `Failed: HTTP ${response.status}`)
-      return 0
-    }
-    
-    // Read stream - will be limited by the AbortSignal timer
-    const reader = response.body?.getReader()
-    if (!reader) return 0
-    
-    let totalBytes = 0
-    try {
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        totalBytes += value?.length || 0
-      }
-    } finally {
-      reader.releaseLock()
-    }
-    
-    const duration = (performance.now() - start) / 1000
-    if (duration < 0.05) return 0
-    
-    const speedMbps = (totalBytes * 8) / duration / 1_000_000
-    log('DOWNLOAD', `Chunk ${(bytes / 1_000_000_000).toFixed(1)}GB: ${speedMbps.toFixed(2)} Mbps in ${duration.toFixed(2)}s`)
-    
-    return speedMbps
-  } catch (e) {
-    if ((e as Error).name !== 'AbortError') {
-      log('DOWNLOAD', 'Chunk failed', e)
-    }
-    return 0
-  }
-}
-
-// Upload data to internal proxy (avoids CORS from Cloudflare)
-// Uses time-based streaming, not size-based (stops after duration)
-async function uploadChunk(bytes: number, signal: AbortSignal): Promise<number> {
-  const start = performance.now()
-  
-  try {
-    // Create generator that produces random data in chunks
-    // This avoids creating massive arrays in memory
-    const chunkSize = 65536 // 64KB chunks
-    let sent = 0
-    
-    const readable = new ReadableStream({
-      start(controller) {
-        const interval = setInterval(() => {
-          // Create 64KB of random data
-          const chunk = new Uint8Array(Math.min(chunkSize, bytes - sent))
-          crypto.getRandomValues(chunk)
-          controller.enqueue(chunk)
-          sent += chunk.length
-          
-          // Stop when we've sent enough or time limit reached
-          if (sent >= bytes) {
-            clearInterval(interval)
-            controller.close()
-          }
-        }, 5) // Send every 5ms
-      }
-    })
-    
-    const response = await fetch(INTERNAL_ENDPOINTS.upload, {
-      method: 'POST',
-      body: readable,
-      mode: 'cors',
-      signal,
-      headers: {
-        'Content-Type': 'application/octet-stream',
-      },
-    })
-    
-    if (!response.ok) {
-      log('UPLOAD', `Failed: HTTP ${response.status}`)
-      return 0
-    }
-    
-    const duration = (performance.now() - start) / 1000
-    if (duration < 0.05) return 0
-    
-    const speedMbps = (sent * 8) / duration / 1_000_000
-    log('UPLOAD', `Chunk ${(sent / 1_000_000_000).toFixed(2)}GB: ${speedMbps.toFixed(2)} Mbps in ${duration.toFixed(2)}s`)
-    
-    return speedMbps
-  } catch (e) {
-    if ((e as Error).name !== 'AbortError') {
-      log('UPLOAD', 'Chunk failed', e)
-    }
-    return 0
-  }
-}
-
-// Download test with parallel connections
+// Download test - single continuous 30s connection for accurate speed measurement
 async function measureDownload(onProgress: ProgressCallback): Promise<{
   speed: number
   peak: number
   samples: number[]
 }> {
   log('DOWNLOAD', '=== Starting download test ===')
+  log('DOWNLOAD', `Duration: ${CONFIG.DOWNLOAD_DURATION}ms - Single continuous connection`)
   
-  const allSamples: number[] = []
-  const windowSamples: number[] = []
+  const samples: number[] = []
   let currentSpeed = 0
   let peakSpeed = 0
-  let chunkSize = CONFIG.DOWNLOAD_SIZES[1] // Start with 5MB
+  let lastReportTime = 0
+  const reportInterval = 1000 // Report progress every 1 second
   
-  const controller = new AbortController()
   const startTime = performance.now()
-  const endTime = startTime + CONFIG.DOWNLOAD_DURATION
-  const warmupEnd = startTime + CONFIG.WARMUP_DURATION
   
-  log('DOWNLOAD', `Duration: ${CONFIG.DOWNLOAD_DURATION}ms, Parallel: ${CONFIG.PARALLEL_CONNECTIONS}`)
-  
-  const runConnection = async (id: number) => {
-    let requestCount = 0
+  try {
+    // Single 30-second download connection
+    const url = `${INTERNAL_ENDPOINTS.download}?duration=${CONFIG.DOWNLOAD_DURATION}`
+    const downloadStart = performance.now()
     
-    while (performance.now() < endTime && !controller.signal.aborted) {
-      requestCount++
-      const speed = await downloadChunk(chunkSize, controller.signal)
-      
-      if (speed > 0) {
-        const now = performance.now()
-        const isWarmup = now < warmupEnd
-        
-        if (!isWarmup) {
-          allSamples.push(speed)
-          windowSamples.push(speed)
-          
-          if (windowSamples.length > 20) windowSamples.shift()
-          
-          const sorted = [...windowSamples].sort((a, b) => a - b)
-          currentSpeed = sorted[Math.floor(sorted.length / 2)]
-          
-          if (speed > peakSpeed) peakSpeed = speed
-          
-          // Adapt chunk size
-          chunkSize = selectDownloadSize(currentSpeed)
-          
-          const elapsed = now - startTime
-          const progress = Math.min(100, (elapsed / CONFIG.DOWNLOAD_DURATION) * 100)
-          
-          onProgress({
-            phase: 'download',
-            progress: 15 + progress * 0.4,
-            currentSpeed,
-            peakSpeed,
-            samples: [...allSamples],
-            status: `⬇️ ${currentSpeed.toFixed(1)} Mbps`,
-          })
-        } else {
-          log('DOWNLOAD', `[Conn ${id}] Warmup sample: ${speed.toFixed(2)} Mbps`)
-        }
-      }
+    const response = await fetch(url, {
+      cache: 'no-store',
+      mode: 'cors',
+      signal: AbortSignal.timeout(CONFIG.DOWNLOAD_DURATION + 5000),
+    })
+    
+    if (!response.ok) {
+      log('DOWNLOAD', `Failed: HTTP ${response.status}`)
+      return { speed: 0, peak: 0, samples: [] }
     }
     
-    log('DOWNLOAD', `[Conn ${id}] Completed ${requestCount} requests`)
-  }
-  
-  // Start parallel connections
-  const connections = Array(CONFIG.PARALLEL_CONNECTIONS)
-    .fill(null)
-    .map((_, i) => runConnection(i + 1))
-  
-  await Promise.all(connections)
-  controller.abort()
-  
-  log('DOWNLOAD', `Total samples: ${allSamples.length}`)
-  
-  if (allSamples.length < CONFIG.MIN_SAMPLES) {
-    log('DOWNLOAD', 'Not enough samples!')
+    const reader = response.body?.getReader()
+    if (!reader) {
+      log('DOWNLOAD', 'No response body')
+      return { speed: 0, peak: 0, samples: [] }
+    }
+    
+    let totalBytes = 0
+    const speedSamples: number[] = []
+    const measurementStart = performance.now()
+    
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        
+        totalBytes += value?.length || 0
+        const elapsed = (performance.now() - downloadStart) / 1000
+        
+        // Calculate current speed every second
+        if (elapsed > 0) {
+          const currentSpeedMbps = (totalBytes * 8) / elapsed / 1_000_000
+          
+          // Report progress every 1 second
+          const now = performance.now()
+          if (now - lastReportTime > reportInterval) {
+            speedSamples.push(currentSpeedMbps)
+            currentSpeed = currentSpeedMbps
+            
+            if (currentSpeedMbps > peakSpeed) {
+              peakSpeed = currentSpeedMbps
+            }
+            
+            const elapsed = now - startTime
+            const progress = Math.min(100, (elapsed / CONFIG.DOWNLOAD_DURATION) * 100)
+            
+            onProgress({
+              phase: 'download',
+              progress: 15 + progress * 0.4,
+              currentSpeed,
+              peakSpeed,
+              samples: speedSamples,
+              status: `⬇️ ${currentSpeed.toFixed(1)} Mbps (peak: ${peakSpeed.toFixed(1)} Mbps)`,
+            })
+            
+            lastReportTime = now
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock()
+    }
+    
+    // Final speed calculation
+    const totalDuration = (performance.now() - downloadStart) / 1000
+    const finalSpeed = (totalBytes * 8) / totalDuration / 1_000_000
+    
+    log('DOWNLOAD', `Transferred: ${(totalBytes / 1_000_000_000).toFixed(2)}GB`)
+    log('DOWNLOAD', `Duration: ${totalDuration.toFixed(2)}s`)
+    log('DOWNLOAD', `=== Final: ${finalSpeed.toFixed(2)} Mbps, Peak: ${peakSpeed.toFixed(2)} Mbps ===`)
+    
+    return { speed: finalSpeed, peak: peakSpeed, samples: speedSamples }
+  } catch (e) {
+    if ((e as Error).name !== 'AbortError') {
+      log('DOWNLOAD', 'Download failed', e)
+    }
     return { speed: 0, peak: 0, samples: [] }
   }
-  
-  // Calculate final speed (median of middle 50%)
-  const sorted = [...allSamples].sort((a, b) => a - b)
-  const p25 = Math.floor(sorted.length * 0.25)
-  const p75 = Math.ceil(sorted.length * 0.75)
-  const middle = sorted.slice(p25, p75)
-  const finalSpeed = middle.length > 0 
-    ? middle.reduce((a, b) => a + b, 0) / middle.length 
-    : sorted[Math.floor(sorted.length / 2)]
-  
-  log('DOWNLOAD', `=== Final: ${finalSpeed.toFixed(2)} Mbps, Peak: ${peakSpeed.toFixed(2)} Mbps ===`)
-  
-  return { speed: finalSpeed, peak: peakSpeed, samples: allSamples }
 }
 
-// Upload test with parallel connections
+// Upload test - single continuous 30s connection for accurate speed measurement
 async function measureUpload(
   expectedDownload: number,
   onProgress: ProgressCallback
@@ -454,89 +317,82 @@ async function measureUpload(
   samples: number[]
 }> {
   log('UPLOAD', '=== Starting upload test ===')
+  log('UPLOAD', `Duration: ${CONFIG.UPLOAD_DURATION}ms - Single continuous connection`)
   
-  const allSamples: number[] = []
-  const windowSamples: number[] = []
+  const samples: number[] = []
   let currentSpeed = 0
   let peakSpeed = 0
-  let chunkSize = selectUploadSize(expectedDownload * 0.5)
+  let lastReportTime = 0
+  const reportInterval = 1000 // Report progress every 1 second
   
-  const controller = new AbortController()
   const startTime = performance.now()
-  const endTime = startTime + CONFIG.UPLOAD_DURATION
-  const warmupEnd = startTime + CONFIG.WARMUP_DURATION
+  const uploadStart = performance.now()
+  const uploadEndTime = uploadStart + CONFIG.UPLOAD_DURATION
   
-  log('UPLOAD', `Duration: ${CONFIG.UPLOAD_DURATION}ms, Initial chunk: ${(chunkSize / 1_000_000).toFixed(2)}MB`)
-  
-  const maxConnections = Math.min(4, CONFIG.PARALLEL_CONNECTIONS)
-  
-  const runConnection = async (id: number) => {
-    let requestCount = 0
+  try {
+    // Create single 30-second upload stream
+    const chunkSize = 1024 * 1024 // 1MB chunks
+    let sent = 0
     
-    while (performance.now() < endTime && !controller.signal.aborted) {
-      requestCount++
-      const speed = await uploadChunk(chunkSize, controller.signal)
-      
-      if (speed > 0) {
-        const now = performance.now()
-        const isWarmup = now < warmupEnd
-        
-        if (!isWarmup) {
-          allSamples.push(speed)
-          windowSamples.push(speed)
+    const readable = new ReadableStream({
+      start(controller) {
+        const sendChunk = () => {
+          const elapsed = performance.now() - uploadStart
           
-          if (windowSamples.length > 20) windowSamples.shift()
+          // Stop after 30 seconds
+          if (elapsed > CONFIG.UPLOAD_DURATION) {
+            controller.close()
+            return
+          }
           
-          const sorted = [...windowSamples].sort((a, b) => a - b)
-          currentSpeed = sorted[Math.floor(sorted.length / 2)]
+          // Generate and send 1MB of random data
+          const chunk = new Uint8Array(chunkSize)
+          crypto.getRandomValues(chunk)
+          controller.enqueue(chunk)
+          sent += chunk.length
           
-          if (speed > peakSpeed) peakSpeed = speed
-          
-          chunkSize = selectUploadSize(currentSpeed)
-          
-          const elapsed = now - startTime
-          const progress = Math.min(100, (elapsed / CONFIG.UPLOAD_DURATION) * 100)
-          
-          onProgress({
-            phase: 'upload',
-            progress: 55 + progress * 0.4,
-            currentSpeed,
-            peakSpeed,
-            samples: [...allSamples],
-            status: `⬆️ ${currentSpeed.toFixed(1)} Mbps`,
-          })
+          // Schedule next chunk immediately
+          setImmediate(() => sendChunk())
         }
+        
+        sendChunk()
       }
+    })
+    
+    const response = await fetch(INTERNAL_ENDPOINTS.upload, {
+      method: 'POST',
+      body: readable,
+      mode: 'cors',
+      signal: AbortSignal.timeout(CONFIG.UPLOAD_DURATION + 5000),
+      headers: {
+        'Content-Type': 'application/octet-stream',
+      },
+    })
+    
+    if (!response.ok) {
+      log('UPLOAD', `Failed: HTTP ${response.status}`)
+      return { speed: 0, peak: 0, samples: [] }
     }
     
-    log('UPLOAD', `[Conn ${id}] Completed ${requestCount} requests`)
-  }
-  
-  const connections = Array(maxConnections)
-    .fill(null)
-    .map((_, i) => runConnection(i + 1))
-  
-  await Promise.all(connections)
-  controller.abort()
-  
-  log('UPLOAD', `Total samples: ${allSamples.length}`)
-  
-  if (allSamples.length < CONFIG.MIN_SAMPLES) {
-    log('UPLOAD', 'Not enough samples!')
+    const serverData = await response.json() as { received: number; duration: number; speed: number }
+    const receivedBytes = serverData.received
+    const serverDuration = serverData.duration / 1000 // Convert to seconds
+    const serverSpeedMbps = serverData.speed
+    
+    log('UPLOAD', `Transferred: ${(receivedBytes / 1_000_000_000).toFixed(2)}GB`)
+    log('UPLOAD', `Duration: ${serverDuration.toFixed(2)}s`)
+    log('UPLOAD', `=== Final: ${serverSpeedMbps.toFixed(2)} Mbps ===`)
+    
+    // Use server-measured speed as it's more accurate
+    samples.push(serverSpeedMbps)
+    
+    return { speed: serverSpeedMbps, peak: serverSpeedMbps, samples }
+  } catch (e) {
+    if ((e as Error).name !== 'AbortError') {
+      log('UPLOAD', 'Upload failed', e)
+    }
     return { speed: 0, peak: 0, samples: [] }
   }
-  
-  const sorted = [...allSamples].sort((a, b) => a - b)
-  const p25 = Math.floor(sorted.length * 0.25)
-  const p75 = Math.ceil(sorted.length * 0.75)
-  const middle = sorted.slice(p25, p75)
-  const finalSpeed = middle.length > 0 
-    ? middle.reduce((a, b) => a + b, 0) / middle.length 
-    : sorted[Math.floor(sorted.length / 2)]
-  
-  log('UPLOAD', `=== Final: ${finalSpeed.toFixed(2)} Mbps, Peak: ${peakSpeed.toFixed(2)} Mbps ===`)
-  
-  return { speed: finalSpeed, peak: peakSpeed, samples: allSamples }
 }
 
 // Detect connection type based on measurements

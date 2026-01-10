@@ -1,39 +1,42 @@
 /**
- * Download proxy endpoint - simulates large files without actually transferring them
- * Streams infinite data to measure real bandwidth without CORS limitations
+ * Download proxy endpoint - streams real data for specified duration
+ * Transfers actual bytes to measure real bandwidth without CORS limitations
  */
 
 export const runtime = 'nodejs'
+export const maxDuration = 60 // Allow up to 60 seconds
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const bytes = parseInt(searchParams.get('bytes') || '10000000', 10)
-  const duration = parseInt(searchParams.get('duration') || '30000', 10) // 30s
+  const duration = parseInt(searchParams.get('duration') || '30000', 10) // 30s by default
 
-  // Generate stream that sends data for the specified duration
-  const encoder = new TextEncoder()
-  const chunkSize = 65536 // 64KB chunks
-  const chunkData = new Uint8Array(chunkSize).fill(65) // 'A' character repeated
-  
-  let sent = 0
+  // Generate continuous stream of random data for the specified duration
+  const chunkSize = 1024 * 1024 // 1MB chunks for efficient streaming
   const startTime = Date.now()
+  let sent = 0
   
   const readable = new ReadableStream({
     start(controller) {
-      const interval = setInterval(() => {
+      const sendChunk = () => {
         const elapsed = Date.now() - startTime
         
-        // Stop after duration OR after requested bytes
-        if (elapsed > duration || sent >= bytes) {
-          clearInterval(interval)
+        // Stop after duration
+        if (elapsed > duration) {
           controller.close()
           return
         }
         
-        // Send chunk
-        controller.enqueue(chunkData)
+        // Generate and send random data chunk
+        const chunk = new Uint8Array(chunkSize)
+        crypto.getRandomValues(chunk)
+        controller.enqueue(chunk)
         sent += chunkSize
-      }, 10) // Send every 10ms for smooth stream
+        
+        // Schedule next chunk immediately for maximum throughput
+        setImmediate(() => sendChunk())
+      }
+      
+      sendChunk()
     }
   })
 

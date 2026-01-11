@@ -212,7 +212,7 @@ async function measureDownload(onProgress: ProgressCallback): Promise<{
   samples: number[]
 }> {
   log('DOWNLOAD', '=== Starting download test ===')
-  log('DOWNLOAD', `Duration: ${CONFIG.DOWNLOAD_DURATION}ms`)
+  log('DOWNLOAD', `Duration: ${CONFIG.DOWNLOAD_DURATION}ms - Single continuous connection`)
   
   const url = `${INTERNAL_ENDPOINTS.download}?duration=${CONFIG.DOWNLOAD_DURATION}`
   const start = performance.now()
@@ -248,6 +248,8 @@ async function measureDownload(onProgress: ProgressCallback): Promise<{
       if (done) break
       
       const chunkBytes = value?.byteLength ?? 0
+      if (chunkBytes === 0) continue
+      
       totalBytes += chunkBytes
       
       const now = performance.now()

@@ -32,9 +32,9 @@ export async function GET(request: Request) {
     let closed = false
 
     const readable = new ReadableStream({
-      start(controller) {
+      async start(controller) {
         // Push-based approach: actively push data on a timer
-        function push() {
+        async function push() {
           if (closed) return
           
           const elapsed = Date.now() - startTime
@@ -46,14 +46,15 @@ export async function GET(request: Request) {
           
           try {
             controller.enqueue(chunk)
-            // Use setImmediate pattern for Node.js or setTimeout(0) for browser
-            setTimeout(push, 0)
+            // Use small delay to allow streaming but continuous
+            await new Promise(resolve => setTimeout(resolve, 1))
+            push()
           } catch {
             // Controller might be closed
             closed = true
           }
         }
-        push()
+        await push()
       },
       cancel() {
         closed = true

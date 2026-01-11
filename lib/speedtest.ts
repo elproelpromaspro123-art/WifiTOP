@@ -62,7 +62,7 @@ const CONFIG = {
   PING_WARMUP: 3,
   PARALLEL_CONNECTIONS: 8, // For concurrent download/upload streams
   DOWNLOAD_DURATION: 30000, // 30 seconds of continuous download
-  UPLOAD_DURATION: 30000,   // 30 seconds of continuous upload
+  UPLOAD_DURATION: 35000,   // 35 seconds of continuous upload for accurate measurement
   WARMUP_DURATION: 3000,    // 3 seconds warmup before measurements
   MIN_SAMPLES: 2,           // Minimum samples needed for valid test
 }
@@ -307,7 +307,7 @@ async function measureDownload(onProgress: ProgressCallback): Promise<{
   }
 }
 
-// Upload test - continuous multi-request upload for full duration
+// Upload test - aggressive continuous upload with large chunks for maximum throughput
 async function measureUpload(
   expectedDownload: number,
   onProgress: ProgressCallback
@@ -317,23 +317,25 @@ async function measureUpload(
   samples: number[]
 }> {
   log('UPLOAD', '=== Starting upload test ===')
-  log('UPLOAD', `Duration: ${CONFIG.UPLOAD_DURATION}ms - Continuous multi-request upload`)
+  log('UPLOAD', `Duration: ${CONFIG.UPLOAD_DURATION}ms - Aggressive parallel upload`)
   
   const testStartTime = performance.now()
   const testEndTime = testStartTime + CONFIG.UPLOAD_DURATION
   
-  // Generate reusable upload chunks (10MB each for balance between speed and memory)
-  const chunkSize = 10 * 1024 * 1024 // 10MB per request
+  // Generate large upload chunk (100MB for maximum throughput - no interruptions)
+  const chunkSize = 100 * 1024 * 1024 // 100MB per request
+  log('UPLOAD', `Generating ${(chunkSize / 1_000_000).toFixed(0)}MB upload buffer...`)
+  
   const uploadChunk = new Uint8Array(chunkSize)
   
-  // Fill with random data pattern
-  for (let i = 0; i < chunkSize; i += 65536) {
-    const smallChunk = new Uint8Array(Math.min(65536, chunkSize - i))
-    crypto.getRandomValues(smallChunk)
-    uploadChunk.set(smallChunk, i)
+  // Fill with pseudo-random data (faster than crypto.getRandomValues for large buffers)
+  let seed = Date.now()
+  for (let i = 0; i < chunkSize; i++) {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff
+    uploadChunk[i] = seed & 0xff
   }
   
-  log('UPLOAD', `Generated ${(chunkSize / 1_000_000).toFixed(0)}MB reusable chunk`)
+  log('UPLOAD', `Generated ${(chunkSize / 1_000_000).toFixed(0)}MB buffer - starting upload streams`)
   
   // Track overall stats
   let totalBytesUploaded = 0
@@ -342,7 +344,7 @@ async function measureUpload(
   const speedSamples: number[] = []
   let uploadPeak = 0
   let currentSpeed = 0
-  const maxConcurrent = 4 // Run 4 parallel uploads for maximum throughput
+  const maxConcurrent = 6 // 6 parallel streams for aggressive throughput
   let testComplete = false
   
   // Function to send a single upload request
@@ -365,12 +367,12 @@ async function measureUpload(
           const now = performance.now()
           const intervalTime = (now - lastProgressTime) / 1000
           
-          // Update speed every 0.5 seconds
-          if (intervalTime >= 0.5) {
+          // Update speed every 0.3 seconds for more responsive updates
+          if (intervalTime >= 0.3) {
             const intervalBytes = totalBytesUploaded - lastProgressBytes
             const intervalSpeedMbps = (intervalBytes * 8) / intervalTime / 1_000_000
             
-            if (intervalSpeedMbps > 0 && intervalSpeedMbps < 10000) {
+            if (intervalSpeedMbps > 0 && intervalSpeedMbps < 50000) {
               speedSamples.push(intervalSpeedMbps)
               currentSpeed = intervalSpeedMbps
               if (intervalSpeedMbps > uploadPeak) {
@@ -402,7 +404,7 @@ async function measureUpload(
       
       xhr.open('POST', INTERNAL_ENDPOINTS.upload)
       xhr.setRequestHeader('Content-Type', 'application/octet-stream')
-      xhr.timeout = 15000 // 15 second timeout per request
+      xhr.timeout = 60000 // 60 second timeout - let large uploads complete
       xhr.send(uploadChunk)
     })
   }
@@ -411,11 +413,6 @@ async function measureUpload(
   const uploadLoop = async (): Promise<void> => {
     while (!testComplete && performance.now() < testEndTime) {
       await sendUploadRequest()
-      
-      // Check if we should continue
-      if (performance.now() >= testEndTime) {
-        break
-      }
     }
   }
   
@@ -426,34 +423,34 @@ async function measureUpload(
       uploadPromises.push(uploadLoop())
     }
     
-    // Wait for test duration, then stop
+    // Wait for test duration
     await new Promise<void>((resolve) => {
       const checkComplete = () => {
         if (performance.now() >= testEndTime) {
           testComplete = true
           resolve()
         } else {
-          setTimeout(checkComplete, 100)
+          setTimeout(checkComplete, 50) // Check more frequently
         }
       }
       checkComplete()
     })
     
-    // Mark test as complete to stop any ongoing uploads
+    // Mark test as complete
     testComplete = true
     
-    // Wait a bit for ongoing requests to finish reporting
-    await new Promise(r => setTimeout(r, 500))
+    // Brief wait for final progress updates
+    await new Promise(r => setTimeout(r, 300))
     
     // Calculate final results
     const totalElapsed = (performance.now() - testStartTime) / 1000
     
     let finalSpeed: number
-    if (speedSamples.length >= 3) {
-      // Use average of top 80% of samples (removes slow start)
+    if (speedSamples.length >= 5) {
+      // Use average of top 70% of samples (removes slow start and drops)
       const sorted = [...speedSamples].sort((a, b) => b - a)
-      const top80 = sorted.slice(0, Math.ceil(sorted.length * 0.8))
-      finalSpeed = top80.reduce((a, b) => a + b, 0) / top80.length
+      const top70 = sorted.slice(0, Math.ceil(sorted.length * 0.7))
+      finalSpeed = top70.reduce((a, b) => a + b, 0) / top70.length
     } else if (speedSamples.length > 0) {
       finalSpeed = speedSamples.reduce((a, b) => a + b, 0) / speedSamples.length
     } else {
@@ -462,7 +459,8 @@ async function measureUpload(
     
     log('UPLOAD', `Transferred: ${(totalBytesUploaded / 1_000_000_000).toFixed(2)}GB`)
     log('UPLOAD', `Duration: ${totalElapsed.toFixed(2)}s`)
-    log('UPLOAD', `Requests completed with ${maxConcurrent} parallel streams`)
+    log('UPLOAD', `Completed with ${maxConcurrent} parallel streams`)
+    log('UPLOAD', `Samples collected: ${speedSamples.length}`)
     log('UPLOAD', `=== Final: ${finalSpeed.toFixed(2)} Mbps, Peak: ${uploadPeak.toFixed(2)} Mbps ===`)
     
     return {

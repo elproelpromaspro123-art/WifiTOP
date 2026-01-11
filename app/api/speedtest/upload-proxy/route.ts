@@ -1,7 +1,6 @@
 /**
- * Upload proxy endpoint - accepts data for measuring upload speed
- * Simulates receiving data without storing it (sink mode)
- * Eliminates CORS issues by running on same domain
+ * Upload proxy endpoint - receives data and discards it
+ * Returns 204 No Content for speed (no JSON parsing overhead)
  */
 
 export const runtime = 'nodejs'
@@ -9,65 +8,41 @@ export const maxDuration = 60 // 60 seconds max duration
 
 export async function POST(request: Request) {
   try {
-    const startTime = Date.now()
+    // Consume the body fully and discard - just count bytes
+    const reader = request.body?.getReader()
     let bytesReceived = 0
     
-    // Read the request body as stream
-    if (!request.body) {
-      return new Response(
-        JSON.stringify({ error: 'No body provided', received: 0 }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Process stream in chunks
-    const reader = request.body.getReader()
-    
-    try {
+    if (reader) {
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
         bytesReceived += value?.length || 0
       }
-    } finally {
       reader.releaseLock()
+    } else {
+      // Fallback: read as arrayBuffer
+      const buffer = await request.arrayBuffer()
+      bytesReceived = buffer.byteLength
     }
 
-    const elapsedMs = Date.now() - startTime
-    const speedMbps = (bytesReceived * 8) / (elapsedMs / 1000) / 1_000_000
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        received: bytesReceived,
-        duration: elapsedMs,
-        speed: speedMbps
-      }),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
-          'Cache-Control': 'no-store',
-        },
-      }
-    )
+    // Return 204 No Content for minimal overhead
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Cache-Control': 'no-store',
+        'X-Accel-Buffering': 'no',
+      },
+    })
   } catch (error) {
     console.error('Upload proxy error:', error)
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : 'Unknown error',
-        received: 0
-      }),
-      { 
-        status: 500,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        }
+    return new Response(null, { 
+      status: 500,
+      headers: { 
+        'Access-Control-Allow-Origin': '*',
       }
-    )
+    })
   }
 }
 

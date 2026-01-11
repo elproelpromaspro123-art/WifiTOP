@@ -205,109 +205,110 @@ async function measurePing(onProgress?: (ping: number) => void): Promise<{
   return { avg, min, max, jitter, samples }
 }
 
-// Download test - single continuous 30s connection for accurate speed measurement
+// Download test - robust implementation with manual abort controller
 async function measureDownload(onProgress: ProgressCallback): Promise<{
   speed: number
   peak: number
   samples: number[]
 }> {
   log('DOWNLOAD', '=== Starting download test ===')
-  log('DOWNLOAD', `Duration: ${CONFIG.DOWNLOAD_DURATION}ms - Single continuous connection`)
+  log('DOWNLOAD', `Duration: ${CONFIG.DOWNLOAD_DURATION}ms`)
   
+  const url = `${INTERNAL_ENDPOINTS.download}?duration=${CONFIG.DOWNLOAD_DURATION}`
+  const start = performance.now()
+  let totalBytes = 0
+  let peakMbps = 0
   const samples: number[] = []
-  let currentSpeed = 0
-  let peakSpeed = 0
-  let lastReportTime = 0
-  const reportInterval = 1000 // Report progress every 1 second
+  let lastSampleTime = start
   
-  const startTime = performance.now()
+  // Use manual AbortController instead of AbortSignal.timeout (better browser support)
+  const controller = new AbortController()
+  const abortTimeout = setTimeout(
+    () => controller.abort(),
+    CONFIG.DOWNLOAD_DURATION + 10000
+  )
   
   try {
-    // Single 30-second download connection
-    const url = `${INTERNAL_ENDPOINTS.download}?duration=${CONFIG.DOWNLOAD_DURATION}`
-    const downloadStart = performance.now()
-    
     const response = await fetch(url, {
       cache: 'no-store',
       mode: 'cors',
-      signal: AbortSignal.timeout(CONFIG.DOWNLOAD_DURATION + 5000),
+      signal: controller.signal,
     })
     
-    if (!response.ok) {
+    if (!response.body || !response.ok) {
       log('DOWNLOAD', `Failed: HTTP ${response.status}`)
+      clearTimeout(abortTimeout)
       return { speed: 0, peak: 0, samples: [] }
     }
     
-    const reader = response.body?.getReader()
-    if (!reader) {
-      log('DOWNLOAD', 'No response body')
-      return { speed: 0, peak: 0, samples: [] }
-    }
+    const reader = response.body.getReader()
     
-    let totalBytes = 0
-    const speedSamples: number[] = []
-    const measurementStart = performance.now()
-    
-    try {
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      
+      const chunkBytes = value?.byteLength ?? 0
+      totalBytes += chunkBytes
+      
+      const now = performance.now()
+      const elapsedSec = (now - start) / 1000
+      if (elapsedSec <= 0) continue
+      
+      const mbps = (totalBytes * 8) / elapsedSec / 1_000_000
+      
+      // Sample every 0.5 seconds
+      if (now - lastSampleTime >= 500) {
+        samples.push(mbps)
+        if (mbps > peakMbps) peakMbps = mbps
+        lastSampleTime = now
         
-        totalBytes += value?.length || 0
-        const elapsed = (performance.now() - downloadStart) / 1000
+        const progress = Math.min(100, (elapsedSec / (CONFIG.DOWNLOAD_DURATION / 1000)) * 100)
         
-        // Calculate current speed every second
-        if (elapsed > 0) {
-          const currentSpeedMbps = (totalBytes * 8) / elapsed / 1_000_000
-          
-          // Report progress every 1 second
-          const now = performance.now()
-          if (now - lastReportTime > reportInterval) {
-            speedSamples.push(currentSpeedMbps)
-            currentSpeed = currentSpeedMbps
-            
-            if (currentSpeedMbps > peakSpeed) {
-              peakSpeed = currentSpeedMbps
-            }
-            
-            const elapsed = now - startTime
-            const progress = Math.min(100, (elapsed / CONFIG.DOWNLOAD_DURATION) * 100)
-            
-            onProgress({
-              phase: 'download',
-              progress: 15 + progress * 0.4,
-              currentSpeed,
-              peakSpeed,
-              samples: speedSamples,
-              status: `⬇️ ${currentSpeed.toFixed(1)} Mbps (peak: ${peakSpeed.toFixed(1)} Mbps)`,
-            })
-            
-            lastReportTime = now
-          }
-        }
+        onProgress({
+          phase: 'download',
+          progress: 15 + progress * 0.4,
+          currentSpeed: mbps,
+          peakSpeed: peakMbps,
+          samples,
+          status: `⬇️ ${mbps.toFixed(1)} Mbps (peak: ${peakMbps.toFixed(1)} Mbps)`,
+        })
       }
-    } finally {
-      reader.releaseLock()
     }
     
-    // Final speed calculation
-    const totalDuration = (performance.now() - downloadStart) / 1000
-    const finalSpeed = (totalBytes * 8) / totalDuration / 1_000_000
+    reader.releaseLock()
+    
+    const totalSec = (performance.now() - start) / 1000
+    const finalMbps = totalSec > 0 ? (totalBytes * 8) / totalSec / 1_000_000 : 0
     
     log('DOWNLOAD', `Transferred: ${(totalBytes / 1_000_000_000).toFixed(2)}GB`)
-    log('DOWNLOAD', `Duration: ${totalDuration.toFixed(2)}s`)
-    log('DOWNLOAD', `=== Final: ${finalSpeed.toFixed(2)} Mbps, Peak: ${peakSpeed.toFixed(2)} Mbps ===`)
+    log('DOWNLOAD', `Duration: ${totalSec.toFixed(2)}s`)
+    log('DOWNLOAD', `Samples: ${samples.length}`)
+    log('DOWNLOAD', `=== Final: ${finalMbps.toFixed(2)} Mbps, Peak: ${peakMbps.toFixed(2)} Mbps ===`)
     
-    return { speed: finalSpeed, peak: peakSpeed, samples: speedSamples }
+    return {
+      speed: finalMbps,
+      peak: peakMbps || finalMbps,
+      samples: samples.length > 0 ? samples : [finalMbps],
+    }
   } catch (e) {
-    if ((e as Error).name !== 'AbortError') {
+    const totalSec = (performance.now() - start) / 1000
+    const finalMbps = totalSec > 0 && totalBytes > 0 ? (totalBytes * 8) / totalSec / 1_000_000 : 0
+    
+    if ((e as Error).name === 'AbortError') {
+      log('DOWNLOAD', `Aborted after ${totalSec.toFixed(2)}s - ${finalMbps.toFixed(2)} Mbps`)
+      if (finalMbps > 0) {
+        return { speed: finalMbps, peak: peakMbps || finalMbps, samples }
+      }
+    } else {
       log('DOWNLOAD', 'Download failed', e)
     }
     return { speed: 0, peak: 0, samples: [] }
+  } finally {
+    clearTimeout(abortTimeout)
   }
 }
 
-// Upload test - aggressive continuous upload with large chunks for maximum throughput
+// Upload test - parallel XHR streams with 4MB chunks for optimal throughput
 async function measureUpload(
   expectedDownload: number,
   onProgress: ProgressCallback
@@ -317,162 +318,147 @@ async function measureUpload(
   samples: number[]
 }> {
   log('UPLOAD', '=== Starting upload test ===')
-  log('UPLOAD', `Duration: ${CONFIG.UPLOAD_DURATION}ms - Aggressive parallel upload`)
+  log('UPLOAD', `Duration: ${CONFIG.UPLOAD_DURATION}ms`)
   
-  const testStartTime = performance.now()
-  const testEndTime = testStartTime + CONFIG.UPLOAD_DURATION
+  const start = performance.now()
+  const endTime = start + CONFIG.UPLOAD_DURATION
+  const concurrency = 6
+  const chunkSize = 4 * 1024 * 1024 // 4MB chunks - optimal balance
   
-  // Generate large upload chunk (100MB for maximum throughput - no interruptions)
-  const chunkSize = 100 * 1024 * 1024 // 100MB per request
-  log('UPLOAD', `Generating ${(chunkSize / 1_000_000).toFixed(0)}MB upload buffer...`)
+  // Create reusable upload payload (zeros are fine, just need bytes)
+  const payload = new Uint8Array(chunkSize)
+  log('UPLOAD', `Starting ${concurrency} parallel streams with ${chunkSize / 1024 / 1024}MB chunks`)
   
-  const uploadChunk = new Uint8Array(chunkSize)
-  
-  // Fill with pseudo-random data (faster than crypto.getRandomValues for large buffers)
-  let seed = Date.now()
-  for (let i = 0; i < chunkSize; i++) {
-    seed = (seed * 1103515245 + 12345) & 0x7fffffff
-    uploadChunk[i] = seed & 0xff
-  }
-  
-  log('UPLOAD', `Generated ${(chunkSize / 1_000_000).toFixed(0)}MB buffer - starting upload streams`)
-  
-  // Track overall stats
-  let totalBytesUploaded = 0
-  let lastProgressTime = performance.now()
-  let lastProgressBytes = 0
-  const speedSamples: number[] = []
-  let uploadPeak = 0
-  let currentSpeed = 0
-  const maxConcurrent = 6 // 6 parallel streams for aggressive throughput
+  let totalBytes = 0
+  let peakMbps = 0
+  const samples: number[] = []
+  let lastSampleTime = start
   let testComplete = false
   
-  // Function to send a single upload request
-  const sendUploadRequest = (): Promise<number> => {
+  // Track active XHRs for cleanup
+  const activeXhrs: XMLHttpRequest[] = []
+  
+  function now() {
+    return performance.now()
+  }
+  
+  function runStream(): Promise<void> {
     return new Promise((resolve) => {
-      if (testComplete || performance.now() >= testEndTime) {
-        resolve(0)
-        return
-      }
-      
-      const xhr = new XMLHttpRequest()
-      let requestBytes = 0
-      
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable && !testComplete) {
-          const newBytes = e.loaded - requestBytes
-          requestBytes = e.loaded
-          totalBytesUploaded += newBytes
+      function sendRequest() {
+        if (testComplete || now() >= endTime) {
+          resolve()
+          return
+        }
+        
+        const xhr = new XMLHttpRequest()
+        activeXhrs.push(xhr)
+        
+        xhr.upload.onprogress = (e) => {
+          if (!e.lengthComputable || testComplete) return
           
-          const now = performance.now()
-          const intervalTime = (now - lastProgressTime) / 1000
+          const currentTime = now()
+          const elapsedSec = (currentTime - start) / 1000
+          if (elapsedSec <= 0) return
           
-          // Update speed every 0.3 seconds for more responsive updates
-          if (intervalTime >= 0.3) {
-            const intervalBytes = totalBytesUploaded - lastProgressBytes
-            const intervalSpeedMbps = (intervalBytes * 8) / intervalTime / 1_000_000
+          // Sample every 0.5 seconds
+          if (currentTime - lastSampleTime >= 500) {
+            const mbps = (totalBytes * 8) / elapsedSec / 1_000_000
+            samples.push(mbps)
+            if (mbps > peakMbps) peakMbps = mbps
+            lastSampleTime = currentTime
             
-            if (intervalSpeedMbps > 0 && intervalSpeedMbps < 50000) {
-              speedSamples.push(intervalSpeedMbps)
-              currentSpeed = intervalSpeedMbps
-              if (intervalSpeedMbps > uploadPeak) {
-                uploadPeak = intervalSpeedMbps
-              }
-            }
-            
-            const elapsed = (now - testStartTime) / 1000
-            const progress = Math.min(100, (elapsed / (CONFIG.UPLOAD_DURATION / 1000)) * 100)
+            const progress = Math.min(100, (elapsedSec / (CONFIG.UPLOAD_DURATION / 1000)) * 100)
             
             onProgress({
               phase: 'upload',
               progress: 55 + progress * 0.45,
-              currentSpeed,
-              peakSpeed: uploadPeak,
-              samples: speedSamples,
-              status: `⬆️ ${currentSpeed.toFixed(1)} Mbps (peak: ${uploadPeak.toFixed(1)} Mbps)`,
+              currentSpeed: mbps,
+              peakSpeed: peakMbps,
+              samples,
+              status: `⬆️ ${mbps.toFixed(1)} Mbps (peak: ${peakMbps.toFixed(1)} Mbps)`,
             })
-            
-            lastProgressTime = now
-            lastProgressBytes = totalBytesUploaded
           }
         }
+        
+        xhr.onloadend = () => {
+          // Remove from active list
+          const idx = activeXhrs.indexOf(xhr)
+          if (idx > -1) activeXhrs.splice(idx, 1)
+          
+          // Count bytes on completion
+          totalBytes += chunkSize
+          
+          // Fire another request if still within duration
+          if (!testComplete && now() < endTime) {
+            sendRequest()
+          } else {
+            resolve()
+          }
+        }
+        
+        xhr.open('POST', INTERNAL_ENDPOINTS.upload, true)
+        xhr.setRequestHeader('Content-Type', 'application/octet-stream')
+        xhr.send(payload)
       }
       
-      xhr.onload = () => resolve(requestBytes)
-      xhr.onerror = () => resolve(requestBytes)
-      xhr.ontimeout = () => resolve(requestBytes)
-      
-      xhr.open('POST', INTERNAL_ENDPOINTS.upload)
-      xhr.setRequestHeader('Content-Type', 'application/octet-stream')
-      xhr.timeout = 60000 // 60 second timeout - let large uploads complete
-      xhr.send(uploadChunk)
+      sendRequest()
     })
-  }
-  
-  // Function to continuously send uploads until time is up
-  const uploadLoop = async (): Promise<void> => {
-    while (!testComplete && performance.now() < testEndTime) {
-      await sendUploadRequest()
-    }
   }
   
   try {
-    // Start multiple parallel upload streams
-    const uploadPromises: Promise<void>[] = []
-    for (let i = 0; i < maxConcurrent; i++) {
-      uploadPromises.push(uploadLoop())
-    }
+    // Start all parallel streams
+    const streams = Array.from({ length: concurrency }, () => runStream())
     
-    // Wait for test duration
-    await new Promise<void>((resolve) => {
-      const checkComplete = () => {
-        if (performance.now() >= testEndTime) {
-          testComplete = true
-          resolve()
-        } else {
-          setTimeout(checkComplete, 50) // Check more frequently
-        }
-      }
-      checkComplete()
-    })
+    // Also set a timer to stop the test
+    const stopTimer = setTimeout(() => {
+      testComplete = true
+      // Abort any active XHRs
+      activeXhrs.forEach(xhr => {
+        try { xhr.abort() } catch {}
+      })
+    }, CONFIG.UPLOAD_DURATION)
     
-    // Mark test as complete
+    // Wait for all streams to finish (they'll stop when testComplete is true)
+    await Promise.race([
+      Promise.all(streams),
+      new Promise(r => setTimeout(r, CONFIG.UPLOAD_DURATION + 1000))
+    ])
+    
+    clearTimeout(stopTimer)
     testComplete = true
     
-    // Brief wait for final progress updates
-    await new Promise(r => setTimeout(r, 300))
+    // Calculate final speed
+    const totalSec = (now() - start) / 1000
+    let finalMbps: number
     
-    // Calculate final results
-    const totalElapsed = (performance.now() - testStartTime) / 1000
-    
-    let finalSpeed: number
-    if (speedSamples.length >= 5) {
-      // Use average of top 70% of samples (removes slow start and drops)
-      const sorted = [...speedSamples].sort((a, b) => b - a)
+    if (samples.length >= 5) {
+      // Use average of top 70% samples (removes slow start)
+      const sorted = [...samples].sort((a, b) => b - a)
       const top70 = sorted.slice(0, Math.ceil(sorted.length * 0.7))
-      finalSpeed = top70.reduce((a, b) => a + b, 0) / top70.length
-    } else if (speedSamples.length > 0) {
-      finalSpeed = speedSamples.reduce((a, b) => a + b, 0) / speedSamples.length
+      finalMbps = top70.reduce((a, b) => a + b, 0) / top70.length
+    } else if (samples.length > 0) {
+      finalMbps = samples.reduce((a, b) => a + b, 0) / samples.length
     } else {
-      finalSpeed = (totalBytesUploaded * 8) / totalElapsed / 1_000_000
+      finalMbps = totalSec > 0 ? (totalBytes * 8) / totalSec / 1_000_000 : 0
     }
     
-    log('UPLOAD', `Transferred: ${(totalBytesUploaded / 1_000_000_000).toFixed(2)}GB`)
-    log('UPLOAD', `Duration: ${totalElapsed.toFixed(2)}s`)
-    log('UPLOAD', `Completed with ${maxConcurrent} parallel streams`)
-    log('UPLOAD', `Samples collected: ${speedSamples.length}`)
-    log('UPLOAD', `=== Final: ${finalSpeed.toFixed(2)} Mbps, Peak: ${uploadPeak.toFixed(2)} Mbps ===`)
+    log('UPLOAD', `Transferred: ${(totalBytes / 1_000_000_000).toFixed(2)}GB`)
+    log('UPLOAD', `Duration: ${totalSec.toFixed(2)}s`)
+    log('UPLOAD', `Samples: ${samples.length}`)
+    log('UPLOAD', `=== Final: ${finalMbps.toFixed(2)} Mbps, Peak: ${peakMbps.toFixed(2)} Mbps ===`)
     
     return {
-      speed: finalSpeed,
-      peak: uploadPeak > 0 ? uploadPeak : finalSpeed,
-      samples: speedSamples.length > 0 ? speedSamples : [finalSpeed]
+      speed: finalMbps,
+      peak: peakMbps || finalMbps,
+      samples: samples.length > 0 ? samples : [finalMbps],
     }
   } catch (e) {
     testComplete = true
-    if ((e as Error).name !== 'AbortError') {
-      log('UPLOAD', 'Upload failed', e)
-    }
+    activeXhrs.forEach(xhr => {
+      try { xhr.abort() } catch {}
+    })
+    
+    log('UPLOAD', 'Upload failed', e)
     return { speed: 0, peak: 0, samples: [] }
   }
 }

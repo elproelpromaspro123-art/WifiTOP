@@ -307,7 +307,7 @@ async function measureDownload(onProgress: ProgressCallback): Promise<{
   }
 }
 
-// Upload test - single continuous 30s connection for accurate speed measurement
+// Upload test - continuous 30s connection using XHR for browser compatibility
 async function measureUpload(
   expectedDownload: number,
   onProgress: ProgressCallback
@@ -317,76 +317,127 @@ async function measureUpload(
   samples: number[]
 }> {
   log('UPLOAD', '=== Starting upload test ===')
-  log('UPLOAD', `Duration: ${CONFIG.UPLOAD_DURATION}ms - Single continuous connection`)
+  log('UPLOAD', `Duration: ${CONFIG.UPLOAD_DURATION}ms - Continuous upload`)
   
   const samples: number[] = []
   let currentSpeed = 0
   let peakSpeed = 0
-  let lastReportTime = 0
-  const reportInterval = 1000 // Report progress every 1 second
   
   const startTime = performance.now()
-  const uploadStart = performance.now()
-  const uploadEndTime = uploadStart + CONFIG.UPLOAD_DURATION
   
   try {
-    // Create single 30-second upload stream
-    const chunkSize = 64 * 1024 // 64KB chunks to stay within getRandomValues limits
-    let sent = 0
-    const chunk = new Uint8Array(chunkSize)
+    // Generate a large buffer for upload (100MB chunks for better throughput)
+    const chunkSize = 100 * 1024 * 1024 // 100MB
+    const uploadData = new Uint8Array(chunkSize)
     
-    const readable = new ReadableStream({
-      start(controller) {
-        const sendChunk = () => {
-          const elapsed = performance.now() - uploadStart
-          
-          // Stop after 30 seconds
-          if (elapsed > CONFIG.UPLOAD_DURATION) {
-            controller.close()
-            return
-          }
-          
-          // Fill and send 64KB of random data
-          crypto.getRandomValues(chunk)
-          controller.enqueue(chunk.slice(0)) // enqueue a copy
-          sent += chunk.length
-          
-          // Schedule next chunk immediately
-          setImmediate(() => sendChunk())
-        }
-        
-        sendChunk()
-      }
-    })
-    
-    const response = await fetch(INTERNAL_ENDPOINTS.upload, {
-      method: 'POST',
-      body: readable,
-      mode: 'cors',
-      signal: AbortSignal.timeout(CONFIG.UPLOAD_DURATION + 5000),
-      headers: {
-        'Content-Type': 'application/octet-stream',
-      },
-    })
-    
-    if (!response.ok) {
-      log('UPLOAD', `Failed: HTTP ${response.status}`)
-      return { speed: 0, peak: 0, samples: [] }
+    // Fill with random data pattern (faster than crypto.getRandomValues for large buffers)
+    for (let i = 0; i < chunkSize; i += 65536) {
+      const smallChunk = new Uint8Array(Math.min(65536, chunkSize - i))
+      crypto.getRandomValues(smallChunk)
+      uploadData.set(smallChunk, i)
     }
     
-    const serverData = await response.json() as { received: number; duration: number; speed: number }
-    const receivedBytes = serverData.received
-    const serverDuration = serverData.duration / 1000 // Convert to seconds
-    const serverSpeedMbps = serverData.speed
+    log('UPLOAD', `Generated ${(chunkSize / 1_000_000).toFixed(0)}MB test data`)
     
-    log('UPLOAD', `Transferred: ${(receivedBytes / 1_000_000_000).toFixed(2)}GB`)
-    log('UPLOAD', `Duration: ${serverDuration.toFixed(2)}s`)
-    log('UPLOAD', `=== Final: ${serverSpeedMbps.toFixed(2)} Mbps ===`)
+    // Use XMLHttpRequest for upload progress tracking
+    const uploadPromise = new Promise<{ speed: number; peak: number; samples: number[] }>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      let uploadedBytes = 0
+      let lastTime = performance.now()
+      let lastBytes = 0
+      const speedSamples: number[] = []
+      let uploadPeak = 0
+      
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          uploadedBytes = e.loaded
+          const now = performance.now()
+          const elapsed = (now - startTime) / 1000
+          const intervalTime = (now - lastTime) / 1000
+          
+          if (intervalTime >= 1) {
+            const intervalBytes = uploadedBytes - lastBytes
+            const intervalSpeedMbps = (intervalBytes * 8) / intervalTime / 1_000_000
+            
+            speedSamples.push(intervalSpeedMbps)
+            currentSpeed = intervalSpeedMbps
+            if (intervalSpeedMbps > uploadPeak) {
+              uploadPeak = intervalSpeedMbps
+            }
+            
+            const progress = Math.min(100, (elapsed / (CONFIG.UPLOAD_DURATION / 1000)) * 100)
+            
+            onProgress({
+              phase: 'upload',
+              progress: 55 + progress * 0.45,
+              currentSpeed,
+              peakSpeed: uploadPeak,
+              samples: speedSamples,
+              status: `⬆️ ${currentSpeed.toFixed(1)} Mbps (peak: ${uploadPeak.toFixed(1)} Mbps)`,
+            })
+            
+            lastTime = now
+            lastBytes = uploadedBytes
+          }
+        }
+      }
+      
+      xhr.onload = () => {
+        if (xhr.status === 200) {
+          try {
+            const serverData = JSON.parse(xhr.responseText) as { received: number; duration: number; speed: number }
+            const serverSpeedMbps = serverData.speed
+            const serverDuration = serverData.duration / 1000
+            
+            log('UPLOAD', `Transferred: ${(serverData.received / 1_000_000_000).toFixed(2)}GB`)
+            log('UPLOAD', `Duration: ${serverDuration.toFixed(2)}s`)
+            log('UPLOAD', `=== Final: ${serverSpeedMbps.toFixed(2)} Mbps, Peak: ${uploadPeak.toFixed(2)} Mbps ===`)
+            
+            resolve({ 
+              speed: serverSpeedMbps, 
+              peak: Math.max(uploadPeak, serverSpeedMbps), 
+              samples: speedSamples.length > 0 ? speedSamples : [serverSpeedMbps] 
+            })
+          } catch {
+            // Calculate speed from client side if server response parsing fails
+            const elapsed = (performance.now() - startTime) / 1000
+            const speedMbps = (uploadedBytes * 8) / elapsed / 1_000_000
+            resolve({ 
+              speed: speedMbps, 
+              peak: Math.max(uploadPeak, speedMbps), 
+              samples: speedSamples.length > 0 ? speedSamples : [speedMbps] 
+            })
+          }
+        } else {
+          log('UPLOAD', `Failed: HTTP ${xhr.status}`)
+          resolve({ speed: 0, peak: 0, samples: [] })
+        }
+      }
+      
+      xhr.onerror = () => {
+        log('UPLOAD', 'XHR error occurred')
+        reject(new Error('Upload failed'))
+      }
+      
+      xhr.ontimeout = () => {
+        // Timeout is expected - calculate final speed
+        const elapsed = (performance.now() - startTime) / 1000
+        const speedMbps = (uploadedBytes * 8) / elapsed / 1_000_000
+        log('UPLOAD', `Timeout after ${elapsed.toFixed(2)}s - ${speedMbps.toFixed(2)} Mbps`)
+        resolve({ 
+          speed: speedMbps, 
+          peak: Math.max(uploadPeak, speedMbps), 
+          samples: speedSamples.length > 0 ? speedSamples : [speedMbps] 
+        })
+      }
+      
+      xhr.open('POST', INTERNAL_ENDPOINTS.upload)
+      xhr.setRequestHeader('Content-Type', 'application/octet-stream')
+      xhr.timeout = CONFIG.UPLOAD_DURATION + 5000
+      xhr.send(uploadData)
+    })
     
-    // Use server-measured speed as it's more accurate
-    samples.push(serverSpeedMbps)
-    
-    return { speed: serverSpeedMbps, peak: serverSpeedMbps, samples }
+    return await uploadPromise
   } catch (e) {
     if ((e as Error).name !== 'AbortError') {
       log('UPLOAD', 'Upload failed', e)

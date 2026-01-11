@@ -11,32 +11,31 @@ export async function GET(request: Request) {
   const duration = parseInt(searchParams.get('duration') || '30000', 10) // 30s by default
 
   // Generate continuous stream of random data for the specified duration
-  const chunkSize = 64 * 1024 // 64KB chunks for stable server memory usage
+  const chunkSize = 256 * 1024 // 256KB chunks for better throughput
   const startTime = Date.now()
-  let sent = 0
+  
+  // Pre-generate random data chunk for performance
   const chunk = new Uint8Array(chunkSize)
+  crypto.getRandomValues(chunk)
   
   const readable = new ReadableStream({
-    start(controller) {
-      const sendChunk = () => {
-        const elapsed = Date.now() - startTime
-        
-        // Stop after duration
-        if (elapsed > duration) {
-          controller.close()
-          return
-        }
-        
-        // Generate and send random data chunk
-        crypto.getRandomValues(chunk)
-        controller.enqueue(chunk.slice(0))
-        sent += chunkSize
-        
-        // Schedule next chunk immediately for maximum throughput
-        setImmediate(() => sendChunk())
+    async pull(controller) {
+      const elapsed = Date.now() - startTime
+      
+      // Stop after duration
+      if (elapsed > duration) {
+        controller.close()
+        return
       }
       
-      sendChunk()
+      // Rotate data slightly for variety (faster than generating new random data)
+      const offset = (elapsed % 255)
+      const rotatedChunk = new Uint8Array(chunkSize)
+      for (let i = 0; i < chunkSize; i++) {
+        rotatedChunk[i] = (chunk[i] + offset) & 0xFF
+      }
+      
+      controller.enqueue(rotatedChunk)
     }
   })
 

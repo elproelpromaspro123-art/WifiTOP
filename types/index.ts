@@ -4,7 +4,7 @@ export interface SpeedTestResult {
   ping: number
   jitter: number
   stability: number
-  connectionType: 'fiber' | 'cable' | 'dsl' | 'mobile' | 'unknown'
+  connectionType: 'fiber' | 'cable' | 'dsl' | 'mobile' | 'wifi' | 'ethernet' | 'unknown'
   isSymmetric: boolean
   peakDownload: number
   peakUpload: number

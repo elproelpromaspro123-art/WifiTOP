@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useLanguage } from '@/hooks/useLanguage'
 
 export default function Header() {
@@ -12,7 +13,7 @@ export default function Header() {
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3">
             <div className="relative">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/20">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -27,19 +28,22 @@ export default function Header() {
               </h1>
               <p className="text-[10px] text-gray-500 font-medium tracking-wider uppercase">{t('app.subtitle')}</p>
             </div>
-          </div>
+          </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-6">
-            <a href="#test" className="text-sm text-gray-400 hover:text-white transition-colors duration-200">
+            <Link href="/#test" className="text-sm text-gray-400 hover:text-white transition-colors duration-200">
               Test
-            </a>
-            <a href="#ranking" className="text-sm text-gray-400 hover:text-white transition-colors duration-200">
+            </Link>
+            <Link href="/#ranking" className="text-sm text-gray-400 hover:text-white transition-colors duration-200">
               Ranking
-            </a>
-            <a href="#how-it-works" className="text-sm text-gray-400 hover:text-white transition-colors duration-200">
-              ¿Cómo funciona?
-            </a>
+            </Link>
+            <Link href="/faq" className="text-sm text-gray-400 hover:text-white transition-colors duration-200">
+              FAQ
+            </Link>
+            <Link href="/badges" className="text-sm text-gray-400 hover:text-white transition-colors duration-200">
+              Badges
+            </Link>
           </nav>
 
           {/* Right Section */}
@@ -81,15 +85,18 @@ export default function Header() {
         {/* Mobile Menu */}
         {mobileMenuOpen && (
           <nav className="md:hidden mt-4 pb-2 border-t border-white/10 pt-4 space-y-2 animate-fade-in">
-            <a href="#test" className="block px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all">
+            <Link href="/#test" className="block px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all" onClick={() => setMobileMenuOpen(false)}>
               Test
-            </a>
-            <a href="#ranking" className="block px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all">
+            </Link>
+            <Link href="/#ranking" className="block px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all" onClick={() => setMobileMenuOpen(false)}>
               Ranking
-            </a>
-            <a href="#how-it-works" className="block px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all">
-              ¿Cómo funciona?
-            </a>
+            </Link>
+            <Link href="/faq" className="block px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all" onClick={() => setMobileMenuOpen(false)}>
+              FAQ
+            </Link>
+            <Link href="/badges" className="block px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all" onClick={() => setMobileMenuOpen(false)}>
+              Badges
+            </Link>
           </nav>
         )}
       </div>

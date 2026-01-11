@@ -1,7 +1,7 @@
 'use client'
 
 import { useLanguage } from '@/hooks/useLanguage'
-import { getAllBadges, BADGES } from '@/lib/badges'
+import { BADGES } from '@/lib/badges'
 
 interface Props {
   unlockedBadges: string[]
@@ -9,7 +9,6 @@ interface Props {
 
 export default function Badges({ unlockedBadges }: Props) {
   const { t } = useLanguage()
-  const allBadges = getAllBadges()
 
   if (unlockedBadges.length === 0) {
     return (

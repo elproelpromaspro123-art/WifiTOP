@@ -307,7 +307,7 @@ async function measureDownload(onProgress: ProgressCallback): Promise<{
   }
 }
 
-// Upload test - continuous 30s connection using XHR for browser compatibility
+// Upload test - continuous connection using XHR for browser compatibility
 async function measureUpload(
   expectedDownload: number,
   onProgress: ProgressCallback
@@ -319,18 +319,14 @@ async function measureUpload(
   log('UPLOAD', '=== Starting upload test ===')
   log('UPLOAD', `Duration: ${CONFIG.UPLOAD_DURATION}ms - Continuous upload`)
   
-  const samples: number[] = []
-  let currentSpeed = 0
-  let peakSpeed = 0
-  
   const startTime = performance.now()
   
   try {
-    // Generate a large buffer for upload (100MB chunks for better throughput)
-    const chunkSize = 100 * 1024 * 1024 // 100MB
+    // Generate a buffer for upload (25MB for reasonable memory usage)
+    const chunkSize = 25 * 1024 * 1024 // 25MB
     const uploadData = new Uint8Array(chunkSize)
     
-    // Fill with random data pattern (faster than crypto.getRandomValues for large buffers)
+    // Fill with random data pattern
     for (let i = 0; i < chunkSize; i += 65536) {
       const smallChunk = new Uint8Array(Math.min(65536, chunkSize - i))
       crypto.getRandomValues(smallChunk)
@@ -340,32 +336,38 @@ async function measureUpload(
     log('UPLOAD', `Generated ${(chunkSize / 1_000_000).toFixed(0)}MB test data`)
     
     // Use XMLHttpRequest for upload progress tracking
-    const uploadPromise = new Promise<{ speed: number; peak: number; samples: number[] }>((resolve, reject) => {
+    const uploadPromise = new Promise<{ speed: number; peak: number; samples: number[] }>((resolve) => {
       const xhr = new XMLHttpRequest()
       let uploadedBytes = 0
       let lastTime = performance.now()
       let lastBytes = 0
       const speedSamples: number[] = []
       let uploadPeak = 0
+      let currentSpeed = 0
+      const uploadStartTime = performance.now()
       
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
           uploadedBytes = e.loaded
           const now = performance.now()
-          const elapsed = (now - startTime) / 1000
+          const totalElapsed = (now - uploadStartTime) / 1000
           const intervalTime = (now - lastTime) / 1000
           
-          if (intervalTime >= 1) {
+          // Calculate speed every 0.5 seconds for smoother updates
+          if (intervalTime >= 0.5) {
             const intervalBytes = uploadedBytes - lastBytes
             const intervalSpeedMbps = (intervalBytes * 8) / intervalTime / 1_000_000
             
-            speedSamples.push(intervalSpeedMbps)
-            currentSpeed = intervalSpeedMbps
-            if (intervalSpeedMbps > uploadPeak) {
-              uploadPeak = intervalSpeedMbps
+            // Only record reasonable values (filter out spikes)
+            if (intervalSpeedMbps > 0 && intervalSpeedMbps < 10000) {
+              speedSamples.push(intervalSpeedMbps)
+              currentSpeed = intervalSpeedMbps
+              if (intervalSpeedMbps > uploadPeak) {
+                uploadPeak = intervalSpeedMbps
+              }
             }
             
-            const progress = Math.min(100, (elapsed / (CONFIG.UPLOAD_DURATION / 1000)) * 100)
+            const progress = Math.min(100, (totalElapsed / (CONFIG.UPLOAD_DURATION / 1000)) * 100)
             
             onProgress({
               phase: 'upload',
@@ -382,32 +384,39 @@ async function measureUpload(
         }
       }
       
+      const calculateFinalSpeed = () => {
+        // Calculate speed based on client-side timing (more accurate)
+        const totalElapsed = (performance.now() - uploadStartTime) / 1000
+        
+        // Use median of samples if we have enough, otherwise use average
+        let finalSpeed: number
+        if (speedSamples.length >= 3) {
+          // Sort and take median to filter outliers
+          const sorted = [...speedSamples].sort((a, b) => a - b)
+          const mid = Math.floor(sorted.length / 2)
+          finalSpeed = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+        } else if (speedSamples.length > 0) {
+          // Use average
+          finalSpeed = speedSamples.reduce((a, b) => a + b, 0) / speedSamples.length
+        } else {
+          // Fallback to total bytes / total time
+          finalSpeed = (uploadedBytes * 8) / totalElapsed / 1_000_000
+        }
+        
+        log('UPLOAD', `Transferred: ${(uploadedBytes / 1_000_000_000).toFixed(2)}GB`)
+        log('UPLOAD', `Duration: ${totalElapsed.toFixed(2)}s`)
+        log('UPLOAD', `=== Final: ${finalSpeed.toFixed(2)} Mbps, Peak: ${uploadPeak.toFixed(2)} Mbps ===`)
+        
+        return {
+          speed: finalSpeed,
+          peak: uploadPeak > 0 ? uploadPeak : finalSpeed,
+          samples: speedSamples.length > 0 ? speedSamples : [finalSpeed]
+        }
+      }
+      
       xhr.onload = () => {
         if (xhr.status === 200) {
-          try {
-            const serverData = JSON.parse(xhr.responseText) as { received: number; duration: number; speed: number }
-            const serverSpeedMbps = serverData.speed
-            const serverDuration = serverData.duration / 1000
-            
-            log('UPLOAD', `Transferred: ${(serverData.received / 1_000_000_000).toFixed(2)}GB`)
-            log('UPLOAD', `Duration: ${serverDuration.toFixed(2)}s`)
-            log('UPLOAD', `=== Final: ${serverSpeedMbps.toFixed(2)} Mbps, Peak: ${uploadPeak.toFixed(2)} Mbps ===`)
-            
-            resolve({ 
-              speed: serverSpeedMbps, 
-              peak: Math.max(uploadPeak, serverSpeedMbps), 
-              samples: speedSamples.length > 0 ? speedSamples : [serverSpeedMbps] 
-            })
-          } catch {
-            // Calculate speed from client side if server response parsing fails
-            const elapsed = (performance.now() - startTime) / 1000
-            const speedMbps = (uploadedBytes * 8) / elapsed / 1_000_000
-            resolve({ 
-              speed: speedMbps, 
-              peak: Math.max(uploadPeak, speedMbps), 
-              samples: speedSamples.length > 0 ? speedSamples : [speedMbps] 
-            })
-          }
+          resolve(calculateFinalSpeed())
         } else {
           log('UPLOAD', `Failed: HTTP ${xhr.status}`)
           resolve({ speed: 0, peak: 0, samples: [] })
@@ -416,24 +425,22 @@ async function measureUpload(
       
       xhr.onerror = () => {
         log('UPLOAD', 'XHR error occurred')
-        reject(new Error('Upload failed'))
+        // Still calculate what we got
+        if (uploadedBytes > 0) {
+          resolve(calculateFinalSpeed())
+        } else {
+          resolve({ speed: 0, peak: 0, samples: [] })
+        }
       }
       
       xhr.ontimeout = () => {
-        // Timeout is expected - calculate final speed
-        const elapsed = (performance.now() - startTime) / 1000
-        const speedMbps = (uploadedBytes * 8) / elapsed / 1_000_000
-        log('UPLOAD', `Timeout after ${elapsed.toFixed(2)}s - ${speedMbps.toFixed(2)} Mbps`)
-        resolve({ 
-          speed: speedMbps, 
-          peak: Math.max(uploadPeak, speedMbps), 
-          samples: speedSamples.length > 0 ? speedSamples : [speedMbps] 
-        })
+        log('UPLOAD', 'XHR timeout - calculating final speed')
+        resolve(calculateFinalSpeed())
       }
       
       xhr.open('POST', INTERNAL_ENDPOINTS.upload)
       xhr.setRequestHeader('Content-Type', 'application/octet-stream')
-      xhr.timeout = CONFIG.UPLOAD_DURATION + 5000
+      xhr.timeout = CONFIG.UPLOAD_DURATION + 10000
       xhr.send(uploadData)
     })
     
